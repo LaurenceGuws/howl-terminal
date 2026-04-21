@@ -4,3 +4,4 @@
 
 pub const parser = @import("terminal/parser.zig");
 pub const model = @import("terminal/model.zig");
+pub const pipeline = @import("terminal/parser_core_event_pipeline.zig");
