@@ -38,17 +38,20 @@ Howl boundaries and naming rules.
 | --- | --- | --- | --- | --- |
 | `HT-001` | `done` | Replace `zig init` scaffold with Howl Terminal project authority and active queue. | `README.md`, `docs/todo/ACTIVE_QUEUE.md`, `build.zig.zon` | Project names are correct; `zig build` and `zig build test` pass. |
 | `HT-002` | `done` | Prepare first core-copy manifest from frozen source without moving code yet. | `docs/todo/HT_002_CORE_COPY_MANIFEST.md` | Manifest names the smallest source/test set for `HT-M2`; excludes FFI, UI, Android, editor, and host packaging. |
-| `HT-003` | `done` | Copy parser/model heartbeat and add first proof test. | `src/terminal/parser/{stream,utf8,csi}.zig`, `src/terminal/model/{types,selection,metrics}.zig` | Parser/model compiles under Howl naming; 11 tests pass. |
-| `HT-004` | `done` | Add first proof test—CSI parser tokenization. | `src/terminal_csi_parse_test.zig`, `build.zig` | 7 CSI parser tests + 4 embedded tests pass; wired into `zig build test`. |
-| `HT-005` | `done` | Fix HT-004 test assertions to match parser contract (count field semantics). | `src/terminal_csi_parse_test.zig` | All 11 tests pass with correct count expectations. |
+| `HT-003` | `done` | Copy parser/model heartbeat and add first proof test. | `src/terminal/parser/{stream,utf8,csi}.zig`, `src/terminal/model/{types,selection,metrics}.zig` | Parser/model primitives compile under Howl naming; parser test suite runs in local validation. |
+| `HT-004` | `done` | Add first proof test—CSI parser tokenization. | `src/terminal_csi_parse_test.zig`, `build.zig` | CSI parser proof tests implemented and wired into `zig build test`. |
+| `HT-005` | `done` | Fix HT-004 test assertions to match parser contract (count field semantics). | `src/terminal_csi_parse_test.zig` | Assertions match parser contract; parser test suite remains green. |
 | `HT-006` | `done` | Update capability wording to reflect parser primitives scope. | `src/root.zig` | Removed VT100-only phrasing; accurate description of ANSI/DEC/CSI support. |
 | `HT-007` | `done` | Wire parser proof tests into build test execution. | `build.zig`, `src/root.zig` | Parser tests run deterministically via `zig build test`. |
 | `HT-008` | `done` | Add standalone parser state machine with callback dispatch. | `src/terminal/parser/parser.zig`, `src/terminal/parser.zig` | Parser: 386 lines, no app/session/FFI coupling, callback Sink interface. |
-| `HT-009` | `done` | Add parser dispatch proof tests and wire into build. | `src/terminal_parser_dispatch_test.zig`, `build.zig` | 9 dispatch tests pass: mixed stream, terminators, UTF-8/ASCII, CSI params. |
+| `HT-009` | `done` | Add parser dispatch proof tests and wire into build. | `src/terminal_parser_dispatch_test.zig`, `build.zig` | Dispatch proof test module is wired into `zig build test` and validated locally. |
 | `HT-010` | `done` | Harden parser: errdefer cleanup, explicit stray-ESC contract. | `src/terminal/parser/parser.zig` | Memory-safe init; contract documented: ESC marker dropped in OSC/APC/DCS. |
 | `HT-011` | `done` | Strengthen test assertions; sync queue to reflect completed work. | `src/terminal_parser_dispatch_test.zig`, `docs/todo/ACTIVE_QUEUE.md` | Exact event sequence + payload assertions; queue reflects HT-001..011 done. |
+| `HT-012` | `done` | Align queue status and parser wording after review findings. | `src/terminal/parser/parser.zig`, `docs/todo/ACTIVE_QUEUE.md` | Parser header wording aligned; stale queue statuses corrected. |
 | `HT-013` | `done` | Deterministic event-order harness with exact sequence assertions. | `src/terminal_parser_dispatch_test.zig` | Event union with full payloads; Harness records ordered event sequences; assertions verify exact type/value/data. |
-| `HT-014` | `done` | Edge-case parser correctness tests. | `src/terminal_parser_dispatch_test.zig` | Tests: split input (UTF-8, CSI, OSC), control bytes C0, stray-ESC contract, CSI parameter order. 13 tests pass. |
+| `HT-014` | `done` | Edge-case parser correctness tests. | `src/terminal_parser_dispatch_test.zig` | Split-input, control-byte, stray-ESC, and CSI ordering edge cases are covered and validated locally. |
+| `HT-015` | `ready` | Deterministic parser transcript assertions (no count-based checks). | `src/terminal_parser_dispatch_test.zig` | Mixed/UTF-8 tests assert exact ordered events and payload content. |
+| `HT-016` | `ready` | Parser boundary correctness expansion for incremental feeds. | `src/terminal_parser_dispatch_test.zig`, `src/terminal/parser/parser.zig` | Multi-call boundary behavior is proven with explicit fixtures and no session/app coupling. |
 
 ## First Core-Copy Default
 
