@@ -1,4 +1,4 @@
-//! HT-004: First proof test - CSI parser tokenization.
+//! First proof test - CSI parser tokenization.
 //! Demonstrates that core parser primitives work: feed bytes, parse sequences, capture params.
 
 const std = @import("std");

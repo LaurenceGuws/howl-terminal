@@ -1,4 +1,4 @@
-//! HT-013+014: Parser dispatch and edge-case tests.
+//! Parser dispatch and edge-case tests.
 //! Deterministic event-order harness with exact sequence assertions.
 //! Tests: mixed streams, split input, control boundaries, stray ESC contract.
 
