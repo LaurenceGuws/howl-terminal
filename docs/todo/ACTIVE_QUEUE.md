@@ -10,8 +10,8 @@ stand beside serious terminal cores such as Ghostty's VT layer: small public
 surface, deterministic behavior, replayable tests, and no dependency on the old
 monolithic IDE.
 
-The frozen source repo is a copybook, not authority. We copy ideas and proven
-tests only after checking that they fit Howl.
+Frozen legacy source is copybook, not authority. Copy only what passes current
+Howl boundaries and naming rules.
 
 ## Naming Rules
 
@@ -42,15 +42,13 @@ tests only after checking that they fit Howl.
 
 ## First Core-Copy Default
 
-Start with the smallest semantic engine slice, not the full old terminal stack:
+Current default is parser/model heartbeat only (`HT-003`).
 
-- likely include: parser, protocol, model, `TerminalCore`, core-owned selection,
-  scrolling, resize/reflow, semantic prompt, hyperlink table
-- likely defer: FFI, BYO PTY host, Android bridge, app terminal widgets,
-  renderer/presentation paths, workspace tabs, editor integration
+- include: parser primitives + model primitives needed for one proof test
+- defer: FFI, host/PTy integration, Android, renderer/presentation, editor/workspace,
+  selection/scrolling/reflow, and any session/publication code
 
-If a copied file imports old app/editor/platform code, stop and shrink the slice
-or replace the dependency with a local Howl-owned boundary.
+If a copied file imports app/editor/platform/session code, stop and shrink.
 
 ## Validation
 
