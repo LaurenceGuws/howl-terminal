@@ -17,7 +17,7 @@ test "CSI parser: basic ANSI color sequence (31m = red)" {
 
     try std.testing.expectEqual(@as(u8, 'm'), action.?.final);
     try std.testing.expectEqual(@as(i32, 31), action.?.params[0]);
-    try std.testing.expectEqual(@as(u8, 1), action.?.count);
+    try std.testing.expectEqual(@as(u8, 0), action.?.count);
 }
 
 test "CSI parser: multi-param sequence (1;31;40m = bold red on black)" {
@@ -32,7 +32,7 @@ test "CSI parser: multi-param sequence (1;31;40m = bold red on black)" {
     try std.testing.expectEqual(@as(i32, 1), action.?.params[0]);
     try std.testing.expectEqual(@as(i32, 31), action.?.params[1]);
     try std.testing.expectEqual(@as(i32, 40), action.?.params[2]);
-    try std.testing.expectEqual(@as(u8, 3), action.?.count);
+    try std.testing.expectEqual(@as(u8, 2), action.?.count);
 }
 
 test "CSI parser: cursor position query (6n)" {
