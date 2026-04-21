@@ -50,8 +50,8 @@ Howl boundaries and naming rules.
 | `HT-012` | `done` | Align queue status and parser wording after review findings. | `src/terminal/parser/parser.zig`, `docs/todo/ACTIVE_QUEUE.md` | Parser header wording aligned; stale queue statuses corrected. |
 | `HT-013` | `done` | Deterministic event-order harness with exact sequence assertions. | `src/terminal_parser_dispatch_test.zig` | Event union with full payloads; Harness records ordered event sequences; assertions verify exact type/value/data. |
 | `HT-014` | `done` | Edge-case parser correctness tests. | `src/terminal_parser_dispatch_test.zig` | Split-input, control-byte, stray-ESC, and CSI ordering edge cases are covered and validated locally. |
-| `HT-015` | `ready` | Deterministic parser transcript assertions (no count-based checks). | `src/terminal_parser_dispatch_test.zig` | Mixed/UTF-8 tests assert exact ordered events and payload content. |
-| `HT-016` | `ready` | Parser boundary correctness expansion for incremental feeds. | `src/terminal_parser_dispatch_test.zig`, `src/terminal/parser/parser.zig` | Multi-call boundary behavior is proven with explicit fixtures and no session/app coupling. |
+| `HT-015` | `done` | Deterministic parser transcript assertions (no count-based checks). | `src/terminal_parser_dispatch_test.zig` | All dispatch tests assert exact ordered events + payload; Harness records full event traces; no count-only checks. |
+| `HT-016` | `done` | Parser boundary correctness expansion for incremental feeds. | `src/terminal_parser_dispatch_test.zig` | 11 boundary fixtures validate UTF-8/CSI/OSC/APC/DCS reassembly across multi-call boundaries. |
 
 ## First Core-Copy Default
 
