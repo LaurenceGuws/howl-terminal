@@ -47,6 +47,8 @@ Howl boundaries and naming rules.
 | `HT-009` | `done` | Add parser dispatch proof tests and wire into build. | `src/terminal_parser_dispatch_test.zig`, `build.zig` | 9 dispatch tests pass: mixed stream, terminators, UTF-8/ASCII, CSI params. |
 | `HT-010` | `done` | Harden parser: errdefer cleanup, explicit stray-ESC contract. | `src/terminal/parser/parser.zig` | Memory-safe init; contract documented: ESC marker dropped in OSC/APC/DCS. |
 | `HT-011` | `done` | Strengthen test assertions; sync queue to reflect completed work. | `src/terminal_parser_dispatch_test.zig`, `docs/todo/ACTIVE_QUEUE.md` | Exact event sequence + payload assertions; queue reflects HT-001..011 done. |
+| `HT-013` | `done` | Deterministic event-order harness with exact sequence assertions. | `src/terminal_parser_dispatch_test.zig` | Event union with full payloads; Harness records ordered event sequences; assertions verify exact type/value/data. |
+| `HT-014` | `done` | Edge-case parser correctness tests. | `src/terminal_parser_dispatch_test.zig` | Tests: split input (UTF-8, CSI, OSC), control bytes C0, stray-ESC contract, CSI parameter order. 13 tests pass. |
 
 ## First Core-Copy Default
 
