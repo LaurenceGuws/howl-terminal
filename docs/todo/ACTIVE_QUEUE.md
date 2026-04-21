@@ -36,9 +36,9 @@ tests only after checking that they fit Howl.
 
 | ID | Status | Intent | Primary files | Exit |
 | --- | --- | --- | --- | --- |
-| `HT-001` | `doing` | Replace `zig init` scaffold with Howl Terminal project authority and active queue. | `README.md`, `docs/todo/ACTIVE_QUEUE.md`, `build.zig.zon` | Project names are correct; `zig build` and `zig build test` pass. |
-| `HT-002` | `ready` | Prepare first core-copy manifest from frozen source without moving code yet. | `docs/todo/ACTIVE_QUEUE.md`, frozen terminal source | Names the smallest source/test set for `HT-M2`; excludes FFI, UI, Android, editor, and host packaging. |
-| `HT-003` | `ready` | Copy and rename the minimal semantic core slice. | `src/**`, selected tests | `zig build test` compiles the first Howl-owned terminal core test. |
+| `HT-001` | `done` | Replace `zig init` scaffold with Howl Terminal project authority and active queue. | `README.md`, `docs/todo/ACTIVE_QUEUE.md`, `build.zig.zon` | Project names are correct; `zig build` and `zig build test` pass. |
+| `HT-002` | `done` | Prepare first core-copy manifest from frozen source without moving code yet. | `docs/todo/HT_002_CORE_COPY_MANIFEST.md` | Manifest names the smallest source/test set for `HT-M2`; excludes FFI, UI, Android, editor, and host packaging. |
+| `HT-003` | `ready` | Copy and rename the minimal semantic core slice from manifest. | `src/**`, selected tests | `zig build test` compiles the first Howl-owned terminal core test. |
 
 ## First Core-Copy Default
 
