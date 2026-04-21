@@ -105,3 +105,126 @@ test "screen_state: single-row single-col screen clamps all movement" {
     try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
     try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
 }
+
+test "screen_state: write_text stores bytes in cells" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "abc" });
+
+    try std.testing.expectEqual(@as(u21, 'a'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'c'), s.cellAt(0, 2));
+}
+
+test "screen_state: write_text advances cursor" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "hi" });
+
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_col);
+}
+
+test "screen_state: write_text clamped at last col" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 5);
+    defer s.deinit(gpa);
+
+    // Cursor stays at col 4 after reaching it; subsequent chars overwrite col 4
+    s.apply(SemanticEvent{ .write_text = "abcdefgh" });
+
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'h'), s.cellAt(0, 4));
+}
+
+test "screen_state: write_codepoint stores codepoint" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_codepoint = 0xE9 });
+
+    try std.testing.expectEqual(@as(u21, 0xE9), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_col);
+}
+
+test "screen_state: carriage_return resets cursor_col" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 7;
+    s.apply(SemanticEvent.carriage_return);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+}
+
+test "screen_state: line_feed advances cursor_row" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_row = 1;
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_row);
+}
+
+test "screen_state: line_feed clamped at last row" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_row = 3;
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 3), s.cursor_row);
+}
+
+test "screen_state: backspace moves cursor_col left" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 5;
+    s.apply(SemanticEvent.backspace);
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+}
+
+test "screen_state: backspace saturates at col 0" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 0;
+    s.apply(SemanticEvent.backspace);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen_state: write does not panic when cells null" {
+    var s = ScreenState.init(4, 10);
+    s.apply(SemanticEvent{ .write_text = "hello" });
+    try std.testing.expectEqual(@as(u16, 5), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 0));
+}
+
+test "screen_state: cellAt out of bounds returns 0" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(10, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 20));
+}
+
+test "screen_state: zero-dimension with cells is safe" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 0, 0);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "abc" });
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen_state: CR then write starts at col 0" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "abc" });
+    s.apply(SemanticEvent.carriage_return);
+    s.apply(SemanticEvent{ .write_text = "XY" });
+
+    try std.testing.expectEqual(@as(u21, 'X'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'Y'), s.cellAt(0, 1));
+}
