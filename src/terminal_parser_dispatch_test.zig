@@ -104,7 +104,9 @@ test "parser dispatch: mixed stream (ASCII + CSI + ASCII)" {
 
     parser.handleSlice("AB\x1b[31mC");
 
-    try std.testing.expect(sink.event_count >= 3);
+    try std.testing.expectEqual(@as(usize, 3), sink.event_count);
+    try std.testing.expectEqual(@as(u8, 'm'), sink.last_csi_final);
+    try std.testing.expectEqual(@as(i32, 31), sink.last_csi_params[0]);
 }
 
 test "parser dispatch: ESC final passthrough" {
@@ -177,10 +179,10 @@ test "parser dispatch: UTF-8 + ASCII interaction" {
 
     parser.handleSlice("A\xE2\x82\xACB");
 
-    try std.testing.expect(sink.event_count >= 2);
+    try std.testing.expectEqual(@as(usize, 3), sink.event_count);
 }
 
-test "parser dispatch: OSC with stray ESC (continuation)" {
+test "parser dispatch: OSC with stray ESC (marker dropped)" {
     const gpa = std.testing.allocator;
     var sink = TestSink{};
     var parser = try parser_mod.Parser.init(gpa, sink.toSink());
@@ -189,7 +191,7 @@ test "parser dispatch: OSC with stray ESC (continuation)" {
     parser.handleSlice("\x1b]data\x1bmore\x1b\\");
 
     try std.testing.expectEqual(EventKind.osc, sink.last_event_kind);
-    try std.testing.expect(sink.last_osc_len >= 4);
+    try std.testing.expectEqual(@as(usize, 8), sink.last_osc_len);
 }
 
 test "parser dispatch: CSI with params" {

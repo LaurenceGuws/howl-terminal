@@ -38,7 +38,15 @@ Howl boundaries and naming rules.
 | --- | --- | --- | --- | --- |
 | `HT-001` | `done` | Replace `zig init` scaffold with Howl Terminal project authority and active queue. | `README.md`, `docs/todo/ACTIVE_QUEUE.md`, `build.zig.zon` | Project names are correct; `zig build` and `zig build test` pass. |
 | `HT-002` | `done` | Prepare first core-copy manifest from frozen source without moving code yet. | `docs/todo/HT_002_CORE_COPY_MANIFEST.md` | Manifest names the smallest source/test set for `HT-M2`; excludes FFI, UI, Android, editor, and host packaging. |
-| `HT-003` | `ready` | Copy parser/model heartbeat and add first proof test. | `src/**`, one test | Parser/model compiles and first test validates tokenization or cell storage. |
+| `HT-003` | `done` | Copy parser/model heartbeat and add first proof test. | `src/terminal/parser/{stream,utf8,csi}.zig`, `src/terminal/model/{types,selection,metrics}.zig` | Parser/model compiles under Howl naming; 11 tests pass. |
+| `HT-004` | `done` | Add first proof test—CSI parser tokenization. | `src/terminal_csi_parse_test.zig`, `build.zig` | 7 CSI parser tests + 4 embedded tests pass; wired into `zig build test`. |
+| `HT-005` | `done` | Fix HT-004 test assertions to match parser contract (count field semantics). | `src/terminal_csi_parse_test.zig` | All 11 tests pass with correct count expectations. |
+| `HT-006` | `done` | Update capability wording to reflect parser primitives scope. | `src/root.zig` | Removed VT100-only phrasing; accurate description of ANSI/DEC/CSI support. |
+| `HT-007` | `done` | Wire parser proof tests into build test execution. | `build.zig`, `src/root.zig` | Parser tests run deterministically via `zig build test`. |
+| `HT-008` | `done` | Add standalone parser state machine with callback dispatch. | `src/terminal/parser/parser.zig`, `src/terminal/parser.zig` | Parser: 386 lines, no app/session/FFI coupling, callback Sink interface. |
+| `HT-009` | `done` | Add parser dispatch proof tests and wire into build. | `src/terminal_parser_dispatch_test.zig`, `build.zig` | 9 dispatch tests pass: mixed stream, terminators, UTF-8/ASCII, CSI params. |
+| `HT-010` | `ready` | Harden parser: errdefer cleanup, explicit stray-ESC contract. | `src/terminal/parser/parser.zig` | Memory-safe init; contract documented: ESC marker dropped in OSC/APC/DCS. |
+| `HT-011` | `ready` | Strengthen test assertions; sync queue to reflect completed work. | `src/terminal_parser_dispatch_test.zig`, `docs/todo/ACTIVE_QUEUE.md` | Exact event sequence + payload assertions; queue reflects HT-001..009 done. |
 
 ## First Core-Copy Default
 
