@@ -17,6 +17,11 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 | `HT-048C` | `done` | Screen erase apply behavior for line and display modes. |
 | `HT-048D` | `done` | Relay integration fixtures for erase flow. |
 | `HT-048E` | `done` | Contract sync: document erase events and update queue status. |
+| `HT-049A` | `done` | Define minimal SGR semantic scope and defer advanced features. |
+| `HT-049B` | `done` | Semantic mapping for CSI m (SGR) operations. |
+| `HT-049C` | `done` | Apply style state in screen cell writes. |
+| `HT-049D` | `done` | Relay integration fixtures for style flow. |
+| `HT-049E` | `next` | Contract sync and queue status update for style. |
 
 ## Guardrails
 

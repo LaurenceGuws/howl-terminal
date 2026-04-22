@@ -18,6 +18,11 @@
 | `backspace` | — | Event.control(0x08) | Move cursor one column left |
 | `erase_display` | `u2` | CSI J | Erase screen region; mode 0=below, 1=above, 2=full |
 | `erase_line` | `u2` | CSI K | Erase line region; mode 0=right, 1=left, 2=full |
+| `style_reset` | — | CSI 0m | Reset all style attributes to defaults |
+| `style_bold_on` | — | CSI 1m | Enable bold |
+| `style_bold_off` | — | CSI 22m | Disable bold |
+| `style_fg_color` | `u8` | CSI 30-37,39m | Set foreground color; 0=default, 1-8=colors 30-37 |
+| `style_bg_color` | `u8` | CSI 40-47,49m | Set background color; 0=default, 1-8=colors 40-47 |
 
 ## Ownership and Lifetime
 
@@ -35,6 +40,7 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
 | `style_change` with final H/f | `cursor_position` | 1-based VT params converted to 0-based |
 | `style_change` with final J | `erase_display` | Param default 0; modes 0/1/2 only; other values map to 0 |
 | `style_change` with final K | `erase_line` | Param default 0; modes 0/1/2 only; other values map to 0 |
+| `style_change` with final m | `style_*` variants | See SGR scope below; param[0] only; unsupported params return null |
 | `style_change` with other finals | `null` | Explicitly ignored |
 | `text` | `write_text` | Borrowed slice |
 | `codepoint` | `write_codepoint` | Value copy |
@@ -62,7 +68,28 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
   - Mode 1: start of screen through cursor position (inclusive).
   - Mode 2: entire screen.
 - Erase operations are no-ops when no cell buffer is present (`cells == null`).
-- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0.
+- Style operations update current-style state; subsequent text writes apply active style to each cell.
+  - `style_reset`: clears bold, restores foreground/background to defaults.
+  - `style_bold_on` / `style_bold_off`: toggle bold attribute.
+  - `style_fg_color` / `style_bg_color`: set color index (payload 0=default, 1-8=basic colors).
+  - Style state is independent of cell content; does not affect non-text operations.
+  - Style attributes on a cell are immutable after the cell is written; erase operations clear cells but do not reset active style state.
+- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style.
+
+## SGR (Style) Scope
+
+Implemented (minimal SGR subset):
+- Reset (SGR 0)
+- Bold on/off (SGR 1, 22)
+- Foreground basic colors (SGR 30-37, 39)
+- Background basic colors (SGR 40-47, 49)
+
+Deferred (future sprints):
+- 256-color palette (SGR 38/48 with 5)
+- RGB true color (SGR 38/48 with 2)
+- Underline, strikethrough, blink, inverse, dim (SGR 4, 9, 5, 7, 2)
+- Underline color (SGR 58, 59)
+- Multi-parameter SGR sequences beyond param[0]
 
 ## Non-Goals
 
@@ -70,7 +97,6 @@ The following are intentionally outside this seam:
 
 - Line wrapping or scrollback
 - Wide character (multi-column) glyph handling
-- Color, style, or attribute storage
 - Mode-set sequences (SM/RM/DECSET)
 - Tab stops or HT/VT control
 - Host, session, PTY, or platform coupling
