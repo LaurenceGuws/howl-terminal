@@ -1,4 +1,4 @@
-# Parser Core Semantic and Screen State Contract
+# Semantic Screen Contract
 
 `SEMANTIC_SCREEN_CONTRACT` — frozen as of HT-031. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
 

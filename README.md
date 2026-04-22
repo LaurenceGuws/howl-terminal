@@ -2,7 +2,7 @@
 
 Howl Terminal is the portable terminal engine for the Howl project family.
 
-The first goal is not to recreate the old monolithic IDE. The goal is to
+The first goal is not to recreate old monolithic app scope. The goal is to
 extract, clean, and prove a standalone VT core that can be embedded by multiple hosts:
 replay tools, desktop hosts, and Android hosts.
 

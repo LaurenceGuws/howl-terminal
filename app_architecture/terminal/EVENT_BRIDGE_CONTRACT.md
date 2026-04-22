@@ -1,4 +1,4 @@
-# Parser Core Event Bridge Contract
+# Event Bridge Contract
 
 `EVENT_BRIDGE_CONTRACT` — frozen as of HT-021. Authority for `Bridge` and `Event`.
 
