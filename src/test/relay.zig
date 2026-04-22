@@ -2021,6 +2021,25 @@ test "parity: CBT saturates at column zero identically" {
     });
 }
 
+test "parity: HT/CHT/CBT interleaving remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "HT + CHT + CBT interleaving",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .input = "a\x09b\x1b[2Zc\x1b[Id",
+        .expected_row = 0,
+        .expected_col = 9,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'c' },
+            .{ .row = 0, .col = 8, .codepoint = 'd' },
+        },
+    });
+}
+
 test "parity: DEC private auto-wrap disable remains identical" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2205,6 +2224,25 @@ test "parity-chunked: CBT clamp split across chunks remains identical" {
         .cell_checks = &.{
             .{ .row = 0, .col = 0, .codepoint = 'b' },
             .{ .row = 0, .col = 1, .codepoint = 0 },
+        },
+    });
+}
+
+test "parity-chunked: HT/CHT/CBT interleaving split across chunks remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked HT + CHT + CBT interleaving",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "a\x09", "b\x1b[", "2", "Z", "c\x1b", "[", "I", "d" },
+        .expected_row = 0,
+        .expected_col = 9,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'c' },
+            .{ .row = 0, .col = 8, .codepoint = 'd' },
         },
     });
 }
@@ -2474,6 +2512,19 @@ test "runtime: clear drops pending events" {
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
 }
 
+test "runtime: clear drops pending HT/CHT/CBT before apply" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("a\x09b\x1b[2I\x1b[Z");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.clear();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(0, 0));
+}
+
 test "runtime: reset clears queue and parser state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 24, 80);
@@ -2484,6 +2535,21 @@ test "runtime: reset clears queue and parser state" {
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
     engine.feedSlice("xyz");
     try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
+}
+
+test "runtime: reset clears partial CHT parser state and queued tab work" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("a\x1b[2");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.reset();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    engine.feedSlice("Ib");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 2), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'I'), engine.screen().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), engine.screen().cellAt(0, 1));
 }
 
 test "runtime: resetScreen clears screen without clearing queued parser events" {
@@ -2508,6 +2574,23 @@ test "runtime: resetScreen clears screen without clearing queued parser events" 
     try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
     engine.apply();
     try std.testing.expectEqual(@as(u21, 'z'), engine.screen().cellAt(0, 0));
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: resetScreen preserves queued HT/CHT application from cleared origin" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("xxxxx");
+    engine.apply();
+    engine.feedSlice("\x09\x1b[2Iz");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.resetScreen();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(0, 0));
+    engine.apply();
+    try std.testing.expectEqual(@as(u21, 'z'), engine.screen().cellAt(0, 19));
+    try std.testing.expectEqual(@as(u16, 19), engine.screen().cursor_col);
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 }
 
