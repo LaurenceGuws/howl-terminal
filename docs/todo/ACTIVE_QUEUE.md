@@ -62,6 +62,11 @@ Freeze as-of: `HT-061E`.
 | `HT-061C` | `done` | Screen conceal state + per-cell persistence paths. |
 | `HT-061D` | `done` | Relay fixtures for conceal/reveal end-to-end continuity. |
 | `HT-061E` | `done` | Contract/queue close sync for conceal batch. |
+| `HT-062A` | `done` | Scope seed: fg/bg indexed-vs-RGB exclusivity contract. |
+| `HT-062B` | `todo` | Screen apply exclusivity for fg/bg representations. |
+| `HT-062C` | `todo` | Semantic ordered-mix consistency tests for exclusivity transitions. |
+| `HT-062D` | `todo` | Relay fixtures for fg/bg exclusivity and recovery flows. |
+| `HT-062E` | `todo` | Contract/queue close sync for exclusivity batch. |
 
 ## Guardrails
 

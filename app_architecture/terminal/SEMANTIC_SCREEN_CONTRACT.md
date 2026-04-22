@@ -99,6 +99,7 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
   - `style_conceal_on` / `style_conceal_off`: toggle conceal attribute.
   - `style_inverse_on` / `style_inverse_off`: toggle inverse video attribute.
 - `style_fg_color` / `style_bg_color`: set indexed color (payload 0=default, 1-8=basic colors, 9-16=bright ANSI); stored without truncation.
+  - Foreground/background representation is exclusive: setting indexed or 256 color clears corresponding RGB state; setting RGB clears corresponding indexed value to default sentinel `0`.
   - `style_underline_color_256` / `style_underline_color_rgb` / `style_underline_color_reset`: set/reset underline color independently of fg/bg.
   - Style state is independent of cell content; does not affect non-text operations.
   - Style attributes on a cell are immutable after the cell is written; style state changes do not retroactively affect written cells.
@@ -147,6 +148,7 @@ Malformed sequences policy:
 - Unknown parameters are always skipped
 - SGR parameter evaluation is bounded to the first 16 parameters; additional parameters are ignored deterministically
 - Style operation batches are capped at 16 operations; additional derived operations are truncated deterministically
+- Foreground/background color transitions are deterministic and exclusive across indexed/256 vs RGB representations in both direct and batched style application
 
 Deferred (future sprints):
 - None currently scoped.
