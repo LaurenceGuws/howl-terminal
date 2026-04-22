@@ -3018,6 +3018,39 @@ test "runtime: DECSTR restores mode defaults before tab navigation" {
     try std.testing.expectEqual(@as(u21, 'c'), engine.screen().cellAt(0, 16));
 }
 
+test "runtime: interrupted split CHT stream remains deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[2");
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("Ix");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), engine.screen().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, '!'), engine.screen().cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 6));
+}
+
+test "runtime: interrupted split CBT stream remains deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("a\x1b[2I");
+    engine.apply();
+    engine.feedSlice("\x1b[2");
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("Zy");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 19), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), engine.screen().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'y'), engine.screen().cellAt(0, 19));
+}
+
 test "runtime: text write and erase via apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 4, 20);
