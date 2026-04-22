@@ -8,6 +8,15 @@ const bridge_mod = @import("bridge.zig");
 /// Event type alias consumed by semantic mapping.
 pub const Event = bridge_mod.Event;
 
+/// Individual SGR operation to apply in sequence.
+pub const StyleOp = union(enum) {
+    reset,
+    bold_on,
+    bold_off,
+    fg_color: u8,
+    bg_color: u8,
+};
+
 /// Screen-oriented semantic operations derived from parser events.
 pub const SemanticEvent = union(enum) {
     cursor_up: u16,
@@ -27,6 +36,10 @@ pub const SemanticEvent = union(enum) {
     style_bold_off,
     style_fg_color: u8,
     style_bg_color: u8,
+    style_operations: struct {
+        ops: [16]StyleOp,
+        count: u8,
+    },
 };
 
 /// Convert a parser event into a semantic screen operation when supported.
@@ -53,7 +66,7 @@ fn processCsi(final: u8, params: [16]i32, count: u8) ?SemanticEvent {
         },
         'J' => return SemanticEvent{ .erase_display = eraseMode(params[0]) },
         'K' => return SemanticEvent{ .erase_line = eraseMode(params[0]) },
-        'm' => return processSgr(params[0]),
+        'm' => return processSgr(params, count),
         else => return null,
     }
 }
@@ -75,17 +88,40 @@ fn eraseMode(v: i32) u2 {
     };
 }
 
-fn processSgr(param: i32) ?SemanticEvent {
-    return switch (param) {
-        0 => SemanticEvent.style_reset,
-        1 => SemanticEvent.style_bold_on,
-        22 => SemanticEvent.style_bold_off,
-        30...37 => SemanticEvent{ .style_fg_color = @intCast(param - 30 + 1) },
-        39 => SemanticEvent{ .style_fg_color = 0 },
-        40...47 => SemanticEvent{ .style_bg_color = @intCast(param - 40 + 1) },
-        49 => SemanticEvent{ .style_bg_color = 0 },
-        else => null,
-    };
+fn processSgr(params: [16]i32, count: u8) ?SemanticEvent {
+    var ops: [16]StyleOp = undefined;
+    var op_count: u8 = 0;
+    var i: u8 = 0;
+    const param_count = if (count == 0) @as(u8, 1) else count;
+    while (i < param_count and op_count < 16) : (i += 1) {
+        const param = if (i < count) params[i] else 0;
+        const op: ?StyleOp = switch (param) {
+            0 => StyleOp.reset,
+            1 => StyleOp.bold_on,
+            22 => StyleOp.bold_off,
+            30...37 => StyleOp{ .fg_color = @intCast(param - 30 + 1) },
+            39 => StyleOp{ .fg_color = 0 },
+            40...47 => StyleOp{ .bg_color = @intCast(param - 40 + 1) },
+            49 => StyleOp{ .bg_color = 0 },
+            else => null,
+        };
+        if (op) |o| {
+            ops[op_count] = o;
+            op_count += 1;
+        }
+    }
+    if (op_count == 0) return null;
+
+    if (op_count == 1) {
+        return switch (ops[0]) {
+            .reset => SemanticEvent.style_reset,
+            .bold_on => SemanticEvent.style_bold_on,
+            .bold_off => SemanticEvent.style_bold_off,
+            .fg_color => |c| SemanticEvent{ .style_fg_color = c },
+            .bg_color => |c| SemanticEvent{ .style_bg_color = c },
+        };
+    }
+    return SemanticEvent{ .style_operations = .{ .ops = ops, .count = op_count } };
 }
 
 fn paramOrDefault1(v: i32) u16 {
@@ -95,7 +131,8 @@ fn paramOrDefault1(v: i32) u16 {
 }
 
 fn makeStyleChange(final: u8, p0: i32, p1: i32, count: u8) Event {
-    var params = [_]i32{0} ** 16;
+    var params: [16]i32 = undefined;
+    @memset(&params, 0);
     params[0] = p0;
     params[1] = p1;
     return Event{ .style_change = .{ .final = final, .params = params, .param_count = count } };
@@ -257,4 +294,48 @@ test "semantic: SGR 49 background reset" {
 
 test "semantic: SGR unsupported param returns null" {
     try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('m', 5, 0, 1)));
+}
+
+test "semantic: multi-param SGR 1;31 bold and red" {
+    var params: [16]i32 = undefined;
+    @memset(&params, 0);
+    params[0] = 1;
+    params[1] = 31;
+    const sem = process(Event{ .style_change = .{ .final = 'm', .params = params, .param_count = 2 } }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_operations);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.count);
+    try std.testing.expect(sem.style_operations.ops[0] == .bold_on);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.ops[1].fg_color);
+}
+
+test "semantic: multi-param SGR 0;44 reset and bg blue" {
+    var params: [16]i32 = undefined;
+    @memset(&params, 0);
+    params[0] = 0;
+    params[1] = 44;
+    const sem = process(Event{ .style_change = .{ .final = 'm', .params = params, .param_count = 2 } }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_operations);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.count);
+    try std.testing.expect(sem.style_operations.ops[0] == .reset);
+    try std.testing.expectEqual(@as(u8, 5), sem.style_operations.ops[1].bg_color);
+}
+
+test "semantic: multi-param SGR with unsupported params skips them" {
+    var params: [16]i32 = undefined;
+    @memset(&params, 0);
+    params[0] = 1;
+    params[1] = 5;
+    params[2] = 31;
+    const sem = process(Event{ .style_change = .{ .final = 'm', .params = params, .param_count = 3 } }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_operations);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.count);
+    try std.testing.expect(sem.style_operations.ops[0] == .bold_on);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.ops[1].fg_color);
+}
+
+test "semantic: SGR no params defaults to reset" {
+    var params: [16]i32 = undefined;
+    @memset(&params, 0);
+    const sem = process(Event{ .style_change = .{ .final = 'm', .params = params, .param_count = 0 } }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_reset);
 }
