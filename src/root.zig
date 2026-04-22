@@ -12,6 +12,8 @@ pub const semantic = @import("event/semantic.zig");
 pub const screen = @import("screen/state.zig");
 /// Model module exports for shared terminal data types and state primitives.
 pub const model = @import("model.zig");
+/// Runtime module export for host-neutral engine facade.
+pub const runtime = @import("runtime/engine.zig");
 
 comptime {
     _ = @import("test/relay.zig");
