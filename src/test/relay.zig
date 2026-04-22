@@ -1249,3 +1249,60 @@ test "replay: malformed and overflow sequence recovers for following writes" {
     try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg);
     try std.testing.expectEqual(@as(u8, 3), screen.cells_attr.?[1].fg);
 }
+
+test "replay: parser CSI 8 conceal on then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[8m");
+    feed(&pl, &screen, "hide");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].conceal);
+    try std.testing.expectEqual(true, screen.cells_attr.?[3].conceal);
+}
+
+test "replay: parser CSI 28 conceal off affects subsequent text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[8m");
+    feed(&pl, &screen, "a");
+    feed(&pl, &screen, "\x1b[28m");
+    feed(&pl, &screen, "b");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].conceal);
+    try std.testing.expectEqual(false, screen.cells_attr.?[1].conceal);
+}
+
+test "replay: reset clears conceal before following writes" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[8m");
+    feed(&pl, &screen, "a");
+    feed(&pl, &screen, "\x1b[0m");
+    feed(&pl, &screen, "b");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].conceal);
+    try std.testing.expectEqual(false, screen.cells_attr.?[1].conceal);
+}
+
+test "replay: mixed ordered style batch continuity with conceal" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[1;8;31m");
+    feed(&pl, &screen, "x");
+    feed(&pl, &screen, "\x1b[28m");
+    feed(&pl, &screen, "y");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].bold);
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].conceal);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(false, screen.cells_attr.?[1].conceal);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[1].fg);
+}
