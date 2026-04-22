@@ -33,6 +33,8 @@ The `howl_terminal` module root orders the stable M1 seam first:
 
 `model` remains exported for shared types used elsewhere in Howl; style and color fields there are not driven by the M1 `SemanticEvent` / `ScreenState` replay path. Behavioral authority for the non-style core is `app_architecture/contracts/SEMANTIC_SCREEN.md`.
 
+The root module includes compile-time tests that guard the M1 host-neutral exports and the `runtime.Engine` facade method shapes. A public surface change should fail local tests until this authority document and affected contracts are deliberately updated.
+
 ## M1 runtime facade
 
 The `runtime.Engine` is a host-neutral convenience facade that composes `Pipeline` and `ScreenState` without modifying any parser/semantic/screen behavior. Hosts can use the facade to avoid direct pipeline/semantic imports and get a simpler async feed→apply→read interface.

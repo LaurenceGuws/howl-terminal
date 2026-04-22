@@ -38,6 +38,8 @@ Runtime parity is validated by replay tests that run identical byte streams thro
 both direct `Pipeline+ScreenState` and `runtime.Engine`, then assert identical
 end-state behavior, including split-feed chunking and ignored-event paths
 (OSC/APC/DCS/ESC-final and non-mapped controls).
+Root-level tests also guard the exported M1 module surface and runtime facade
+method shapes.
 
 See `app_architecture/authorities/M1_FOUNDATION.md` for full API details.
 
