@@ -762,3 +762,62 @@ test "replay: mixed cursor and 256-color style" {
     try std.testing.expectEqual(@as(u8, 226), screen.cells_attr.?[0].fg);
     try std.testing.expectEqual(@as(u8, 226), screen.cells_attr.?[20].fg);
 }
+
+test "replay: parser CSI 38;2;r;g;b foreground RGB then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[38;2;255;0;0m");
+    feed(&pl, &screen, "rgb");
+    try std.testing.expect(screen.cells_attr.?[0].fg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 255), screen.cells_attr.?[0].fg_rgb.?.r);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg_rgb.?.g);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg_rgb.?.b);
+    try std.testing.expect(screen.cells_attr.?[1].fg_rgb != null);
+    try std.testing.expect(screen.cells_attr.?[2].fg_rgb != null);
+}
+
+test "replay: parser CSI 48;2;r;g;b background RGB then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[48;2;0;255;0m");
+    feed(&pl, &screen, "bgc");
+    try std.testing.expect(screen.cells_attr.?[0].bg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].bg_rgb.?.r);
+    try std.testing.expectEqual(@as(u8, 255), screen.cells_attr.?[0].bg_rgb.?.g);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].bg_rgb.?.b);
+}
+
+test "replay: mixed indexed and RGB colors with cursor movement" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[38;5;196m");
+    feed(&pl, &screen, "red");
+    feed(&pl, &screen, "\x1b[38;2;0;255;0m");
+    feed(&pl, &screen, "green");
+    feed(&pl, &screen, "\x1b[1;1H");
+    feed(&pl, &screen, "go");
+    try std.testing.expectEqual(@as(u8, 196), screen.cells_attr.?[0].fg);
+    try std.testing.expect(screen.cells_attr.?[3].fg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[3].fg_rgb.?.r);
+}
+
+test "replay: malformed RGB sequence (incomplete) ignored safely" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[38;2;255m");
+    feed(&pl, &screen, "x");
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg);
+    try std.testing.expect(screen.cells_attr.?[0].fg_rgb == null);
+}
