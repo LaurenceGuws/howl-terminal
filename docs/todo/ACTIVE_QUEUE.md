@@ -57,6 +57,11 @@ Freeze as-of: `HT-060E`.
 | `HT-060C` | `done` | Screen apply invariants for truncated style batches. |
 | `HT-060D` | `done` | Relay robustness fixtures for overflow/recovery chains. |
 | `HT-060E` | `done` | Contract and queue close sync for overflow hardening batch. |
+| `HT-061A` | `done` | Scope seed: conceal/reveal style primitives and reset continuity. |
+| `HT-061B` | `todo` | Semantic mapping for conceal on/off with ordered SGR behavior. |
+| `HT-061C` | `todo` | Screen conceal state + per-cell persistence paths. |
+| `HT-061D` | `todo` | Relay fixtures for conceal/reveal end-to-end continuity. |
+| `HT-061E` | `todo` | Contract/queue close sync for conceal batch. |
 
 ## Guardrails
 

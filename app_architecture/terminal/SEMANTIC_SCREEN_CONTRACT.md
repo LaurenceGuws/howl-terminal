@@ -29,6 +29,8 @@
 | `style_underline_off` | — | CSI 24m | Disable underline |
 | `style_blink_on` | — | CSI 5m | Enable blink |
 | `style_blink_off` | — | CSI 25m | Disable blink |
+| `style_conceal_on` | — | CSI 8m | Enable conceal |
+| `style_conceal_off` | — | CSI 28m | Disable conceal |
 | `style_inverse_on` | — | CSI 7m | Enable inverse video |
 | `style_inverse_off` | — | CSI 27m | Disable inverse video |
 | `style_fg_color` | `u8` (0-16) | CSI 30-37,39,90-97m | Set foreground indexed color; 0=default, 1-8=basic colors, 9-16=bright ANSI |
@@ -88,19 +90,20 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
   - Erased cell attributes reset to defaults (bold=false, fg=0, bg=0).
 - Erase operations are no-ops when no cell buffer is present (`cells == null`); style state is unaffected.
 - Style operations update current-style state; subsequent text writes apply active style to each cell.
-  - `style_reset`: clears bold, dim, underline, blink, inverse, strikethrough, restores foreground/background to defaults, and resets underline color.
+  - `style_reset`: clears bold, dim, underline, blink, conceal, inverse, strikethrough, restores foreground/background to defaults, and resets underline color.
   - `style_bold_on` / `style_bold_off`: toggle bold attribute (SGR 22 clears both bold and dim).
   - `style_dim_on` / `style_dim_off`: toggle dim attribute (SGR 22 clears both bold and dim).
   - `style_strikethrough_on` / `style_strikethrough_off`: toggle strikethrough attribute.
   - `style_underline_on` / `style_underline_off`: toggle underline attribute.
   - `style_blink_on` / `style_blink_off`: toggle blink attribute.
+  - `style_conceal_on` / `style_conceal_off`: toggle conceal attribute.
   - `style_inverse_on` / `style_inverse_off`: toggle inverse video attribute.
 - `style_fg_color` / `style_bg_color`: set indexed color (payload 0=default, 1-8=basic colors, 9-16=bright ANSI); stored without truncation.
   - `style_underline_color_256` / `style_underline_color_rgb` / `style_underline_color_reset`: set/reset underline color independently of fg/bg.
   - Style state is independent of cell content; does not affect non-text operations.
   - Style attributes on a cell are immutable after the cell is written; style state changes do not retroactively affect written cells.
-- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, dim=false, underline=false, blink=false, inverse=false, strikethrough=false, fg=0, bg=0, underline_color=null).
-- Style attribute storage uses u8 fields for fg/bg to preserve indexed colors (0-16) and 256-color indices (0-255) without truncation. Boolean flags for bold, dim, underline, blink, inverse, strikethrough stored separately. Underline color is stored as nullable indexed (`?u8`) or nullable RGB (`?Rgb`) to preserve reset semantics.
+- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, dim=false, underline=false, blink=false, conceal=false, inverse=false, strikethrough=false, fg=0, bg=0, underline_color=null).
+- Style attribute storage uses u8 fields for fg/bg to preserve indexed colors (0-16) and 256-color indices (0-255) without truncation. Boolean flags for bold, dim, underline, blink, conceal, inverse, strikethrough stored separately. Underline color is stored as nullable indexed (`?u8`) or nullable RGB (`?Rgb`) to preserve reset semantics.
 - SGR 22 (normal intensity) clears both bold and dim, matching VT100 behavior; separate semantic events emitted for each.
 
 ## SGR (Style) Scope
@@ -112,6 +115,7 @@ Implemented:
 - Strikethrough on/off (SGR 9, 29)
 - Underline on/off (SGR 4, 24)
 - Blink on/off (SGR 5, 25)
+- Conceal on/off (SGR 8, 28)
 - Inverse on/off (SGR 7, 27)
 - Foreground basic colors (SGR 30-37, 39)
 - Background basic colors (SGR 40-47, 49)
