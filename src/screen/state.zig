@@ -102,6 +102,10 @@ pub const ScreenState = struct {
                 self.wrap_pending = false;
                 self.horizontalTabForward(count);
             },
+            .horizontal_tab_back => |count| {
+                self.wrap_pending = false;
+                self.horizontalTabBack(count);
+            },
             .cursor_visible => |visible| self.cursor_visible = visible,
             .auto_wrap => |enabled| {
                 self.auto_wrap = enabled;
@@ -166,6 +170,15 @@ pub const ScreenState = struct {
         if (self.cols == 0) return;
         const stop = (@as(usize, self.cursor_col / 8) + @as(usize, count)) * 8;
         self.cursor_col = @intCast(@min(stop, @as(usize, self.cols - 1)));
+    }
+
+    fn horizontalTabBack(self: *ScreenState, count: u16) void {
+        var remaining = count;
+        while (remaining > 0) : (remaining -= 1) {
+            if (self.cursor_col == 0) break;
+            const prev = self.cursor_col - 1;
+            self.cursor_col = (prev / 8) * 8;
+        }
     }
 
     fn lineFeed(self: *ScreenState) void {
@@ -394,6 +407,20 @@ test "screen: horizontal_tab_forward clamps at last column" {
     s.cursor_col = 17;
     s.apply(SemanticEvent{ .horizontal_tab_forward = 2 });
     try std.testing.expectEqual(@as(u16, 19), s.cursor_col);
+}
+
+test "screen: horizontal_tab_back moves to previous default tab stop" {
+    var s = ScreenState.init(4, 20);
+    s.cursor_col = 17;
+    s.apply(SemanticEvent{ .horizontal_tab_back = 2 });
+    try std.testing.expectEqual(@as(u16, 8), s.cursor_col);
+}
+
+test "screen: horizontal_tab_back clamps at column zero" {
+    var s = ScreenState.init(4, 20);
+    s.cursor_col = 3;
+    s.apply(SemanticEvent{ .horizontal_tab_back = 2 });
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
 }
 
 test "screen: cellAt out of bounds returns 0" {

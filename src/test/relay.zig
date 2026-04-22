@@ -611,6 +611,18 @@ test "replay: CSI I advances cursor by default tab stops" {
     try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 16));
 }
 
+test "replay: CSI Z moves cursor to previous default tab stop" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "a\x1b[2I\x1b[Zb");
+    try std.testing.expectEqual(@as(u16, 9), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 8));
+}
+
 test "replay: UTF-8 codepoint written to cell" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1952,6 +1964,25 @@ test "parity: CHT advances cursor by requested tab stops identically" {
     });
 }
 
+test "parity: CBT moves cursor backward by requested tab stops identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CBT cursor backward tabulation",
+        .rows = 3,
+        .cols = 20,
+        .with_cells = true,
+        .input = "a\x1b[2I\x1b[Zb",
+        .expected_row = 0,
+        .expected_col = 9,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 8, .codepoint = 'b' },
+        },
+    });
+}
+
 test "parity: DEC private auto-wrap disable remains identical" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2056,6 +2087,25 @@ test "parity-chunked: CHT split into byte fragments remains identical" {
         .cell_checks = &.{
             .{ .row = 0, .col = 0, .codepoint = 'a' },
             .{ .row = 0, .col = 16, .codepoint = 'b' },
+        },
+    });
+}
+
+test "parity-chunked: CBT split into byte fragments remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CBT",
+        .rows = 3,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "a", "\x1b[", "2", "I", "\x1b", "[", "Z", "b" },
+        .expected_row = 0,
+        .expected_col = 9,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 8, .codepoint = 'b' },
         },
     });
 }
