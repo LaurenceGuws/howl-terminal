@@ -14,8 +14,10 @@ const Rgb = semantic_mod.Rgb;
 /// Cursor and optional cell-buffer state with deterministic clamped updates.
 const CellAttr = struct {
     bold: bool = false,
+    dim: bool = false,
     underline: bool = false,
     inverse: bool = false,
+    strikethrough: bool = false,
     fg: u8 = 0,
     bg: u8 = 0,
     fg_rgb: ?Rgb = null,
@@ -30,8 +32,10 @@ pub const ScreenState = struct {
     cells: ?[]u21,
     cells_attr: ?[]CellAttr,
     current_bold: bool,
+    current_dim: bool = false,
     current_underline: bool = false,
     current_inverse: bool = false,
+    current_strikethrough: bool = false,
     current_fg: u8,
     current_bg: u8,
     current_fg_rgb: ?Rgb = null,
@@ -46,8 +50,10 @@ pub const ScreenState = struct {
             .cells = null,
             .cells_attr = null,
             .current_bold = false,
+            .current_dim = false,
             .current_underline = false,
             .current_inverse = false,
+            .current_strikethrough = false,
             .current_fg = 0,
             .current_bg = 0,
             .current_fg_rgb = null,
@@ -65,7 +71,7 @@ pub const ScreenState = struct {
         errdefer if (cells) |c| allocator.free(c);
         const cells_attr: ?[]CellAttr = if (size > 0) blk: {
             const buf = try allocator.alloc(CellAttr, size);
-            @memset(buf, .{ .bold = false, .underline = false, .inverse = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null });
+            @memset(buf, .{ .bold = false, .dim = false, .underline = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null });
             break :blk buf;
         } else null;
         return .{
@@ -76,8 +82,10 @@ pub const ScreenState = struct {
             .cells = cells,
             .cells_attr = cells_attr,
             .current_bold = false,
+            .current_dim = false,
             .current_underline = false,
             .current_inverse = false,
+            .current_strikethrough = false,
             .current_fg = 0,
             .current_bg = 0,
             .current_fg_rgb = null,
@@ -121,8 +129,10 @@ pub const ScreenState = struct {
             .erase_line => |mode| self.eraseLine(mode),
             .style_reset => {
                 self.current_bold = false;
+                self.current_dim = false;
                 self.current_underline = false;
                 self.current_inverse = false;
+                self.current_strikethrough = false;
                 self.current_fg = 0;
                 self.current_bg = 0;
                 self.current_fg_rgb = null;
@@ -130,10 +140,10 @@ pub const ScreenState = struct {
             },
             .style_bold_on => self.current_bold = true,
             .style_bold_off => self.current_bold = false,
-            .style_dim_on => {},
-            .style_dim_off => {},
-            .style_strikethrough_on => {},
-            .style_strikethrough_off => {},
+            .style_dim_on => self.current_dim = true,
+            .style_dim_off => self.current_dim = false,
+            .style_strikethrough_on => self.current_strikethrough = true,
+            .style_strikethrough_off => self.current_strikethrough = false,
             .style_underline_on => self.current_underline = true,
             .style_underline_off => self.current_underline = false,
             .style_inverse_on => self.current_inverse = true,
@@ -151,6 +161,10 @@ pub const ScreenState = struct {
                     switch (op) {
                         .reset => {
                             self.current_bold = false;
+                            self.current_dim = false;
+                            self.current_underline = false;
+                            self.current_inverse = false;
+                            self.current_strikethrough = false;
                             self.current_fg = 0;
                             self.current_bg = 0;
                             self.current_fg_rgb = null;
@@ -158,10 +172,10 @@ pub const ScreenState = struct {
                         },
                         .bold_on => self.current_bold = true,
                         .bold_off => self.current_bold = false,
-                        .dim_on => {},
-                        .dim_off => {},
-                        .strikethrough_on => {},
-                        .strikethrough_off => {},
+                        .dim_on => self.current_dim = true,
+                        .dim_off => self.current_dim = false,
+                        .strikethrough_on => self.current_strikethrough = true,
+                        .strikethrough_off => self.current_strikethrough = false,
                         .underline_on => self.current_underline = true,
                         .underline_off => self.current_underline = false,
                         .inverse_on => self.current_inverse = true,
@@ -182,7 +196,7 @@ pub const ScreenState = struct {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
         const cursor_pos = @as(usize, self.cursor_row) * self.cols + self.cursor_col;
-        const default_attr: CellAttr = .{ .bold = false, .underline = false, .inverse = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
+        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
         switch (mode) {
             0 => {
                 @memset(c[cursor_pos..], 0);
@@ -204,7 +218,7 @@ pub const ScreenState = struct {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
         const row_start = @as(usize, self.cursor_row) * self.cols;
-        const default_attr: CellAttr = .{ .bold = false, .underline = false, .inverse = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
+        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
         switch (mode) {
             0 => {
                 @memset(c[row_start + self.cursor_col .. row_start + self.cols], 0);
@@ -231,8 +245,10 @@ pub const ScreenState = struct {
         if (self.cells_attr) |ca| {
             ca[offset] = .{
                 .bold = self.current_bold,
+                .dim = self.current_dim,
                 .underline = self.current_underline,
                 .inverse = self.current_inverse,
+                .strikethrough = self.current_strikethrough,
                 .fg = self.current_fg,
                 .bg = self.current_bg,
                 .fg_rgb = self.current_fg_rgb,
@@ -464,18 +480,26 @@ test "screen: style_fg_color applies to written cell" {
     s.apply(SemanticEvent{ .style_fg_color = 2 });
     s.apply(SemanticEvent{ .write_text = "x" });
     const attr = s.cells_attr.?[0];
-    try std.testing.expectEqual(@as(u3, 2), attr.fg);
+    try std.testing.expectEqual(@as(u8, 2), attr.fg);
 }
 
-test "screen: style_reset clears bold and colors" {
+test "screen: style_reset clears all style state" {
     const gpa = std.testing.allocator;
     var s = try ScreenState.initWithCells(gpa, 4, 10);
     defer s.deinit(gpa);
     s.apply(SemanticEvent.style_bold_on);
+    s.apply(SemanticEvent.style_dim_on);
+    s.apply(SemanticEvent.style_underline_on);
+    s.apply(SemanticEvent.style_inverse_on);
+    s.apply(SemanticEvent.style_strikethrough_on);
     s.apply(SemanticEvent{ .style_fg_color = 3 });
     s.apply(SemanticEvent{ .style_bg_color = 5 });
     s.apply(SemanticEvent.style_reset);
     try std.testing.expectEqual(false, s.current_bold);
+    try std.testing.expectEqual(false, s.current_dim);
+    try std.testing.expectEqual(false, s.current_underline);
+    try std.testing.expectEqual(false, s.current_inverse);
+    try std.testing.expectEqual(false, s.current_strikethrough);
     try std.testing.expectEqual(@as(u8, 0), s.current_fg);
     try std.testing.expectEqual(@as(u8, 0), s.current_bg);
 }
@@ -490,7 +514,7 @@ test "screen: multiple writes preserve style across cells" {
     for (0..3) |i| {
         const attr = s.cells_attr.?[i];
         try std.testing.expectEqual(true, attr.bold);
-        try std.testing.expectEqual(@as(u3, 4), attr.fg);
+        try std.testing.expectEqual(@as(u8, 4), attr.fg);
     }
 }
 
@@ -515,8 +539,8 @@ test "screen: style reset with default values" {
     s.apply(SemanticEvent{ .write_text = "x" });
     const attr = s.cells_attr.?[0];
     try std.testing.expectEqual(false, attr.bold);
-    try std.testing.expectEqual(@as(u3, 0), attr.fg);
-    try std.testing.expectEqual(@as(u3, 0), attr.bg);
+    try std.testing.expectEqual(@as(u8, 0), attr.fg);
+    try std.testing.expectEqual(@as(u8, 0), attr.bg);
 }
 
 test "screen: no cell attributes without cell buffer" {
@@ -606,4 +630,62 @@ test "screen: write with bg 256-color persists" {
     s.apply(SemanticEvent{ .write_text = "bg" });
     try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[0].bg);
     try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[1].bg);
+}
+
+test "screen: style_dim_on applies to written cell" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_dim_on);
+    s.apply(SemanticEvent{ .write_text = "d" });
+    try std.testing.expectEqual(true, s.cells_attr.?[0].dim);
+}
+
+test "screen: style_dim_off disables dim on next write" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_dim_on);
+    s.apply(SemanticEvent{ .write_text = "a" });
+    s.apply(SemanticEvent.style_dim_off);
+    s.apply(SemanticEvent{ .write_text = "b" });
+    try std.testing.expectEqual(true, s.cells_attr.?[0].dim);
+    try std.testing.expectEqual(false, s.cells_attr.?[1].dim);
+}
+
+test "screen: style_strikethrough_on applies to written cell" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_strikethrough_on);
+    s.apply(SemanticEvent{ .write_text = "s" });
+    try std.testing.expectEqual(true, s.cells_attr.?[0].strikethrough);
+}
+
+test "screen: style_strikethrough_off disables strikethrough on next write" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_strikethrough_on);
+    s.apply(SemanticEvent{ .write_text = "a" });
+    s.apply(SemanticEvent.style_strikethrough_off);
+    s.apply(SemanticEvent{ .write_text = "b" });
+    try std.testing.expectEqual(true, s.cells_attr.?[0].strikethrough);
+    try std.testing.expectEqual(false, s.cells_attr.?[1].strikethrough);
+}
+
+test "screen: style_operations bold_off and dim_off clear both flags" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_bold_on);
+    s.apply(SemanticEvent.style_dim_on);
+    var ops: [16]semantic_mod.StyleOp = undefined;
+    @memset(&ops, semantic_mod.StyleOp.reset);
+    ops[0] = .bold_off;
+    ops[1] = .dim_off;
+    s.apply(SemanticEvent{ .style_operations = .{ .ops = ops, .count = 2 } });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(false, s.cells_attr.?[0].bold);
+    try std.testing.expectEqual(false, s.cells_attr.?[0].dim);
 }
