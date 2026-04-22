@@ -21,8 +21,8 @@
 | `style_reset` | — | CSI 0m | Reset all style attributes to defaults |
 | `style_bold_on` | — | CSI 1m | Enable bold |
 | `style_bold_off` | — | CSI 22m | Disable bold |
-| `style_fg_color` | `u8` (0-8) | CSI 30-37,39m | Set foreground color; 0=default, 1-8=colors 30-37 |
-| `style_bg_color` | `u8` (0-8) | CSI 40-47,49m | Set background color; 0=default, 1-8=colors 40-47 |
+| `style_fg_color` | `u8` (0-16) | CSI 30-37,39,90-97m | Set foreground indexed color; 0=default, 1-8=basic colors, 9-16=bright ANSI |
+| `style_bg_color` | `u8` (0-16) | CSI 40-47,49,100-107m | Set background indexed color; 0=default, 1-8=basic colors, 9-16=bright ANSI |
 | `style_fg_256` | `u8` (0-255) | CSI 38;5;<n>m | Set foreground 256-color palette index |
 | `style_bg_256` | `u8` (0-255) | CSI 48;5;<n>m | Set background 256-color palette index |
 | `style_fg_rgb` | `struct{r:u8,g:u8,b:u8}` | CSI 38;2;r;g;b;m | Set foreground 24-bit RGB color |
@@ -99,9 +99,11 @@ Implemented:
 - Ordered multi-parameter SGR processing (e.g., 1;38;2;255;0;0 for bold + red truecolor)
 
 Color index mapping:
-- Basic colors (30-37, 40-47): indices 1-8
-- Bright ANSI colors (90-97, 100-107): indices 9-16
-- 256-color palette (38;5;<n>, 48;5;<n>): indices 0-255
+- Indexed colors via `style_fg_color`/`style_bg_color`: payload 0-16
+  - 0 = default (reset to terminal default)
+  - 1-8 = basic ANSI colors (SGR 30-37, 40-47)
+  - 9-16 = bright ANSI colors (SGR 90-97, 100-107)
+- 256-color palette via `style_fg_256`/`style_bg_256`: payload 0-255 (SGR 38;5;<n>, 48;5;<n>)
 - All indexed colors stored in u8 fg/bg fields without truncation
 
 Malformed sequences policy:
