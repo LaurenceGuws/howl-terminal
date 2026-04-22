@@ -5,7 +5,7 @@ $NUM.prev($INDEX_OF_REFERNECED_RESPONSE) -> 1 is implicid, more than one back (r
 
 Human:
  before we handover again. lets do a human - archtect checkin.
-  Give me a summery of the current long term goal, the current sectio of that we are currently working on, what has been done and whats planned vs still ambiguous and in the air
+  Give me a summery of the current long term goal, the current section of that we are currently working on, what has been done and whats planned vs still ambiguous and in the air
 
 ====================================================================================================================================================================
 ====================================================================================================================================================================

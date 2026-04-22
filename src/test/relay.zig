@@ -1269,6 +1269,8 @@ const ParityScenario = struct {
     expected_row: u16,
     expected_col: u16,
     expected_queue_depth: usize,
+    check_cursor_visible: bool = false,
+    expected_cursor_visible: bool = true,
     check_cells: bool = false,
     cell_checks: []const CellCheck = &.{},
 };
@@ -1282,6 +1284,8 @@ const ParityChunkScenario = struct {
     expected_row: u16,
     expected_col: u16,
     expected_queue_depth: usize,
+    check_cursor_visible: bool = false,
+    expected_cursor_visible: bool = true,
     check_cells: bool = false,
     cell_checks: []const CellCheck = &.{},
 };
@@ -1313,6 +1317,10 @@ fn runParityScenario(gpa: std.mem.Allocator, scenario: ParityScenario) !void {
     try std.testing.expectEqual(scenario.expected_col, runtime_engine.screen().cursor_col);
     try std.testing.expectEqual(scenario.expected_queue_depth, direct_pl.len());
     try std.testing.expectEqual(scenario.expected_queue_depth, runtime_engine.queuedEventCount());
+    if (scenario.check_cursor_visible) {
+        try std.testing.expectEqual(scenario.expected_cursor_visible, direct_screen.cursor_visible);
+        try std.testing.expectEqual(scenario.expected_cursor_visible, runtime_engine.screen().cursor_visible);
+    }
 
     if (scenario.check_cells) {
         for (scenario.cell_checks) |check| {
@@ -1352,6 +1360,10 @@ fn runParityChunkScenario(gpa: std.mem.Allocator, scenario: ParityChunkScenario)
     try std.testing.expectEqual(scenario.expected_col, runtime_engine.screen().cursor_col);
     try std.testing.expectEqual(scenario.expected_queue_depth, direct_pl.len());
     try std.testing.expectEqual(scenario.expected_queue_depth, runtime_engine.queuedEventCount());
+    if (scenario.check_cursor_visible) {
+        try std.testing.expectEqual(scenario.expected_cursor_visible, direct_screen.cursor_visible);
+        try std.testing.expectEqual(scenario.expected_cursor_visible, runtime_engine.screen().cursor_visible);
+    }
 
     if (scenario.check_cells) {
         for (scenario.cell_checks) |check| {
@@ -1971,6 +1983,46 @@ test "parity-chunked: mixed control and cursor stream remains identical" {
             .{ .row = 0, .col = 1, .codepoint = 'b' },
             .{ .row = 1, .col = 2, .codepoint = 'c' },
             .{ .row = 1, .col = 3, .codepoint = 'd' },
+        },
+    });
+}
+
+test "parity-chunked: DECSTR split across chunks resets before next write identically" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked DECSTR reset",
+        .rows = 2,
+        .cols = 5,
+        .with_cells = true,
+        .chunks = &.{ "abcde", "\x1b[", "!", "p", "z" },
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'z' },
+            .{ .row = 0, .col = 1, .codepoint = 0 },
+            .{ .row = 1, .col = 0, .codepoint = 0 },
+        },
+    });
+}
+
+test "parity-chunked: DEC private cursor visibility split across chunks remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked private cursor visibility",
+        .rows = 2,
+        .cols = 5,
+        .with_cells = true,
+        .chunks = &.{ "x", "\x1b[?2", "5l", "\x1b[", "?25", "h" },
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cursor_visible = true,
+        .expected_cursor_visible = true,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'x' },
         },
     });
 }
