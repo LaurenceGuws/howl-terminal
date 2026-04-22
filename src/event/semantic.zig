@@ -1,3 +1,7 @@
+//! Responsibility: map parser-level events into semantic screen operations.
+//! Ownership: event semantic module.
+//! Reason: keep CSI/control interpretation separate from parser tokenization.
+
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 

@@ -1,3 +1,7 @@
+//! Responsibility: translate parser sink callbacks into owned event records.
+//! Ownership: event bridge module.
+//! Reason: isolate parser callback handling from semantic and screen layers.
+
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");

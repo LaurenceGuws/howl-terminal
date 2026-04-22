@@ -1,3 +1,7 @@
+//! Responsibility: maintain cursor and optional cell buffer state.
+//! Ownership: screen state module.
+//! Reason: apply semantic events deterministically with clamped boundaries.
+
 const std = @import("std");
 const semantic_mod = @import("../event/semantic.zig");
 

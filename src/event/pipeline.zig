@@ -1,3 +1,7 @@
+//! Responsibility: coordinate parser feed, event queueing, and screen application flow.
+//! Ownership: event pipeline module.
+//! Reason: provide one seam for incremental byte ingestion and event draining.
+
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const bridge_mod = @import("bridge.zig");

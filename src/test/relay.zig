@@ -1,3 +1,7 @@
+//! Responsibility: run integration relay tests across parser, event, and screen modules.
+//! Ownership: terminal test integration module.
+//! Reason: verify cross-module behavior beyond isolated inline unit tests.
+
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");
