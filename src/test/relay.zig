@@ -550,6 +550,30 @@ test "replay: CUB moves cursor back" {
     try std.testing.expectEqual(@as(u16, 14), screen.cursor_col);
 }
 
+test "replay: CNL moves cursor down and resets column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 5;
+    screen.cursor_col = 20;
+    feed(&pl, &screen, "\x1b[3E");
+    try std.testing.expectEqual(@as(u16, 8), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "replay: CPL moves cursor up and resets column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 8;
+    screen.cursor_col = 20;
+    feed(&pl, &screen, "\x1b[3F");
+    try std.testing.expectEqual(@as(u16, 5), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
 test "replay: CHA moves cursor to absolute column" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1830,6 +1854,34 @@ test "parity: CUB moves cursor back identically" {
     });
 }
 
+test "parity: CNL moves cursor down and resets column identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CNL baseline",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .input = "\x1b[3E",
+        .expected_row = 3,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: CPL moves cursor up and resets column identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CPL baseline",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .input = "\x1b[3F",
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity: CHA moves cursor to absolute column identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2762,6 +2814,34 @@ test "parity-chunked: CHA split into byte fragments remains identical" {
     });
 }
 
+test "parity-chunked: CNL split into byte fragments remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CNL",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .chunks = &.{ "\x1b", "[", "3", "E" },
+        .expected_row = 3,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity-chunked: CPL split into byte fragments remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CPL",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .chunks = &.{ "\x1b", "[", "3", "F" },
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity-chunked: VPA split into byte fragments remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -3522,6 +3602,26 @@ test "runtime: cursor move via apply matches direct pipeline" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
+}
+
+test "runtime: CNL move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[3E");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 3), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+}
+
+test "runtime: CPL move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[3F");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 }
 
 test "runtime: CHA move via apply matches direct pipeline" {

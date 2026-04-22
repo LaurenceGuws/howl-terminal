@@ -14,6 +14,8 @@ pub const SemanticEvent = union(enum) {
     cursor_down: u16,
     cursor_forward: u16,
     cursor_back: u16,
+    cursor_next_line: u16,
+    cursor_prev_line: u16,
     cursor_horizontal_absolute: u16,
     cursor_vertical_absolute: u16,
     cursor_position: struct { row: u16, col: u16 },
@@ -68,6 +70,8 @@ fn processCsi(final: u8, params: [16]i32, count: u8, leader: u8, private: bool, 
         'B' => return SemanticEvent{ .cursor_down = paramOrDefault1(params[0]) },
         'C' => return SemanticEvent{ .cursor_forward = paramOrDefault1(params[0]) },
         'D' => return SemanticEvent{ .cursor_back = paramOrDefault1(params[0]) },
+        'E' => return SemanticEvent{ .cursor_next_line = paramOrDefault1(params[0]) },
+        'F' => return SemanticEvent{ .cursor_prev_line = paramOrDefault1(params[0]) },
         'G' => return SemanticEvent{ .cursor_horizontal_absolute = paramOrDefault1(params[0]) - 1 },
         'd' => return SemanticEvent{ .cursor_vertical_absolute = paramOrDefault1(params[0]) - 1 },
         'I' => return SemanticEvent{ .horizontal_tab_forward = paramOrDefault1(params[0]) },
@@ -166,6 +170,26 @@ test "semantic: CUF" {
 test "semantic: CUB" {
     const sem = process(makeStyleChange('D', 4, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 4), sem.cursor_back);
+}
+
+test "semantic: CNL explicit count" {
+    const sem = process(makeStyleChange('E', 3, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 3), sem.cursor_next_line);
+}
+
+test "semantic: CNL zero param defaults to 1" {
+    const sem = process(makeStyleChange('E', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.cursor_next_line);
+}
+
+test "semantic: CPL explicit count" {
+    const sem = process(makeStyleChange('F', 2, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.cursor_prev_line);
+}
+
+test "semantic: CPL zero param defaults to 1" {
+    const sem = process(makeStyleChange('F', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.cursor_prev_line);
 }
 
 test "semantic: CHA explicit column" {

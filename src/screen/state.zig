@@ -71,6 +71,16 @@ pub const ScreenState = struct {
                 self.wrap_pending = false;
                 self.cursor_col = self.cursor_col -| n;
             },
+            .cursor_next_line => |n| {
+                self.wrap_pending = false;
+                self.cursor_row = @min(self.cursor_row +| n, self.rows -| 1);
+                self.cursor_col = 0;
+            },
+            .cursor_prev_line => |n| {
+                self.wrap_pending = false;
+                self.cursor_row = self.cursor_row -| n;
+                self.cursor_col = 0;
+            },
             .cursor_horizontal_absolute => |col| {
                 self.wrap_pending = false;
                 self.cursor_col = @min(col, self.cols -| 1);
@@ -292,6 +302,24 @@ test "screen: cursor_position absolute move" {
     s.apply(SemanticEvent{ .cursor_position = .{ .row = 10, .col = 40 } });
     try std.testing.expectEqual(@as(u16, 10), s.cursor_row);
     try std.testing.expectEqual(@as(u16, 40), s.cursor_col);
+}
+
+test "screen: cursor_next_line moves row and resets column" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_row = 5;
+    s.cursor_col = 40;
+    s.apply(SemanticEvent{ .cursor_next_line = 3 });
+    try std.testing.expectEqual(@as(u16, 8), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen: cursor_prev_line moves row and resets column" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_row = 5;
+    s.cursor_col = 40;
+    s.apply(SemanticEvent{ .cursor_prev_line = 3 });
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
 }
 
 test "screen: cursor_horizontal_absolute updates column only" {

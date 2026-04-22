@@ -12,6 +12,8 @@ M1 scope is non-style core behavior: cursor motion, text and codepoint writes, c
 | `cursor_down` | `u16` | CSI B | Move cursor down N rows; default 1 |
 | `cursor_forward` | `u16` | CSI C | Move cursor right N cols; default 1 |
 | `cursor_back` | `u16` | CSI D | Move cursor left N cols; default 1 |
+| `cursor_next_line` | `u16` | CSI E | Move cursor down N rows and set column to 0 |
+| `cursor_prev_line` | `u16` | CSI F | Move cursor up N rows and set column to 0 |
 | `cursor_horizontal_absolute` | `u16` | CSI G | Move cursor to absolute 0-based column |
 | `cursor_vertical_absolute` | `u16` | CSI d | Move cursor to absolute 0-based row |
 | `cursor_position` | `{row: u16, col: u16}` | CSI H/f | Absolute 0-based position; defaults to origin |
@@ -59,6 +61,7 @@ Interruption coverage index (`src/test/relay.zig`):
 | Event variant | SemanticEvent emitted | Notes |
 | --- | --- | --- |
 | `style_change` with final A/B/C/D | `cursor_up/down/forward/back` | Param default 1 |
+| `style_change` with final E/F | `cursor_next_line` / `cursor_prev_line` | Param default 1; column reset to 0 |
 | `style_change` with final G | `cursor_horizontal_absolute` | 1-based VT param converted to 0-based |
 | `style_change` with final d | `cursor_vertical_absolute` | 1-based VT param converted to 0-based |
 | `style_change` with final I | `horizontal_tab_forward` | Param default 1 |
@@ -91,6 +94,7 @@ Interruption coverage index (`src/test/relay.zig`):
 
 - Cursor row and column are always within `[0, rows-1]` and `[0, cols-1]` respectively, enforced by saturating arithmetic on every mutation.
 - Cursor movement commands (`cursor_up`, `cursor_down`, `cursor_forward`, `cursor_back`) saturate at screen boundaries; repeated moves beyond edges remain clamped.
+- `cursor_next_line` (CNL) and `cursor_prev_line` (CPL) saturate row movement at boundaries and always reset column to 0.
 - `cursor_horizontal_absolute` (CHA) moves cursor column to an absolute position on the current row; out-of-range values saturate within bounds.
 - `cursor_vertical_absolute` (VPA) moves cursor row to an absolute position on the current column; out-of-range values saturate within bounds.
 - `cursor_position` (CUP) places cursor within bounds; out-of-range params saturate to valid grid.
