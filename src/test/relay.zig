@@ -1589,6 +1589,27 @@ test "parity: text write with cells identically" {
     });
 }
 
+test "parity: text wrap and bottom scroll identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "text wrap and scroll",
+        .rows = 2,
+        .cols = 5,
+        .with_cells = true,
+        .input = "abcdefghijk",
+        .expected_row = 1,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'f' },
+            .{ .row = 0, .col = 4, .codepoint = 'j' },
+            .{ .row = 1, .col = 0, .codepoint = 'k' },
+            .{ .row = 1, .col = 1, .codepoint = 0 },
+        },
+    });
+}
+
 test "parity: UTF-8 codepoint identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{

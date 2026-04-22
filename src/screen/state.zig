@@ -14,10 +14,11 @@ pub const ScreenState = struct {
     cols: u16,
     cursor_row: u16,
     cursor_col: u16,
+    wrap_pending: bool,
     cells: ?[]u21,
 
     pub fn init(rows: u16, cols: u16) ScreenState {
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .cells = null };
+        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cells = null };
     }
 
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !ScreenState {
@@ -27,7 +28,7 @@ pub const ScreenState = struct {
             @memset(buf, 0);
             break :blk buf;
         } else null;
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .cells = cells };
+        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cells = cells };
     }
 
     pub fn deinit(self: *ScreenState, allocator: std.mem.Allocator) void {
@@ -43,11 +44,24 @@ pub const ScreenState = struct {
 
     pub fn apply(self: *ScreenState, event: SemanticEvent) void {
         switch (event) {
-            .cursor_up => |n| self.cursor_row = self.cursor_row -| n,
-            .cursor_down => |n| self.cursor_row = @min(self.cursor_row +| n, self.rows -| 1),
-            .cursor_forward => |n| self.cursor_col = @min(self.cursor_col +| n, self.cols -| 1),
-            .cursor_back => |n| self.cursor_col = self.cursor_col -| n,
+            .cursor_up => |n| {
+                self.wrap_pending = false;
+                self.cursor_row = self.cursor_row -| n;
+            },
+            .cursor_down => |n| {
+                self.wrap_pending = false;
+                self.cursor_row = @min(self.cursor_row +| n, self.rows -| 1);
+            },
+            .cursor_forward => |n| {
+                self.wrap_pending = false;
+                self.cursor_col = @min(self.cursor_col +| n, self.cols -| 1);
+            },
+            .cursor_back => |n| {
+                self.wrap_pending = false;
+                self.cursor_col = self.cursor_col -| n;
+            },
             .cursor_position => |pos| {
+                self.wrap_pending = false;
                 self.cursor_row = @min(pos.row, self.rows -| 1);
                 self.cursor_col = @min(pos.col, self.cols -| 1);
             },
@@ -57,11 +71,26 @@ pub const ScreenState = struct {
                 }
             },
             .write_codepoint => |cp| self.writeCell(cp),
-            .line_feed => self.cursor_row = @min(self.cursor_row +| 1, self.rows -| 1),
-            .carriage_return => self.cursor_col = 0,
-            .backspace => self.cursor_col = self.cursor_col -| 1,
-            .erase_display => |mode| self.eraseDisplay(mode),
-            .erase_line => |mode| self.eraseLine(mode),
+            .line_feed => {
+                self.wrap_pending = false;
+                self.lineFeed();
+            },
+            .carriage_return => {
+                self.wrap_pending = false;
+                self.cursor_col = 0;
+            },
+            .backspace => {
+                self.wrap_pending = false;
+                self.cursor_col = self.cursor_col -| 1;
+            },
+            .erase_display => |mode| {
+                self.wrap_pending = false;
+                self.eraseDisplay(mode);
+            },
+            .erase_line => |mode| {
+                self.wrap_pending = false;
+                self.eraseLine(mode);
+            },
         }
     }
 
@@ -91,12 +120,42 @@ pub const ScreenState = struct {
 
     fn writeCell(self: *ScreenState, cp: u21) void {
         if (self.cols == 0 or self.rows == 0) return;
+        if (self.wrap_pending) {
+            self.wrap_pending = false;
+            if (self.cursor_col == self.cols - 1) {
+                self.lineFeed();
+                self.cursor_col = 0;
+            }
+        }
         if (self.cells) |c| {
             c[@as(usize, self.cursor_row) * self.cols + self.cursor_col] = cp;
         }
         if (self.cursor_col < self.cols - 1) {
             self.cursor_col += 1;
+        } else {
+            self.wrap_pending = true;
         }
+    }
+
+    fn lineFeed(self: *ScreenState) void {
+        if (self.rows == 0) return;
+        if (self.cursor_row < self.rows - 1) {
+            self.cursor_row += 1;
+            return;
+        }
+        self.scrollUp();
+    }
+
+    fn scrollUp(self: *ScreenState) void {
+        const c = self.cells orelse return;
+        if (self.rows == 0 or self.cols == 0) return;
+        if (self.rows > 1) {
+            const row_len = @as(usize, self.cols);
+            const total = @as(usize, self.rows) * row_len;
+            std.mem.copyForwards(u21, c[0 .. total - row_len], c[row_len..total]);
+        }
+        const last_start = (@as(usize, self.rows) - 1) * self.cols;
+        @memset(c[last_start .. last_start + self.cols], 0);
     }
 };
 
@@ -158,13 +217,45 @@ test "screen: write_text stores bytes in cells" {
     try std.testing.expectEqual(@as(u21, 'c'), s.cellAt(0, 2));
 }
 
-test "screen: write_text clamped at last col" {
+test "screen: write_text wraps to next row after filled column" {
     const gpa = std.testing.allocator;
     var s = try ScreenState.initWithCells(gpa, 4, 5);
     defer s.deinit(gpa);
     s.apply(SemanticEvent{ .write_text = "abcdefgh" });
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 3), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'e'), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'f'), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'h'), s.cellAt(1, 2));
+}
+
+test "screen: exact line fill leaves cursor at last column until next write" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 2, 5);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "abcde" });
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
     try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
-    try std.testing.expectEqual(@as(u21, 'h'), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'e'), s.cellAt(0, 4));
+    s.apply(SemanticEvent{ .write_text = "f" });
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'f'), s.cellAt(1, 0));
+}
+
+test "screen: wrap at bottom scrolls cell buffer up" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 2, 5);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "abcde" });
+    s.apply(SemanticEvent{ .write_text = "fghij" });
+    s.apply(SemanticEvent{ .write_text = "k" });
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'f'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'j'), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'k'), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 1));
 }
 
 test "screen: line_feed advances row" {

@@ -68,8 +68,9 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 - Cursor movement commands (`cursor_up`, `cursor_down`, `cursor_forward`, `cursor_back`) saturate at screen boundaries; repeated moves beyond edges remain clamped.
 - `cursor_position` (CUP) places cursor within bounds; out-of-range params saturate to valid grid.
 - Control sequences (CR/LF/BS) maintain row/column invariants: CR resets column, LF advances row, BS moves left; all saturate at edges.
-- Text writes advance `cursor_col` after each character, saturating at `cols-1`. No line wrap or scrolling.
-- `line_feed` moves `cursor_row` down one row, clamped at `rows-1`. Column unchanged.
+- Text writes advance `cursor_col` after each character. Filling the last column arms pending wrap; the next text/codepoint write moves to column 0 on the next row before writing.
+- Pending wrap at the bottom row scrolls the visible cell buffer up by one row and clears the new bottom row before writing.
+- `line_feed` moves `cursor_row` down one row. At the bottom row it scrolls the visible cell buffer up by one row when cells are present. Column unchanged.
 - `carriage_return` resets `cursor_col` to 0; `cursor_row` is unchanged.
 - `backspace` moves `cursor_col` left one column, saturating at 0; `cursor_row` is unchanged.
 - `erase_line` zeroes cells in the current row; cursor position is unchanged.
@@ -94,7 +95,7 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 
 The following are intentionally outside this seam:
 
-- Line wrapping or scrollback
+- Scrollback/history
 - Wide character (multi-column) glyph handling
 - Color, style, or attribute storage
 - Mode-set sequences (SM/RM/DECSET)

@@ -24,7 +24,7 @@ Recent checkpoints:
 - RF-801: root API guard tests added
 - RF-901: runtime facade API contract added
 
-**Next:** Begin M2 terminal state breadth. First focus should be wrap/scroll semantics with tests before implementation.
+**Next:** Continue M2 terminal state breadth after the wrap/scroll checkpoint. Follow-up focus should be tabs or reset/state consistency.
 
 ## Ticket Format (Required)
 
