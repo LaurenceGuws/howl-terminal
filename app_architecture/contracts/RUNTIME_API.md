@@ -64,6 +64,7 @@ Authority for `src/runtime/engine.zig` and the root `runtime` export.
 - `Engine` is a transparent facade over `Pipeline` plus `ScreenState`.
 - For equivalent byte streams, direct `Pipeline+ScreenState` and `Engine` produce identical cursor, cell, and queue end states.
 - Split-feed chunking does not change final behavior relative to feeding the same bytes as one slice.
+- If a split CSI is interrupted by a new escape sequence before its final byte, runtime behavior remains deterministic and stream-order dependent (no retroactive reinterpretation of the interrupted CSI bytes).
 - Ignored-event paths do not mutate screen state through `Engine`.
 - Zero-dimension behavior matches `ScreenState` and `Pipeline` contracts.
 - `reset()` and `resetScreen()` are intentionally separate: parser/queue reset does not clear screen, and screen reset does not clear parser/queue state.
