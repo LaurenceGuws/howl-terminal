@@ -60,6 +60,32 @@ pub const ScreenState = struct {
             .line_feed => self.cursor_row = @min(self.cursor_row +| 1, self.rows -| 1),
             .carriage_return => self.cursor_col = 0,
             .backspace => self.cursor_col = self.cursor_col -| 1,
+            .erase_display => |mode| self.eraseDisplay(mode),
+            .erase_line => |mode| self.eraseLine(mode),
+        }
+    }
+
+    fn eraseDisplay(self: *ScreenState, mode: u2) void {
+        const c = self.cells orelse return;
+        if (self.rows == 0 or self.cols == 0) return;
+        const cursor_pos = @as(usize, self.cursor_row) * self.cols + self.cursor_col;
+        switch (mode) {
+            0 => @memset(c[cursor_pos..], 0),
+            1 => @memset(c[0 .. cursor_pos + 1], 0),
+            2 => @memset(c, 0),
+            3 => {},
+        }
+    }
+
+    fn eraseLine(self: *ScreenState, mode: u2) void {
+        const c = self.cells orelse return;
+        if (self.rows == 0 or self.cols == 0) return;
+        const row_start = @as(usize, self.cursor_row) * self.cols;
+        switch (mode) {
+            0 => @memset(c[row_start + self.cursor_col .. row_start + self.cols], 0),
+            1 => @memset(c[row_start .. row_start + self.cursor_col + 1], 0),
+            2 => @memset(c[row_start .. row_start + self.cols], 0),
+            3 => {},
         }
     }
 
@@ -167,4 +193,110 @@ test "screen: cellAt out of bounds returns 0" {
     var s = try ScreenState.initWithCells(gpa, 4, 10);
     defer s.deinit(gpa);
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(10, 0));
+}
+
+test "screen: erase_line mode 0 clears from cursor to end of line" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "helloworld" });
+    s.cursor_col = 5;
+    s.apply(SemanticEvent{ .erase_line = 0 });
+    try std.testing.expectEqual(@as(u21, 'h'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'e'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 5));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 9));
+    try std.testing.expectEqual(@as(u16, 5), s.cursor_col);
+}
+
+test "screen: erase_line mode 1 clears from start to cursor" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "helloworld" });
+    s.cursor_col = 4;
+    s.apply(SemanticEvent{ .erase_line = 1 });
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'w'), s.cellAt(0, 5));
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+}
+
+test "screen: erase_line mode 2 clears full line" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "helloworld" });
+    s.cursor_col = 3;
+    s.apply(SemanticEvent{ .erase_line = 2 });
+    for (0..10) |i| {
+        try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, @intCast(i)));
+    }
+    try std.testing.expectEqual(@as(u16, 3), s.cursor_col);
+}
+
+test "screen: erase_display mode 0 clears from cursor to end of screen" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 3, 5);
+    defer s.deinit(gpa);
+    s.cursor_row = 0; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "AAAAA" });
+    s.cursor_row = 1; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "BBBBB" });
+    s.cursor_row = 2; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "CCCCC" });
+    s.cursor_row = 1; s.cursor_col = 2;
+    s.apply(SemanticEvent{ .erase_display = 0 });
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(1, 1));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 2));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_col);
+}
+
+test "screen: erase_display mode 1 clears from start to cursor" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 3, 5);
+    defer s.deinit(gpa);
+    s.cursor_row = 0; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "AAAAA" });
+    s.cursor_row = 1; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "BBBBB" });
+    s.cursor_row = 2; s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "CCCCC" });
+    s.cursor_row = 1; s.cursor_col = 2;
+    s.apply(SemanticEvent{ .erase_display = 1 });
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 2));
+    try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(1, 3));
+    try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_col);
+}
+
+test "screen: erase_display mode 2 clears entire screen" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 3, 5);
+    defer s.deinit(gpa);
+    s.cursor_row = 1; s.cursor_col = 2;
+    s.apply(SemanticEvent{ .write_text = "AB" });
+    s.cursor_row = 1; s.cursor_col = 2;
+    s.apply(SemanticEvent{ .erase_display = 2 });
+    for (0..3) |r| {
+        for (0..5) |c_| {
+            try std.testing.expectEqual(@as(u21, 0), s.cellAt(@intCast(r), @intCast(c_)));
+        }
+    }
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_col);
+}
+
+test "screen: erase ops no-op without cell buffer" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 3;
+    s.apply(SemanticEvent{ .erase_line = 2 });
+    s.apply(SemanticEvent{ .erase_display = 2 });
+    try std.testing.expectEqual(@as(u16, 3), s.cursor_col);
 }
