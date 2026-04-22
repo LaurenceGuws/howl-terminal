@@ -658,3 +658,132 @@ test "replay: existing text and cursor paths unaffected by erase additions" {
     try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
     try std.testing.expectEqual(@as(u16, 5), screen.cursor_col);
 }
+
+test "replay: CUP alternate final f positions cursor" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    feed(&pl, &screen, "\x1b[4;7f");
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 6), screen.cursor_col);
+}
+
+test "replay: CSI J mode 2 erases full screen" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 4);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "AAAA");
+    feed(&pl, &screen, "\x0D\x0A");
+    feed(&pl, &screen, "BBBB");
+    feed(&pl, &screen, "\x1b[H\x1b[2J");
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 3));
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "replay: CSI J mode 1 erases through cursor inclusive" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 3, 4);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "AAAA");
+    feed(&pl, &screen, "\x0D\x0A");
+    feed(&pl, &screen, "BBBB");
+    feed(&pl, &screen, "\x0D\x0A");
+    feed(&pl, &screen, "CCCC");
+    screen.cursor_row = 1;
+    screen.cursor_col = 2;
+    feed(&pl, &screen, "\x1b[1J");
+    try std.testing.expectEqual(@as(u21, 'C'), screen.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 2));
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_col);
+}
+
+test "replay: CSI K mode 1 erases line start through cursor" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 6);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abcdef");
+    screen.cursor_col = 2;
+    feed(&pl, &screen, "\x1b[1K");
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 'd'), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'f'), screen.cellAt(0, 5));
+}
+
+test "replay: CSI K mode 2 erases entire current line" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 5);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "hello");
+    feed(&pl, &screen, "\x1b[2;1H");
+    feed(&pl, &screen, "world");
+    feed(&pl, &screen, "\x1b[1;1H");
+    feed(&pl, &screen, "\x1b[2K");
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'w'), screen.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "replay: CSI J invalid param maps to mode 0 through end of screen" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 4);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "AAAA");
+    feed(&pl, &screen, "\x0D\x0A");
+    feed(&pl, &screen, "BBBB");
+    screen.cursor_row = 0;
+    screen.cursor_col = 1;
+    feed(&pl, &screen, "\x1b[9J");
+    try std.testing.expectEqual(@as(u21, 'A'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 0));
+}
+
+test "replay: split CSI erase across parser feeds" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 1, 5);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "hello");
+    screen.cursor_col = 2;
+    pl.feedSlice("\x1b[");
+    pl.feedSlice("1K");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 'l'), screen.cellAt(0, 3));
+}
+
+test "replay: control BEL does not move cursor or alter cells" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 8);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "ab\x07c");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'c'), screen.cellAt(0, 2));
+}
