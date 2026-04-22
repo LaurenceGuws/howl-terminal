@@ -2679,6 +2679,81 @@ test "parity-chunked: private modes after DECSTR with tab navigation remain iden
     });
 }
 
+test "parity-chunked: split CHT interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CHT interrupted by DECSTR bytes",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[2", "\x1b[!p", "Ix" },
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CHT started after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CHT after DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[!p", "\x1b[2", "Ix" },
+        .expected_row = 0,
+        .expected_col = 17,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 16, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CBT interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CBT interrupted by DECSTR bytes",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "a\x1b[2I", "\x1b[2", "\x1b[!p", "Zy" },
+        .expected_row = 0,
+        .expected_col = 19,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 19, .codepoint = 'y' },
+        },
+    });
+}
+
+test "parity-chunked: split CBT started after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CBT after DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "a\x1b[2I", "\x1b[!p", "\x1b[2", "Zy" },
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'y' },
+        },
+    });
+}
+
 // --- Runtime engine facade tests ---
 
 test "runtime: init and deinit lifecycle" {
