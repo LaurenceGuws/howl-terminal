@@ -22,6 +22,7 @@ pub const SemanticEvent = union(enum) {
     backspace,
     horizontal_tab,
     cursor_visible: bool,
+    auto_wrap: bool,
     reset_screen,
     erase_display: u2,
     erase_line: u2,
@@ -40,10 +41,18 @@ pub fn process(event: Event) ?SemanticEvent {
 
 fn processCsi(final: u8, params: [16]i32, count: u8, leader: u8, private: bool, intermediates: [4]u8, intermediates_len: u8) ?SemanticEvent {
     if (private) {
-        if (leader == '?' and count >= 1 and params[0] == 25) {
-            return switch (final) {
-                'h' => SemanticEvent{ .cursor_visible = true },
-                'l' => SemanticEvent{ .cursor_visible = false },
+        if (leader == '?' and count >= 1) {
+            return switch (params[0]) {
+                25 => switch (final) {
+                    'h' => SemanticEvent{ .cursor_visible = true },
+                    'l' => SemanticEvent{ .cursor_visible = false },
+                    else => null,
+                },
+                7 => switch (final) {
+                    'h' => SemanticEvent{ .auto_wrap = true },
+                    'l' => SemanticEvent{ .auto_wrap = false },
+                    else => null,
+                },
                 else => null,
             };
         }
@@ -200,6 +209,36 @@ test "semantic: DEC private cursor hide maps to cursor_visible false" {
         .intermediates_len = 0,
     } };
     try std.testing.expect(!process(ev).?.cursor_visible);
+}
+
+test "semantic: DEC private wrap enable maps to auto_wrap true" {
+    var params = [_]i32{0} ** 16;
+    params[0] = 7;
+    const ev = Event{ .style_change = .{
+        .final = 'h',
+        .params = params,
+        .param_count = 1,
+        .leader = '?',
+        .private = true,
+        .intermediates = [_]u8{0} ** 4,
+        .intermediates_len = 0,
+    } };
+    try std.testing.expect(process(ev).?.auto_wrap);
+}
+
+test "semantic: DEC private wrap disable maps to auto_wrap false" {
+    var params = [_]i32{0} ** 16;
+    params[0] = 7;
+    const ev = Event{ .style_change = .{
+        .final = 'l',
+        .params = params,
+        .param_count = 1,
+        .leader = '?',
+        .private = true,
+        .intermediates = [_]u8{0} ** 4,
+        .intermediates_len = 0,
+    } };
+    try std.testing.expect(!process(ev).?.auto_wrap);
 }
 
 test "semantic: text event maps to write_text" {

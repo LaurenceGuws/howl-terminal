@@ -748,6 +748,28 @@ test "replay: DEC private cursor visibility toggles mode state" {
     try std.testing.expect(screen.cursor_visible);
 }
 
+test "replay: DEC private auto-wrap mode toggles wrap behavior" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 5);
+    defer screen.deinit(gpa);
+    try std.testing.expect(screen.auto_wrap);
+    feed(&pl, &screen, "\x1b[?7l");
+    try std.testing.expect(!screen.auto_wrap);
+    feed(&pl, &screen, "abcdefg");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'g'), screen.cellAt(0, 4));
+    feed(&pl, &screen, "\x1b[?7h");
+    try std.testing.expect(screen.auto_wrap);
+    feed(&pl, &screen, "hi");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'h'), screen.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'i'), screen.cellAt(1, 0));
+}
+
 test "replay: existing text and cursor paths unaffected by erase additions" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -2023,6 +2045,26 @@ test "parity-chunked: DEC private cursor visibility split across chunks remains 
         .check_cells = true,
         .cell_checks = &.{
             .{ .row = 0, .col = 0, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: DEC private auto-wrap mode split across chunks remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked private auto-wrap mode",
+        .rows = 2,
+        .cols = 5,
+        .with_cells = true,
+        .chunks = &.{ "\x1b[?7", "l", "abcdefg", "\x1b[?7", "h", "hi" },
+        .expected_row = 1,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 4, .codepoint = 'h' },
+            .{ .row = 1, .col = 0, .codepoint = 'i' },
         },
     });
 }

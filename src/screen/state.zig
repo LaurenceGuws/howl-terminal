@@ -16,10 +16,11 @@ pub const ScreenState = struct {
     cursor_col: u16,
     wrap_pending: bool,
     cursor_visible: bool,
+    auto_wrap: bool,
     cells: ?[]u21,
 
     pub fn init(rows: u16, cols: u16) ScreenState {
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .cells = null };
+        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .auto_wrap = true, .cells = null };
     }
 
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !ScreenState {
@@ -29,7 +30,7 @@ pub const ScreenState = struct {
             @memset(buf, 0);
             break :blk buf;
         } else null;
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .cells = cells };
+        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .auto_wrap = true, .cells = cells };
     }
 
     pub fn deinit(self: *ScreenState, allocator: std.mem.Allocator) void {
@@ -42,6 +43,7 @@ pub const ScreenState = struct {
         self.cursor_col = 0;
         self.wrap_pending = false;
         self.cursor_visible = true;
+        self.auto_wrap = true;
         if (self.cells) |c| @memset(c, 0);
     }
 
@@ -97,6 +99,10 @@ pub const ScreenState = struct {
                 self.horizontalTab();
             },
             .cursor_visible => |visible| self.cursor_visible = visible,
+            .auto_wrap => |enabled| {
+                self.auto_wrap = enabled;
+                if (!enabled) self.wrap_pending = false;
+            },
             .reset_screen => self.reset(),
             .erase_display => |mode| {
                 self.wrap_pending = false;
@@ -147,7 +153,7 @@ pub const ScreenState = struct {
         }
         if (self.cursor_col < self.cols - 1) {
             self.cursor_col += 1;
-        } else {
+        } else if (self.auto_wrap) {
             self.wrap_pending = true;
         }
     }
@@ -212,6 +218,20 @@ test "screen: cursor_visible mode toggles without moving cursor" {
     try std.testing.expect(s.cursor_visible);
     try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
     try std.testing.expectEqual(@as(u16, 3), s.cursor_col);
+}
+
+test "screen: auto_wrap mode toggles and does not move cursor" {
+    var s = ScreenState.init(2, 5);
+    s.cursor_row = 1;
+    s.cursor_col = 4;
+    s.apply(SemanticEvent{ .auto_wrap = false });
+    try std.testing.expect(!s.auto_wrap);
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+    s.apply(SemanticEvent{ .auto_wrap = true });
+    try std.testing.expect(s.auto_wrap);
+    try std.testing.expectEqual(@as(u16, 1), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
 }
 
 test "screen: cursor_up moves row" {
@@ -305,6 +325,20 @@ test "screen: wrap at bottom scrolls cell buffer up" {
     try std.testing.expectEqual(@as(u21, 'j'), s.cellAt(0, 4));
     try std.testing.expectEqual(@as(u21, 'k'), s.cellAt(1, 0));
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 1));
+}
+
+test "screen: disabled auto_wrap keeps writing at last column" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 2, 5);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .auto_wrap = false });
+    s.apply(SemanticEvent{ .write_text = "abcdefg" });
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'd'), s.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'g'), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 0));
 }
 
 test "screen: line_feed advances row" {
