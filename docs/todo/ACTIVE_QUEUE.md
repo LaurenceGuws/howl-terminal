@@ -16,7 +16,11 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 | `HT-051C` | `done` | Screen apply for 256-color style state. |
 | `HT-051D` | `done` | Relay fixtures for 256-color integration. |
 | `HT-051E` | `done` | Contract + queue sync for 256-color support. |
-| `HT-052A` | `ready` | Queue reset: scope next batch work. |
+| `HT-052A` | `ready` | Queue + contract scope: 24-bit truecolor. |
+| `HT-052B` | `ready` | Semantic mapping for truecolor SGR. |
+| `HT-052C` | `ready` | Screen apply for truecolor attrs. |
+| `HT-052D` | `ready` | Relay fixtures for truecolor flow. |
+| `HT-052E` | `ready` | Queue/contract sync close. |
 
 ## Guardrails
 

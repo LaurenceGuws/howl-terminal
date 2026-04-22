@@ -1,6 +1,6 @@
 # Semantic Screen Contract
 
-`SEMANTIC_SCREEN_CONTRACT` — updated at HT-051E. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
+`SEMANTIC_SCREEN_CONTRACT` — updated at HT-052A. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
 
 ## SemanticEvent Variants
 
@@ -25,6 +25,8 @@
 | `style_bg_color` | `u8` (0-8) | CSI 40-47,49m | Set background color; 0=default, 1-8=colors 40-47 |
 | `style_fg_256` | `u8` (0-255) | CSI 38;5;<n>m | Set foreground 256-color palette index |
 | `style_bg_256` | `u8` (0-255) | CSI 48;5;<n>m | Set background 256-color palette index |
+| `style_fg_rgb` | `struct{r:u8,g:u8,b:u8}` | CSI 38;2;r;g;b;m | Set foreground 24-bit RGB color |
+| `style_bg_rgb` | `struct{r:u8,g:u8,b:u8}` | CSI 48;2;r;g;b;m | Set background 24-bit RGB color |
 
 ## Ownership and Lifetime
 
@@ -90,15 +92,17 @@ Implemented:
 - Background basic colors (SGR 40-47, 49)
 - Foreground 256-color palette (SGR 38;5;<n>)
 - Background 256-color palette (SGR 48;5;<n>)
-- Ordered multi-parameter SGR processing (e.g., 1;38;5;196 for bold + 256-color)
+- Foreground 24-bit RGB true color (SGR 38;2;r;g;b)
+- Background 24-bit RGB true color (SGR 48;2;r;g;b)
+- Ordered multi-parameter SGR processing (e.g., 1;38;2;255;0;0 for bold + red truecolor)
 
 Malformed sequences policy:
 - Extended color forms (38, 48) without matching subparameter form (5 or 2) are ignored safely
-- Incomplete extended sequences are skipped without breaking valid neighbors
+- Incomplete extended sequences (e.g., 38;2;r;g without b) are skipped without breaking valid neighbors
+- Invalid RGB component values (> 255) are clamped to 0-255 range
 - Unknown parameters are always skipped
 
 Deferred (future sprints):
-- RGB true color (SGR 38/48 with 2)
 - Underline, strikethrough, blink, inverse, dim (SGR 4, 9, 5, 7, 2)
 - Underline color (SGR 58, 59)
 
