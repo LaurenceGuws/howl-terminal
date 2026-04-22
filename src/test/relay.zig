@@ -1298,6 +1298,32 @@ test "zero-dim: rows=10, cols=0: repeated text writes remain safe" {
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
 }
 
+test "zero-dim: tab commands remain safe across all zero-dimension variants" {
+    const gpa = std.testing.allocator;
+
+    var pl_rows0 = try pipeline_mod.Pipeline.init(gpa);
+    defer pl_rows0.deinit();
+    var screen_rows0 = screen_mod.ScreenState.init(0, 8);
+    feed(&pl_rows0, &screen_rows0, "\x09\x1b[2I\x1b[3Z");
+    try std.testing.expectEqual(@as(u16, 0), screen_rows0.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen_rows0.cursor_col);
+
+    var pl_cols0 = try pipeline_mod.Pipeline.init(gpa);
+    defer pl_cols0.deinit();
+    var screen_cols0 = screen_mod.ScreenState.init(8, 0);
+    screen_cols0.cursor_row = 3;
+    feed(&pl_cols0, &screen_cols0, "\x09\x1b[2I\x1b[3Z");
+    try std.testing.expectEqual(@as(u16, 3), screen_cols0.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen_cols0.cursor_col);
+
+    var pl_zero = try pipeline_mod.Pipeline.init(gpa);
+    defer pl_zero.deinit();
+    var screen_zero = screen_mod.ScreenState.init(0, 0);
+    feed(&pl_zero, &screen_zero, "\x09\x1b[2I\x1b[3Z");
+    try std.testing.expectEqual(@as(u16, 0), screen_zero.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen_zero.cursor_col);
+}
+
 // --- Runtime engine facade parity matrix ---
 
 const CellCheck = struct {
@@ -1788,6 +1814,48 @@ test "parity: zero-dim rows=0 cols=0 identically" {
     });
 }
 
+test "parity: zero-dim rows=0 tab commands identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "zero-dim rows=0 tabs",
+        .rows = 0,
+        .cols = 8,
+        .with_cells = false,
+        .input = "\x09\x1b[2I\x1b[3Z",
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: zero-dim cols=0 tab commands identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "zero-dim cols=0 tabs",
+        .rows = 8,
+        .cols = 0,
+        .with_cells = false,
+        .input = "\x09\x1b[2I\x1b[3Z",
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: zero-dim rows=0 cols=0 tab commands identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "zero-dim 0x0 tabs",
+        .rows = 0,
+        .cols = 0,
+        .with_cells = false,
+        .input = "\x09\x1b[2I\x1b[3Z",
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity: invalid erase mode maps to 0 identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2247,6 +2315,20 @@ test "parity-chunked: HT/CHT/CBT interleaving split across chunks remains identi
     });
 }
 
+test "parity-chunked: zero-dim tab commands split across chunks remain identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked zero-dim tabs",
+        .rows = 0,
+        .cols = 8,
+        .with_cells = false,
+        .chunks = &.{ "\x09", "\x1b[", "2", "I", "\x1b[3", "Z" },
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity-chunked: OSC BEL split across chunks is ignored identically" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -2679,6 +2761,17 @@ test "runtime: zero-dimension init is safe" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+}
+
+test "runtime: zero-dimension tab commands are safe and deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 0, 8);
+    defer engine.deinit();
+    engine.feedSlice("\x09\x1b[2I\x1b[3Z");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 }
 
 test "runtime: queuedEventCount after clear is zero" {
