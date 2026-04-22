@@ -46,6 +46,12 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 - Split-CSI interruption rule: if a CSI sequence is started and then another escape sequence begins before the first CSI final byte arrives, behavior is deterministic but stream-order dependent. The interrupted bytes are not retroactively reinterpreted as a completed prior CSI; they are handled exactly as parsed in order.
 - This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`) and tabulation CSI streams (`I` / `Z`).
 
+Interruption coverage index (`src/test/relay.zig`):
+- Direct replay: split-tab (`I`/`Z`) and split-private-mode (`?25`/`?7`) interruption scenarios around DECSTR bytes.
+- Parity (non-chunked): interrupted split-tab and split-private-mode streams produce identical direct/runtime end state.
+- Parity (chunked): interrupted split-tab and split-private-mode streams remain identical under chunk boundaries.
+- Runtime integration: interrupted split-tab and split-private-mode streams match deterministic cursor/cell/mode outcomes.
+
 ## Process Mapping Policy
 
 | Event variant | SemanticEvent emitted | Notes |
