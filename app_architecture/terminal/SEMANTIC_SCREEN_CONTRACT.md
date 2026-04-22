@@ -1,6 +1,6 @@
 # Semantic Screen Contract
 
-`SEMANTIC_SCREEN_CONTRACT` — updated at HT-053E. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
+`SEMANTIC_SCREEN_CONTRACT` — updated at HT-054A. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
 
 ## SemanticEvent Variants
 
@@ -21,6 +21,10 @@
 | `style_reset` | — | CSI 0m | Reset all style attributes to defaults |
 | `style_bold_on` | — | CSI 1m | Enable bold |
 | `style_bold_off` | — | CSI 22m | Disable bold |
+| `style_underline_on` | — | CSI 4m | Enable underline |
+| `style_underline_off` | — | CSI 24m | Disable underline |
+| `style_inverse_on` | — | CSI 7m | Enable inverse video |
+| `style_inverse_off` | — | CSI 27m | Disable inverse video |
 | `style_fg_color` | `u8` (0-16) | CSI 30-37,39,90-97m | Set foreground indexed color; 0=default, 1-8=basic colors, 9-16=bright ANSI |
 | `style_bg_color` | `u8` (0-16) | CSI 40-47,49,100-107m | Set background indexed color; 0=default, 1-8=basic colors, 9-16=bright ANSI |
 | `style_fg_256` | `u8` (0-255) | CSI 38;5;<n>m | Set foreground 256-color palette index |
@@ -75,19 +79,23 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
   - Erased cell attributes reset to defaults (bold=false, fg=0, bg=0).
 - Erase operations are no-ops when no cell buffer is present (`cells == null`); style state is unaffected.
 - Style operations update current-style state; subsequent text writes apply active style to each cell.
-  - `style_reset`: clears bold, restores foreground/background to defaults.
+  - `style_reset`: clears bold, underline, inverse, restores foreground/background to defaults.
   - `style_bold_on` / `style_bold_off`: toggle bold attribute.
+  - `style_underline_on` / `style_underline_off`: toggle underline attribute.
+  - `style_inverse_on` / `style_inverse_off`: toggle inverse video attribute.
 - `style_fg_color` / `style_bg_color`: set indexed color (payload 0=default, 1-8=basic colors, 9-16=bright ANSI); stored without truncation.
   - Style state is independent of cell content; does not affect non-text operations.
   - Style attributes on a cell are immutable after the cell is written; style state changes do not retroactively affect written cells.
-- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, fg=0, bg=0).
-- Style attribute storage uses u8 fields for fg/bg to preserve indexed colors (0-16) and 256-color indices (0-255) without truncation.
+- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, underline=false, inverse=false, fg=0, bg=0).
+- Style attribute storage uses u8 fields for fg/bg to preserve indexed colors (0-16) and 256-color indices (0-255) without truncation. Boolean flags for bold, underline, inverse stored separately.
 
 ## SGR (Style) Scope
 
 Implemented:
 - Reset (SGR 0)
 - Bold on/off (SGR 1, 22)
+- Underline on/off (SGR 4, 24)
+- Inverse on/off (SGR 7, 27)
 - Foreground basic colors (SGR 30-37, 39)
 - Background basic colors (SGR 40-47, 49)
 - Foreground bright ANSI colors (SGR 90-97)

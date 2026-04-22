@@ -26,6 +26,11 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 | `HT-053C` | `done` | Screen apply + reset invariants (verification: no code delta; bright colors apply through existing handlers). |
 | `HT-053D` | `done` | Relay fixtures for bright ANSI flow. |
 | `HT-053E` | `done` | Contract/queue sync close (closing: no code delta; HT-053A-D complete, scope frozen). |
+| `HT-054A` | `ready` | Queue + contract scope: underline and inverse. |
+| `HT-054B` | `ready` | Semantic mapping for underline/inverse SGR. |
+| `HT-054C` | `ready` | Screen apply + cell attrs for underline/inverse. |
+| `HT-054D` | `ready` | Relay fixtures for underline/inverse flow. |
+| `HT-054E` | `ready` | Contract/queue sync close. |
 
 ## Guardrails
 
