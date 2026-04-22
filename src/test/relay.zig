@@ -685,9 +685,9 @@ test "replay: text with fg color changes" {
     feed(&pl, &screen, "green");
     feed(&pl, &screen, "\x1b[39m");
     feed(&pl, &screen, "none");
-    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[0].fg);
-    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[3].fg);
-    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[8].fg);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[3].fg);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[8].fg);
 }
 
 test "replay: style reset clears attributes" {
@@ -702,9 +702,9 @@ test "replay: style reset clears attributes" {
     feed(&pl, &screen, "\x1b[0m");
     feed(&pl, &screen, "reset");
     try std.testing.expectEqual(true, screen.cells_attr.?[0].bold);
-    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[0].fg);
     try std.testing.expectEqual(false, screen.cells_attr.?[6].bold);
-    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[6].fg);
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[6].fg);
 }
 
 test "replay: mixed cursor move and style and text" {
@@ -721,5 +721,44 @@ test "replay: mixed cursor move and style and text" {
     try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
     try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
     try std.testing.expectEqual(true, screen.cells_attr.?[20].bold);
-    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[20].fg);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[20].fg);
+}
+
+test "replay: parser CSI 38;5;n then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[38;5;196m");
+    feed(&pl, &screen, "red");
+    try std.testing.expectEqual(@as(u8, 196), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 196), screen.cells_attr.?[1].fg);
+    try std.testing.expectEqual(@as(u8, 196), screen.cells_attr.?[2].fg);
+}
+
+test "replay: parser CSI 48;5;n then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[48;5;21m");
+    feed(&pl, &screen, "bg");
+    try std.testing.expectEqual(@as(u8, 21), screen.cells_attr.?[0].bg);
+    try std.testing.expectEqual(@as(u8, 21), screen.cells_attr.?[1].bg);
+}
+
+test "replay: mixed cursor and 256-color style" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[38;5;226m");
+    feed(&pl, &screen, "yellow");
+    feed(&pl, &screen, "\x1b[2;1H");
+    feed(&pl, &screen, "next");
+    try std.testing.expectEqual(@as(u8, 226), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 226), screen.cells_attr.?[20].fg);
 }
