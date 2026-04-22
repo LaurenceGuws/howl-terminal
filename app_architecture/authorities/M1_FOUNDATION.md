@@ -36,14 +36,25 @@ The `howl_terminal` module root orders the stable M1 seam first:
 
 The `Pipeline` orchestration layer is part of the M1 foundation: `clear` drops queued bridge work without screen application; `reset` clears both the queue and parser partial state; each `applyToScreen` drains the queue once and then clears it, so repeated apply without new input is a no-op on `ScreenState`. Full wording lives under “Pipeline seam” in `app_architecture/contracts/SEMANTIC_SCREEN.md`.
 
-## M1 edge determinism (cursor/control boundaries)
+## M1 edge and zero-dimension determinism
 
-Cursor and control behavior is deterministic at screen boundaries:
-- Cursor movement (CUU/CUD/CUF/CUB) saturates at edges; repeated moves beyond bounds remain clamped
-- Control sequences (CR/LF/BS) maintain column/row invariants: CR resets column, LF advances row, BS moves left
-- Behavior at edges is idempotent: further moves in the saturated direction do not change state
-- Zero-dimension screens (rows=0 or cols=0) are safe: pipeline operations (clear/reset/apply) handle them without corruption
-- All boundary conditions are covered by integration replay tests in `src/test/relay.zig` under “edge determinism” section
+M1 guarantees deterministic behavior at all boundary conditions:
+
+**Cursor and control saturation:**
+- Cursor movement (CUU/CUD/CUF/CUB) saturates at edges; repeated moves remain clamped
+- Control sequences (CR/LF/BS) maintain invariants and saturate at boundaries
+- Behavior at edges is idempotent: further moves do not change state
+
+**Zero-dimension policy:**
+- Text writes are no-ops when no cell plane exists (`rows=0` or `cols=0`)
+- Erase operations are no-ops when no cell buffer exists (`cells == null`)
+- Cursor arithmetic continues to work; saturates to origin on fully zero screens
+- Pipeline clear/reset/apply remain safe and deterministic; no corruption possible
+
+**Test coverage:**
+- Boundary saturation tested in `src/test/relay.zig` “edge determinism” section
+- Zero-dimension variants (rows=0×cols>0, rows>0×cols=0, rows=0×cols=0) tested in “zero-dim” section
+- All cursor/control/erase operations verified safe and deterministic
 
 ## Remaining M1 Outcomes
 
