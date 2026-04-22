@@ -48,6 +48,7 @@ pub const ScreenState = struct {
             @memset(buf, 0);
             break :blk buf;
         } else null;
+        errdefer if (cells) |c| allocator.free(c);
         const cells_attr: ?[]CellAttr = if (size > 0) blk: {
             const buf = try allocator.alloc(CellAttr, size);
             @memset(buf, .{ .bold = false, .fg = 0, .bg = 0, ._unused = 0 });
