@@ -840,3 +840,210 @@ test "replay: control BEL does not move cursor or alter cells" {
     try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 1));
     try std.testing.expectEqual(@as(u21, 'c'), screen.cellAt(0, 2));
 }
+
+// --- Edge determinism tests: cursor/control saturation at boundaries ---
+
+test "edge: CUU repeated moves from top clamps at row 0" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 3;
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+}
+
+test "edge: CUD repeated moves from bottom clamps at last row" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(10, 80);
+    screen.cursor_row = 7;
+    feed(&pl, &screen, "\x1b[1B");
+    try std.testing.expectEqual(@as(u16, 8), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1B");
+    try std.testing.expectEqual(@as(u16, 9), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1B");
+    try std.testing.expectEqual(@as(u16, 9), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[1B");
+    try std.testing.expectEqual(@as(u16, 9), screen.cursor_row);
+}
+
+test "edge: CUF repeated moves from right clamps at last column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 12);
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x1b[1C");
+    try std.testing.expectEqual(@as(u16, 11), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1C");
+    try std.testing.expectEqual(@as(u16, 11), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1C");
+    try std.testing.expectEqual(@as(u16, 11), screen.cursor_col);
+}
+
+test "edge: CUB repeated moves from left clamps at column 0" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_col = 3;
+    feed(&pl, &screen, "\x1b[1D");
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1D");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1D");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1D");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "edge: mixed cursor moves (up/down/left/right) maintain saturation at edges" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(8, 8);
+    feed(&pl, &screen, "\x1b[999A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[999B");
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_row);
+    feed(&pl, &screen, "\x1b[999D");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[999C");
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[5A\x1b[2C");
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[999D");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[1A");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+}
+
+// --- Edge determinism tests: CR/LF/BS interaction on edges ---
+
+test "edge: CR at column 0 leaves cursor unchanged" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    screen.cursor_row = 2;
+    screen.cursor_col = 0;
+    feed(&pl, &screen, "\x0D");
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x0D");
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "edge: LF at bottom row clamps at last row" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 5, 20);
+    defer screen.deinit(gpa);
+    screen.cursor_row = 4;
+    screen.cursor_col = 5;
+    feed(&pl, &screen, "\x0A");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 5), screen.cursor_col);
+    feed(&pl, &screen, "\x0A");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+    feed(&pl, &screen, "\x0A");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+}
+
+test "edge: BS at column 0 clamps at column 0" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    screen.cursor_row = 1;
+    screen.cursor_col = 0;
+    feed(&pl, &screen, "\x08");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x08");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "edge: CR then LF sequences from edge positions" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 5, 10);
+    defer screen.deinit(gpa);
+    screen.cursor_col = 9;
+    screen.cursor_row = 0;
+    feed(&pl, &screen, "\x0D\x0A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    screen.cursor_row = 4;
+    feed(&pl, &screen, "\x0D\x0A");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+}
+
+test "edge: BS then CUB sequence does not corrupt cursor" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    screen.cursor_col = 5;
+    feed(&pl, &screen, "\x08\x08\x08\x08\x08");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x1b[3D");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x08\x08\x08");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "edge: CR does not move row; LF only moves row; BS only moves column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 8, 15);
+    defer screen.deinit(gpa);
+    screen.cursor_row = 3;
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x0D");
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x0A");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+    feed(&pl, &screen, "\x08");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+// --- Edge determinism tests: zero-dimension screens remain safe ---
+
+test "edge: zero-dimension pipeline clear and reset are safe" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(0, 0);
+    pl.feedSlice("test\x1b[5A");
+    pl.clear();
+    try std.testing.expect(pl.isEmpty());
+    pl.applyToScreen(&screen);
+    pl.feedSlice("more\x1b[1B");
+    pl.reset();
+    try std.testing.expect(pl.isEmpty());
+    pl.applyToScreen(&screen);
+}
