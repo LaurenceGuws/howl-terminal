@@ -830,6 +830,77 @@ test "replay: DECSTR resets visible screen state" {
     try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 0));
 }
 
+test "replay: split CHT interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_col);
+    pl.feedSlice("\x1b[2");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("Ix");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, '!'), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
+    try std.testing.expect(pl.isEmpty());
+}
+
+test "replay: split CHT after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_col);
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("\x1b[2");
+    pl.feedSlice("Ix");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 17), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 16));
+    try std.testing.expect(pl.isEmpty());
+}
+
+test "replay: split CBT interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "a\x1b[2I");
+    try std.testing.expectEqual(@as(u16, 16), screen.cursor_col);
+    pl.feedSlice("\x1b[2");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("Zy");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 19), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'y'), screen.cellAt(0, 19));
+    try std.testing.expect(pl.isEmpty());
+}
+
+test "replay: split CBT after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "a\x1b[2I");
+    try std.testing.expectEqual(@as(u16, 16), screen.cursor_col);
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("\x1b[2");
+    pl.feedSlice("Zy");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'y'), screen.cellAt(0, 0));
+    try std.testing.expect(pl.isEmpty());
+}
+
 test "replay: DEC private cursor visibility toggles mode state" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
