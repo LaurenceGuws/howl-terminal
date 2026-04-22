@@ -1,7 +1,7 @@
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 
-pub const CoreEvent = bridge_mod.CoreEvent;
+pub const Event = bridge_mod.Event;
 
 pub const SemanticEvent = union(enum) {
     cursor_up: u16,
@@ -16,7 +16,7 @@ pub const SemanticEvent = union(enum) {
     backspace,
 };
 
-pub fn process(event: CoreEvent) ?SemanticEvent {
+pub fn process(event: Event) ?SemanticEvent {
     switch (event) {
         .style_change => |sc| return processCsi(sc.final, sc.params, sc.param_count),
         .text => |s| return SemanticEvent{ .write_text = s },
@@ -56,11 +56,11 @@ fn paramOrDefault1(v: i32) u16 {
     return @intCast(v);
 }
 
-fn makeStyleChange(final: u8, p0: i32, p1: i32, count: u8) CoreEvent {
+fn makeStyleChange(final: u8, p0: i32, p1: i32, count: u8) Event {
     var params = [_]i32{0} ** 16;
     params[0] = p0;
     params[1] = p1;
-    return CoreEvent{ .style_change = .{ .final = final, .params = params, .param_count = count } };
+    return Event{ .style_change = .{ .final = final, .params = params, .param_count = count } };
 }
 
 test "semantic: CUU explicit count" {
@@ -105,34 +105,34 @@ test "semantic: non-cursor CSI returns null" {
 }
 
 test "semantic: text event maps to write_text" {
-    const sem = process(CoreEvent{ .text = "hello" }) orelse return error.NoEvent;
+    const sem = process(Event{ .text = "hello" }) orelse return error.NoEvent;
     try std.testing.expectEqualSlices(u8, "hello", sem.write_text);
 }
 
 test "semantic: codepoint event maps to write_codepoint" {
-    const sem = process(CoreEvent{ .codepoint = 0xE9 }) orelse return error.NoEvent;
+    const sem = process(Event{ .codepoint = 0xE9 }) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u21, 0xE9), sem.write_codepoint);
 }
 
 test "semantic: LF maps to line_feed" {
-    const sem = process(CoreEvent{ .control = 0x0A }) orelse return error.NoEvent;
+    const sem = process(Event{ .control = 0x0A }) orelse return error.NoEvent;
     try std.testing.expect(sem == .line_feed);
 }
 
 test "semantic: CR maps to carriage_return" {
-    const sem = process(CoreEvent{ .control = 0x0D }) orelse return error.NoEvent;
+    const sem = process(Event{ .control = 0x0D }) orelse return error.NoEvent;
     try std.testing.expect(sem == .carriage_return);
 }
 
 test "semantic: BS maps to backspace" {
-    const sem = process(CoreEvent{ .control = 0x08 }) orelse return error.NoEvent;
+    const sem = process(Event{ .control = 0x08 }) orelse return error.NoEvent;
     try std.testing.expect(sem == .backspace);
 }
 
 test "semantic: invalid_sequence returns null" {
-    try std.testing.expectEqual(@as(?SemanticEvent, null), process(CoreEvent.invalid_sequence));
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event.invalid_sequence));
 }
 
 test "semantic: title_set returns null" {
-    try std.testing.expectEqual(@as(?SemanticEvent, null), process(CoreEvent{ .title_set = "My Title" }));
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event{ .title_set = "My Title" }));
 }

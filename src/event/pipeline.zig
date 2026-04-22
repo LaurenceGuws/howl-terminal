@@ -4,16 +4,16 @@ const bridge_mod = @import("bridge.zig");
 const semantic_mod = @import("semantic.zig");
 const screen_mod = @import("../screen/state.zig");
 
-pub const CoreEvent = bridge_mod.CoreEvent;
+pub const Event = bridge_mod.Event;
 
 pub const Pipeline = struct {
     allocator: std.mem.Allocator,
-    bridge: *bridge_mod.ParserCoreBridge,
+    bridge: *bridge_mod.Bridge,
     parser: parser_mod.Parser,
 
     pub fn init(allocator: std.mem.Allocator) !Pipeline {
-        const bridge = try allocator.create(bridge_mod.ParserCoreBridge);
-        bridge.* = bridge_mod.ParserCoreBridge.init(allocator);
+        const bridge = try allocator.create(bridge_mod.Bridge);
+        bridge.* = bridge_mod.Bridge.init(allocator);
         errdefer {
             bridge.deinit();
             allocator.destroy(bridge);
@@ -36,7 +36,7 @@ pub const Pipeline = struct {
         self.parser.handleSlice(bytes);
     }
 
-    pub fn events(self: *const Pipeline) []const CoreEvent {
+    pub fn events(self: *const Pipeline) []const Event {
         return self.bridge.events.items;
     }
 

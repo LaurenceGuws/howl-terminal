@@ -247,7 +247,7 @@ test "parser: CSI with multiple parameters exact order" {
 
 test "bridge: maps ASCII text to text event" {
     const gpa = std.testing.allocator;
-    var bridge = bridge_mod.ParserCoreBridge.init(gpa);
+    var bridge = bridge_mod.Bridge.init(gpa);
     defer bridge.deinit();
     var parser = try parser_mod.Parser.init(gpa, bridge.toSink());
     defer parser.deinit();
@@ -259,7 +259,7 @@ test "bridge: maps ASCII text to text event" {
 
 test "bridge: maps UTF-8 codepoint to codepoint event" {
     const gpa = std.testing.allocator;
-    var bridge = bridge_mod.ParserCoreBridge.init(gpa);
+    var bridge = bridge_mod.Bridge.init(gpa);
     defer bridge.deinit();
     var parser = try parser_mod.Parser.init(gpa, bridge.toSink());
     defer parser.deinit();
@@ -271,7 +271,7 @@ test "bridge: maps UTF-8 codepoint to codepoint event" {
 
 test "bridge: maps control byte to control event" {
     const gpa = std.testing.allocator;
-    var bridge = bridge_mod.ParserCoreBridge.init(gpa);
+    var bridge = bridge_mod.Bridge.init(gpa);
     defer bridge.deinit();
     var parser = try parser_mod.Parser.init(gpa, bridge.toSink());
     defer parser.deinit();
@@ -283,7 +283,7 @@ test "bridge: maps control byte to control event" {
 
 test "bridge: maps CSI sequence to style_change event" {
     const gpa = std.testing.allocator;
-    var bridge = bridge_mod.ParserCoreBridge.init(gpa);
+    var bridge = bridge_mod.Bridge.init(gpa);
     defer bridge.deinit();
     var parser = try parser_mod.Parser.init(gpa, bridge.toSink());
     defer parser.deinit();
@@ -296,7 +296,7 @@ test "bridge: maps CSI sequence to style_change event" {
 
 test "bridge: maps OSC to title_set event" {
     const gpa = std.testing.allocator;
-    var bridge = bridge_mod.ParserCoreBridge.init(gpa);
+    var bridge = bridge_mod.Bridge.init(gpa);
     defer bridge.deinit();
     var parser = try parser_mod.Parser.init(gpa, bridge.toSink());
     defer parser.deinit();

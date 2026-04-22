@@ -3,7 +3,7 @@ const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");
 const csi_mod = @import("../parser/csi.zig");
 
-pub const CoreEvent = union(enum) {
+pub const Event = union(enum) {
     text: []const u8,
     codepoint: u21,
     control: u8,
@@ -16,31 +16,31 @@ pub const CoreEvent = union(enum) {
     invalid_sequence,
 };
 
-pub const ParserCoreBridge = struct {
+pub const Bridge = struct {
     allocator: std.mem.Allocator,
-    events: std.ArrayList(CoreEvent),
+    events: std.ArrayList(Event),
 
-    pub fn init(allocator: std.mem.Allocator) ParserCoreBridge {
+    pub fn init(allocator: std.mem.Allocator) Bridge {
         return .{
             .allocator = allocator,
-            .events = std.ArrayList(CoreEvent).initCapacity(allocator, 32) catch unreachable,
+            .events = std.ArrayList(Event).initCapacity(allocator, 32) catch unreachable,
         };
     }
 
-    pub fn deinit(self: *ParserCoreBridge) void {
+    pub fn deinit(self: *Bridge) void {
         self.clear();
         self.events.deinit(self.allocator);
     }
 
-    pub fn len(self: *const ParserCoreBridge) usize {
+    pub fn len(self: *const Bridge) usize {
         return self.events.items.len;
     }
 
-    pub fn isEmpty(self: *const ParserCoreBridge) bool {
+    pub fn isEmpty(self: *const Bridge) bool {
         return self.events.items.len == 0;
     }
 
-    pub fn clear(self: *ParserCoreBridge) void {
+    pub fn clear(self: *Bridge) void {
         for (self.events.items) |event| {
             switch (event) {
                 .text, .title_set => |data| self.allocator.free(data),
@@ -50,12 +50,12 @@ pub const ParserCoreBridge = struct {
         self.events.clearRetainingCapacity();
     }
 
-    pub fn drainInto(self: *ParserCoreBridge, dest: *std.ArrayList(CoreEvent), dest_allocator: std.mem.Allocator) !void {
+    pub fn drainInto(self: *Bridge, dest: *std.ArrayList(Event), dest_allocator: std.mem.Allocator) !void {
         try dest.appendSlice(dest_allocator, self.events.items);
         self.events.clearRetainingCapacity();
     }
 
-    pub fn toSink(self: *ParserCoreBridge) parser_mod.Sink {
+    pub fn toSink(self: *Bridge) parser_mod.Sink {
         return .{
             .ptr = self,
             .onStreamEventFn = onStreamEvent,
@@ -69,24 +69,24 @@ pub const ParserCoreBridge = struct {
     }
 
     fn onStreamEvent(ptr: *anyopaque, event: stream_mod.StreamEvent) void {
-        const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
+        const self: *Bridge = @ptrCast(@alignCast(ptr));
         const ce = switch (event) {
-            .codepoint => |cp| CoreEvent{ .codepoint = cp },
-            .control => |ctrl| CoreEvent{ .control = ctrl },
-            .invalid => CoreEvent.invalid_sequence,
+            .codepoint => |cp| Event{ .codepoint = cp },
+            .control => |ctrl| Event{ .control = ctrl },
+            .invalid => Event.invalid_sequence,
         };
         self.events.append(self.allocator, ce) catch {};
     }
 
     fn onAsciiSlice(ptr: *anyopaque, bytes: []const u8) void {
-        const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
+        const self: *Bridge = @ptrCast(@alignCast(ptr));
         const owned = self.allocator.dupe(u8, bytes) catch return;
-        self.events.append(self.allocator, CoreEvent{ .text = owned }) catch {};
+        self.events.append(self.allocator, Event{ .text = owned }) catch {};
     }
 
     fn onCsi(ptr: *anyopaque, action: csi_mod.CsiAction) void {
-        const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
-        self.events.append(self.allocator, CoreEvent{
+        const self: *Bridge = @ptrCast(@alignCast(ptr));
+        self.events.append(self.allocator, Event{
             .style_change = .{
                 .final = action.final,
                 .params = action.params,
@@ -96,10 +96,10 @@ pub const ParserCoreBridge = struct {
     }
 
     fn onOsc(ptr: *anyopaque, data: []const u8, term: parser_mod.OscTerminator) void {
-        const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
+        const self: *Bridge = @ptrCast(@alignCast(ptr));
         _ = term;
         const owned = self.allocator.dupe(u8, data) catch return;
-        self.events.append(self.allocator, CoreEvent{ .title_set = owned }) catch {};
+        self.events.append(self.allocator, Event{ .title_set = owned }) catch {};
     }
 
     fn onApc(_: *anyopaque, _: []const u8) void {}
