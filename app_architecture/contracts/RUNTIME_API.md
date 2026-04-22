@@ -67,6 +67,8 @@ Authority for `src/runtime/engine.zig` and the root `runtime` export.
 - Ignored-event paths do not mutate screen state through `Engine`.
 - Zero-dimension behavior matches `ScreenState` and `Pipeline` contracts.
 - `reset()` and `resetScreen()` are intentionally separate: parser/queue reset does not clear screen, and screen reset does not clear parser/queue state.
+- `reset()` preserves current screen mode state (`cursor_visible`, `auto_wrap`) while clearing parser and queued events.
+- `resetScreen()` restores screen defaults (`cursor_visible=true`, `auto_wrap=true`, origin cursor, cleared owned cells) without clearing parser/queue state.
 - `screen()` returns a const reference; M1 does not expose mutable screen access through the runtime facade.
 
 ## Non-Goals

@@ -1293,6 +1293,8 @@ const ParityScenario = struct {
     expected_queue_depth: usize,
     check_cursor_visible: bool = false,
     expected_cursor_visible: bool = true,
+    check_auto_wrap: bool = false,
+    expected_auto_wrap: bool = true,
     check_cells: bool = false,
     cell_checks: []const CellCheck = &.{},
 };
@@ -1308,6 +1310,8 @@ const ParityChunkScenario = struct {
     expected_queue_depth: usize,
     check_cursor_visible: bool = false,
     expected_cursor_visible: bool = true,
+    check_auto_wrap: bool = false,
+    expected_auto_wrap: bool = true,
     check_cells: bool = false,
     cell_checks: []const CellCheck = &.{},
 };
@@ -1342,6 +1346,10 @@ fn runParityScenario(gpa: std.mem.Allocator, scenario: ParityScenario) !void {
     if (scenario.check_cursor_visible) {
         try std.testing.expectEqual(scenario.expected_cursor_visible, direct_screen.cursor_visible);
         try std.testing.expectEqual(scenario.expected_cursor_visible, runtime_engine.screen().cursor_visible);
+    }
+    if (scenario.check_auto_wrap) {
+        try std.testing.expectEqual(scenario.expected_auto_wrap, direct_screen.auto_wrap);
+        try std.testing.expectEqual(scenario.expected_auto_wrap, runtime_engine.screen().auto_wrap);
     }
 
     if (scenario.check_cells) {
@@ -1385,6 +1393,10 @@ fn runParityChunkScenario(gpa: std.mem.Allocator, scenario: ParityChunkScenario)
     if (scenario.check_cursor_visible) {
         try std.testing.expectEqual(scenario.expected_cursor_visible, direct_screen.cursor_visible);
         try std.testing.expectEqual(scenario.expected_cursor_visible, runtime_engine.screen().cursor_visible);
+    }
+    if (scenario.check_auto_wrap) {
+        try std.testing.expectEqual(scenario.expected_auto_wrap, direct_screen.auto_wrap);
+        try std.testing.expectEqual(scenario.expected_auto_wrap, runtime_engine.screen().auto_wrap);
     }
 
     if (scenario.check_cells) {
@@ -1909,6 +1921,22 @@ test "parity: horizontal tab advances to default stops identically" {
     });
 }
 
+test "parity: DEC private auto-wrap disable remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "private auto-wrap disable",
+        .rows = 2,
+        .cols = 5,
+        .with_cells = true,
+        .input = "\x1b[?7l",
+        .expected_row = 0,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+        .check_auto_wrap = true,
+        .expected_auto_wrap = false,
+    });
+}
+
 test "parity-chunked: UTF-8 split decode with CRLF remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -2060,6 +2088,8 @@ test "parity-chunked: DEC private auto-wrap mode split across chunks remains ide
         .expected_row = 1,
         .expected_col = 1,
         .expected_queue_depth = 0,
+        .check_auto_wrap = true,
+        .expected_auto_wrap = true,
         .check_cells = true,
         .cell_checks = &.{
             .{ .row = 0, .col = 0, .codepoint = 'a' },
@@ -2146,16 +2176,38 @@ test "runtime: resetScreen clears screen without clearing queued parser events" 
     engine.feedSlice("abcde");
     engine.apply();
     try std.testing.expectEqual(@as(u21, 'a'), engine.screen().cellAt(0, 0));
+    engine.feedSlice("\x1b[?25l\x1b[?7l");
+    engine.apply();
+    try std.testing.expect(!engine.screen().cursor_visible);
+    try std.testing.expect(!engine.screen().auto_wrap);
     engine.feedSlice("z");
     try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
     engine.resetScreen();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
     try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(0, 0));
+    try std.testing.expect(engine.screen().cursor_visible);
+    try std.testing.expect(engine.screen().auto_wrap);
     try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
     engine.apply();
     try std.testing.expectEqual(@as(u21, 'z'), engine.screen().cellAt(0, 0));
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: reset clears queue/parser without mutating screen modes" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 5);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[?25l\x1b[?7l");
+    engine.apply();
+    try std.testing.expect(!engine.screen().cursor_visible);
+    try std.testing.expect(!engine.screen().auto_wrap);
+    engine.feedSlice("abc\x1b[");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.reset();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    try std.testing.expect(!engine.screen().cursor_visible);
+    try std.testing.expect(!engine.screen().auto_wrap);
 }
 
 test "runtime: cursor move via apply matches direct pipeline" {
