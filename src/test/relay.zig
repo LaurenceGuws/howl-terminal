@@ -413,6 +413,78 @@ test "replay: pipeline reset clears queued events and partial CSI" {
     try std.testing.expectEqual(@as(u21, 0), screen.cellAt(10, 1));
 }
 
+test "replay: pipeline clear preserves partial CHT parser state" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    pl.feedSlice("abc");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_col);
+    pl.feedSlice("\x1b[2");
+    pl.clear();
+    try std.testing.expect(pl.isEmpty());
+    pl.feedSlice("Ix");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 17), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 16));
+    try std.testing.expect(pl.isEmpty());
+}
+
+test "replay: pipeline clear preserves partial CBT parser state" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    pl.feedSlice("a\x1b[2I");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 16), screen.cursor_col);
+    pl.feedSlice("\x1b[2");
+    pl.clear();
+    try std.testing.expect(pl.isEmpty());
+    pl.feedSlice("Zy");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'y'), screen.cellAt(0, 0));
+    try std.testing.expect(pl.isEmpty());
+}
+
+test "replay: pipeline reset drops partial CHT parser state" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    pl.feedSlice("\x1b[2");
+    pl.reset();
+    try std.testing.expect(pl.isEmpty());
+    pl.feedSlice("Iw");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'I'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'w'), screen.cellAt(0, 1));
+}
+
+test "replay: pipeline reset drops partial CBT parser state" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    pl.feedSlice("a\x1b[2I");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 16), screen.cursor_col);
+    pl.feedSlice("\x1b[2");
+    pl.reset();
+    try std.testing.expect(pl.isEmpty());
+    pl.feedSlice("Zv");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 18), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'v'), screen.cellAt(0, 17));
+}
+
 test "replay: applyToScreen drains bridge once repeat apply is no-op" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
