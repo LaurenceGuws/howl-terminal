@@ -593,3 +593,68 @@ test "replay: sequence of moves composes correctly" {
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
 }
+
+test "replay: CSI K erases from cursor to end of line" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "hello");
+    screen.cursor_col = 2;
+    feed(&pl, &screen, "\x1b[K");
+    try std.testing.expectEqual(@as(u21, 'h'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'e'), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u16, 2), screen.cursor_col);
+}
+
+test "replay: CSI J erases from cursor to end of screen" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 3, 5);
+    defer screen.deinit(gpa);
+    screen.cursor_row = 0; screen.cursor_col = 0;
+    feed(&pl, &screen, "AAAAA");
+    screen.cursor_row = 1; screen.cursor_col = 0;
+    feed(&pl, &screen, "BBBBB");
+    screen.cursor_row = 2; screen.cursor_col = 0;
+    feed(&pl, &screen, "CCCCC");
+    screen.cursor_row = 1; screen.cursor_col = 2;
+    feed(&pl, &screen, "\x1b[J");
+    try std.testing.expectEqual(@as(u21, 'A'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), screen.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(1, 2));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(2, 0));
+}
+
+test "replay: cursor move then CSI K erase to end of line" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abcdef");
+    feed(&pl, &screen, "\x1b[1;4H");
+    feed(&pl, &screen, "\x1b[K");
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'c'), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 5));
+}
+
+test "replay: existing text and cursor paths unaffected by erase additions" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "hello\x0D\x0Aworld");
+    try std.testing.expectEqual(@as(u21, 'h'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'w'), screen.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 5), screen.cursor_col);
+}
