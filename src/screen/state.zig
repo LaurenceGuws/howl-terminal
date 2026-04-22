@@ -23,6 +23,8 @@ const CellAttr = struct {
     bg: u8 = 0,
     fg_rgb: ?Rgb = null,
     bg_rgb: ?Rgb = null,
+    underline_color: ?u8 = null,
+    underline_color_rgb: ?Rgb = null,
 };
 
 pub const ScreenState = struct {
@@ -42,6 +44,8 @@ pub const ScreenState = struct {
     current_bg: u8,
     current_fg_rgb: ?Rgb = null,
     current_bg_rgb: ?Rgb = null,
+    current_underline_color: ?u8 = null,
+    current_underline_color_rgb: ?Rgb = null,
 
     pub fn init(rows: u16, cols: u16) ScreenState {
         return .{
@@ -61,6 +65,8 @@ pub const ScreenState = struct {
             .current_bg = 0,
             .current_fg_rgb = null,
             .current_bg_rgb = null,
+            .current_underline_color = null,
+            .current_underline_color_rgb = null,
         };
     }
 
@@ -74,7 +80,7 @@ pub const ScreenState = struct {
         errdefer if (cells) |c| allocator.free(c);
         const cells_attr: ?[]CellAttr = if (size > 0) blk: {
             const buf = try allocator.alloc(CellAttr, size);
-            @memset(buf, .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null });
+            @memset(buf, .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null, .underline_color = null, .underline_color_rgb = null });
             break :blk buf;
         } else null;
         return .{
@@ -94,6 +100,8 @@ pub const ScreenState = struct {
             .current_bg = 0,
             .current_fg_rgb = null,
             .current_bg_rgb = null,
+            .current_underline_color = null,
+            .current_underline_color_rgb = null,
         };
     }
 
@@ -142,6 +150,8 @@ pub const ScreenState = struct {
                 self.current_bg = 0;
                 self.current_fg_rgb = null;
                 self.current_bg_rgb = null;
+                self.current_underline_color = null;
+                self.current_underline_color_rgb = null;
             },
             .style_bold_on => self.current_bold = true,
             .style_bold_off => self.current_bold = false,
@@ -161,6 +171,18 @@ pub const ScreenState = struct {
             .style_bg_256 => |color| self.current_bg = color,
             .style_fg_rgb => |rgb| self.current_fg_rgb = rgb,
             .style_bg_rgb => |rgb| self.current_bg_rgb = rgb,
+            .style_underline_color_256 => |color| {
+                self.current_underline_color = color;
+                self.current_underline_color_rgb = null;
+            },
+            .style_underline_color_rgb => |rgb| {
+                self.current_underline_color = null;
+                self.current_underline_color_rgb = rgb;
+            },
+            .style_underline_color_reset => {
+                self.current_underline_color = null;
+                self.current_underline_color_rgb = null;
+            },
             .style_operations => |batch| {
                 var i: u8 = 0;
                 while (i < batch.count) : (i += 1) {
@@ -177,6 +199,8 @@ pub const ScreenState = struct {
                             self.current_bg = 0;
                             self.current_fg_rgb = null;
                             self.current_bg_rgb = null;
+                            self.current_underline_color = null;
+                            self.current_underline_color_rgb = null;
                         },
                         .bold_on => self.current_bold = true,
                         .bold_off => self.current_bold = false,
@@ -196,6 +220,18 @@ pub const ScreenState = struct {
                         .bg_256 => |color| self.current_bg = color,
                         .fg_rgb => |rgb| self.current_fg_rgb = rgb,
                         .bg_rgb => |rgb| self.current_bg_rgb = rgb,
+                        .underline_color_256 => |color| {
+                            self.current_underline_color = color;
+                            self.current_underline_color_rgb = null;
+                        },
+                        .underline_color_rgb => |rgb| {
+                            self.current_underline_color = null;
+                            self.current_underline_color_rgb = rgb;
+                        },
+                        .underline_color_reset => {
+                            self.current_underline_color = null;
+                            self.current_underline_color_rgb = null;
+                        },
                     }
                 }
             },
@@ -206,7 +242,7 @@ pub const ScreenState = struct {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
         const cursor_pos = @as(usize, self.cursor_row) * self.cols + self.cursor_col;
-        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
+        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null, .underline_color = null, .underline_color_rgb = null };
         switch (mode) {
             0 => {
                 @memset(c[cursor_pos..], 0);
@@ -228,7 +264,7 @@ pub const ScreenState = struct {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
         const row_start = @as(usize, self.cursor_row) * self.cols;
-        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null };
+        const default_attr: CellAttr = .{ .bold = false, .dim = false, .underline = false, .blink = false, .inverse = false, .strikethrough = false, .fg = 0, .bg = 0, .fg_rgb = null, .bg_rgb = null, .underline_color = null, .underline_color_rgb = null };
         switch (mode) {
             0 => {
                 @memset(c[row_start + self.cursor_col .. row_start + self.cols], 0);
@@ -264,6 +300,8 @@ pub const ScreenState = struct {
                 .bg = self.current_bg,
                 .fg_rgb = self.current_fg_rgb,
                 .bg_rgb = self.current_bg_rgb,
+                .underline_color = self.current_underline_color,
+                .underline_color_rgb = self.current_underline_color_rgb,
             };
         }
         if (self.cursor_col < self.cols - 1) {
@@ -515,6 +553,8 @@ test "screen: style_reset clears all style state" {
     try std.testing.expectEqual(false, s.current_strikethrough);
     try std.testing.expectEqual(@as(u8, 0), s.current_fg);
     try std.testing.expectEqual(@as(u8, 0), s.current_bg);
+    try std.testing.expectEqual(@as(?u8, null), s.current_underline_color);
+    try std.testing.expectEqual(@as(?Rgb, null), s.current_underline_color_rgb);
 }
 
 test "screen: multiple writes preserve style across cells" {
@@ -719,6 +759,60 @@ test "screen: style_operations blink_off clears blink flag" {
     s.apply(SemanticEvent{ .style_operations = .{ .ops = ops, .count = 1 } });
     s.apply(SemanticEvent{ .write_text = "x" });
     try std.testing.expectEqual(false, s.cells_attr.?[0].blink);
+}
+
+test "screen: underline color indexed persists to written cell" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_underline_on);
+    s.apply(SemanticEvent{ .style_underline_color_256 = 45 });
+    s.apply(SemanticEvent{ .write_text = "u" });
+    const attr = s.cells_attr.?[0];
+    try std.testing.expectEqual(true, attr.underline);
+    try std.testing.expectEqual(@as(?u8, 45), attr.underline_color);
+    try std.testing.expectEqual(@as(?Rgb, null), attr.underline_color_rgb);
+}
+
+test "screen: underline color rgb persists to written cell" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_underline_on);
+    s.apply(SemanticEvent{ .style_underline_color_rgb = .{ .r = 10, .g = 20, .b = 30 } });
+    s.apply(SemanticEvent{ .write_text = "u" });
+    const attr = s.cells_attr.?[0];
+    try std.testing.expectEqual(true, attr.underline);
+    try std.testing.expectEqual(@as(?u8, null), attr.underline_color);
+    try std.testing.expect(attr.underline_color_rgb != null);
+    try std.testing.expectEqual(@as(u8, 10), attr.underline_color_rgb.?.r);
+}
+
+test "screen: underline color reset clears state for next write" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent.style_underline_on);
+    s.apply(SemanticEvent{ .style_underline_color_256 = 33 });
+    s.apply(SemanticEvent{ .write_text = "a" });
+    s.apply(SemanticEvent.style_underline_color_reset);
+    s.apply(SemanticEvent{ .write_text = "b" });
+    try std.testing.expectEqual(@as(?u8, 33), s.cells_attr.?[0].underline_color);
+    try std.testing.expectEqual(@as(?u8, null), s.cells_attr.?[1].underline_color);
+}
+
+test "screen: style_operations apply underline color in order" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    var ops: [16]semantic_mod.StyleOp = undefined;
+    @memset(&ops, semantic_mod.StyleOp.reset);
+    ops[0] = .underline_on;
+    ops[1] = .{ .underline_color_256 = 99 };
+    s.apply(SemanticEvent{ .style_operations = .{ .ops = ops, .count = 2 } });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(true, s.cells_attr.?[0].underline);
+    try std.testing.expectEqual(@as(?u8, 99), s.cells_attr.?[0].underline_color);
 }
 
 test "screen: style_operations bold_off and dim_off clear both flags" {
