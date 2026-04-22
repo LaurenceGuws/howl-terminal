@@ -14,6 +14,7 @@ pub const SemanticEvent = union(enum) {
     cursor_down: u16,
     cursor_forward: u16,
     cursor_back: u16,
+    cursor_horizontal_absolute: u16,
     cursor_position: struct { row: u16, col: u16 },
     write_text: []const u8,
     write_codepoint: u21,
@@ -66,6 +67,7 @@ fn processCsi(final: u8, params: [16]i32, count: u8, leader: u8, private: bool, 
         'B' => return SemanticEvent{ .cursor_down = paramOrDefault1(params[0]) },
         'C' => return SemanticEvent{ .cursor_forward = paramOrDefault1(params[0]) },
         'D' => return SemanticEvent{ .cursor_back = paramOrDefault1(params[0]) },
+        'G' => return SemanticEvent{ .cursor_horizontal_absolute = paramOrDefault1(params[0]) - 1 },
         'I' => return SemanticEvent{ .horizontal_tab_forward = paramOrDefault1(params[0]) },
         'Z' => return SemanticEvent{ .horizontal_tab_back = paramOrDefault1(params[0]) },
         'H', 'f' => {
@@ -162,6 +164,16 @@ test "semantic: CUF" {
 test "semantic: CUB" {
     const sem = process(makeStyleChange('D', 4, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 4), sem.cursor_back);
+}
+
+test "semantic: CHA explicit column" {
+    const sem = process(makeStyleChange('G', 7, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 6), sem.cursor_horizontal_absolute);
+}
+
+test "semantic: CHA zero param defaults to column 0" {
+    const sem = process(makeStyleChange('G', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 0), sem.cursor_horizontal_absolute);
 }
 
 test "semantic: CHT explicit count" {

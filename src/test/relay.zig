@@ -550,6 +550,18 @@ test "replay: CUB moves cursor back" {
     try std.testing.expectEqual(@as(u16, 14), screen.cursor_col);
 }
 
+test "replay: CHA moves cursor to absolute column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 6;
+    screen.cursor_col = 12;
+    feed(&pl, &screen, "\x1b[5G");
+    try std.testing.expectEqual(@as(u16, 6), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
+}
+
 test "replay: CUP absolute move" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1696,6 +1708,20 @@ test "parity: CUB moves cursor back identically" {
     });
 }
 
+test "parity: CHA moves cursor to absolute column identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CHA baseline",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .input = "\x1b[7G",
+        .expected_row = 0,
+        .expected_col = 6,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity: CUP absolute position identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2482,6 +2508,20 @@ test "parity-chunked: CSI erase split into byte fragments remains identical" {
     });
 }
 
+test "parity-chunked: CHA split into byte fragments remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CHA",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = false,
+        .chunks = &.{ "\x1b", "[", "7", "G" },
+        .expected_row = 0,
+        .expected_col = 6,
+        .expected_queue_depth = 0,
+    });
+}
+
 test "parity-chunked: CHT split into byte fragments remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -3152,6 +3192,16 @@ test "runtime: cursor move via apply matches direct pipeline" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
+}
+
+test "runtime: CHA move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[9G");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 8), engine.screen().cursor_col);
 }
 
 test "runtime: CHT and CBT tab navigation via apply" {
