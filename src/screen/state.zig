@@ -67,3 +67,98 @@ pub const ScreenState = struct {
         }
     }
 };
+
+test "screen: initial cursor at origin" {
+    const s = ScreenState.init(24, 80);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen: cursor_up moves row" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_row = 5;
+    s.apply(SemanticEvent{ .cursor_up = 3 });
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_row);
+}
+
+test "screen: cursor_up clamped at 0" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_row = 1;
+    s.apply(SemanticEvent{ .cursor_up = 5 });
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+}
+
+test "screen: cursor_down clamped at last row" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_row = 20;
+    s.apply(SemanticEvent{ .cursor_down = 10 });
+    try std.testing.expectEqual(@as(u16, 23), s.cursor_row);
+}
+
+test "screen: cursor_forward clamped at last col" {
+    var s = ScreenState.init(24, 80);
+    s.cursor_col = 75;
+    s.apply(SemanticEvent{ .cursor_forward = 10 });
+    try std.testing.expectEqual(@as(u16, 79), s.cursor_col);
+}
+
+test "screen: cursor_position absolute move" {
+    var s = ScreenState.init(24, 80);
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 10, .col = 40 } });
+    try std.testing.expectEqual(@as(u16, 10), s.cursor_row);
+    try std.testing.expectEqual(@as(u16, 40), s.cursor_col);
+}
+
+test "screen: zero rows/cols do not panic" {
+    var s = ScreenState.init(0, 0);
+    s.apply(SemanticEvent{ .cursor_down = 5 });
+    s.apply(SemanticEvent{ .cursor_forward = 5 });
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_row);
+}
+
+test "screen: write_text stores bytes in cells" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "abc" });
+    try std.testing.expectEqual(@as(u21, 'a'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'c'), s.cellAt(0, 2));
+}
+
+test "screen: write_text clamped at last col" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 5);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "abcdefgh" });
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'h'), s.cellAt(0, 4));
+}
+
+test "screen: line_feed advances row" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_row = 1;
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_row);
+}
+
+test "screen: carriage_return resets col" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 7;
+    s.apply(SemanticEvent.carriage_return);
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen: backspace moves col left" {
+    var s = ScreenState.init(4, 10);
+    s.cursor_col = 5;
+    s.apply(SemanticEvent.backspace);
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+}
+
+test "screen: cellAt out of bounds returns 0" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(10, 0));
+}

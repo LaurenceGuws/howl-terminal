@@ -7,3 +7,7 @@ pub const model = @import("terminal/model.zig");
 pub const pipeline = @import("event/pipeline.zig");
 pub const semantic = @import("event/semantic.zig");
 pub const screen = @import("screen/state.zig");
+
+comptime {
+    _ = @import("test/relay.zig");
+}

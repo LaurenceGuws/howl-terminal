@@ -61,3 +61,19 @@ pub const Utf8Decoder = struct {
         return .{ .codepoint = @intCast(cp) };
     }
 };
+
+test "UTF8 decoder: ASCII passthrough" {
+    var decoder = Utf8Decoder{};
+    const result = decoder.feed('A');
+    try std.testing.expectEqual(@as(u21, 'A'), result.codepoint);
+}
+
+test "UTF8 decoder: multi-byte sequence (€ = U+20AC)" {
+    var decoder = Utf8Decoder{};
+    var result = decoder.feed(0xE2);
+    try std.testing.expect(result == .incomplete);
+    result = decoder.feed(0x82);
+    try std.testing.expect(result == .incomplete);
+    result = decoder.feed(0xAC);
+    try std.testing.expectEqual(@as(u21, 0x20AC), result.codepoint);
+}

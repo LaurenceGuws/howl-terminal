@@ -55,3 +55,84 @@ fn paramOrDefault1(v: i32) u16 {
     if (v > std.math.maxInt(u16)) return std.math.maxInt(u16);
     return @intCast(v);
 }
+
+fn makeStyleChange(final: u8, p0: i32, p1: i32, count: u8) CoreEvent {
+    var params = [_]i32{0} ** 16;
+    params[0] = p0;
+    params[1] = p1;
+    return CoreEvent{ .style_change = .{ .final = final, .params = params, .param_count = count } };
+}
+
+test "semantic: CUU explicit count" {
+    const sem = process(makeStyleChange('A', 3, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 3), sem.cursor_up);
+}
+
+test "semantic: CUU zero param defaults to 1" {
+    const sem = process(makeStyleChange('A', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.cursor_up);
+}
+
+test "semantic: CUD" {
+    const sem = process(makeStyleChange('B', 5, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 5), sem.cursor_down);
+}
+
+test "semantic: CUF" {
+    const sem = process(makeStyleChange('C', 2, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.cursor_forward);
+}
+
+test "semantic: CUB" {
+    const sem = process(makeStyleChange('D', 4, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 4), sem.cursor_back);
+}
+
+test "semantic: CUP explicit row and col" {
+    const sem = process(makeStyleChange('H', 3, 5, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.cursor_position.row);
+    try std.testing.expectEqual(@as(u16, 4), sem.cursor_position.col);
+}
+
+test "semantic: CUP no params defaults to origin" {
+    const sem = process(makeStyleChange('H', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 0), sem.cursor_position.row);
+    try std.testing.expectEqual(@as(u16, 0), sem.cursor_position.col);
+}
+
+test "semantic: non-cursor CSI returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('m', 1, 0, 1)));
+}
+
+test "semantic: text event maps to write_text" {
+    const sem = process(CoreEvent{ .text = "hello" }) orelse return error.NoEvent;
+    try std.testing.expectEqualSlices(u8, "hello", sem.write_text);
+}
+
+test "semantic: codepoint event maps to write_codepoint" {
+    const sem = process(CoreEvent{ .codepoint = 0xE9 }) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u21, 0xE9), sem.write_codepoint);
+}
+
+test "semantic: LF maps to line_feed" {
+    const sem = process(CoreEvent{ .control = 0x0A }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .line_feed);
+}
+
+test "semantic: CR maps to carriage_return" {
+    const sem = process(CoreEvent{ .control = 0x0D }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .carriage_return);
+}
+
+test "semantic: BS maps to backspace" {
+    const sem = process(CoreEvent{ .control = 0x08 }) orelse return error.NoEvent;
+    try std.testing.expect(sem == .backspace);
+}
+
+test "semantic: invalid_sequence returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(CoreEvent.invalid_sequence));
+}
+
+test "semantic: title_set returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(CoreEvent{ .title_set = "My Title" }));
+}

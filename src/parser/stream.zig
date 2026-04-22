@@ -2,6 +2,7 @@
 //! Ownership: parser stream primitive.
 //! Reason: separate control/codepoint decoding from higher escape-state logic.
 
+const std = @import("std");
 const utf8 = @import("utf8.zig");
 
 pub const StreamEvent = union(enum) {
@@ -34,3 +35,12 @@ pub const Stream = struct {
         };
     }
 };
+
+test "Stream: control vs codepoint distinction" {
+    var str = Stream{};
+    const event_ctrl = str.feed(0x07);
+    try std.testing.expect(event_ctrl.?.control == 0x07);
+    str.reset();
+    const event_text = str.feed('X');
+    try std.testing.expect(event_text.?.codepoint == 'X');
+}

@@ -141,3 +141,40 @@ test "CSI parser preserves multiple intermediate bytes in order" {
     try std.testing.expectEqual(@as(u8, '#'), action.intermediates[0]);
     try std.testing.expectEqual(@as(u8, '!'), action.intermediates[1]);
 }
+
+test "CSI parser: basic ANSI color sequence (31m = red)" {
+    var parser = CsiParser{};
+    var action: ?CsiAction = null;
+    for ("31m") |byte| action = parser.feed(byte);
+    try std.testing.expectEqual(@as(u8, 'm'), action.?.final);
+    try std.testing.expectEqual(@as(i32, 31), action.?.params[0]);
+    try std.testing.expectEqual(@as(u8, 0), action.?.count);
+}
+
+test "CSI parser: multi-param sequence (1;31;40m)" {
+    var parser = CsiParser{};
+    var action: ?CsiAction = null;
+    for ("1;31;40m") |byte| action = parser.feed(byte);
+    try std.testing.expectEqual(@as(u8, 'm'), action.?.final);
+    try std.testing.expectEqual(@as(i32, 1), action.?.params[0]);
+    try std.testing.expectEqual(@as(i32, 31), action.?.params[1]);
+    try std.testing.expectEqual(@as(i32, 40), action.?.params[2]);
+    try std.testing.expectEqual(@as(u8, 2), action.?.count);
+}
+
+test "CSI parser: cursor position query (6n)" {
+    var parser = CsiParser{};
+    var action: ?CsiAction = null;
+    for ("6n") |byte| action = parser.feed(byte);
+    try std.testing.expectEqual(@as(u8, 'n'), action.?.final);
+}
+
+test "CSI parser: private mode (?25h = show cursor)" {
+    var parser = CsiParser{};
+    var action: ?CsiAction = null;
+    for ("?25h") |byte| action = parser.feed(byte);
+    try std.testing.expectEqual(@as(u8, 'h'), action.?.final);
+    try std.testing.expect(action.?.private);
+    try std.testing.expectEqual(@as(u8, '?'), action.?.leader);
+    try std.testing.expectEqual(@as(i32, 25), action.?.params[0]);
+}
