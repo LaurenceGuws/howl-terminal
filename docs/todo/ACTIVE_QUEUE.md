@@ -11,10 +11,11 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 
 | ID | Status | Intent |
 | --- | --- | --- |
-| `HT-050A` | `done` | Queue hygiene: reset to lean active scope. |
-| `HT-050B` | `done` | Multi-parameter SGR mapping. |
-| `HT-050C` | `done` | Screen apply for ordered style event stream. |
-| `HT-050D` | `done` | Contract + queue sync for multi-parameter SGR. |
+| `HT-051A` | `ready` | Queue reset: slim scope for 256-color work. |
+| `HT-051B` | `ready` | SGR 256-color semantic mapping. |
+| `HT-051C` | `ready` | Screen apply for 256-color style state. |
+| `HT-051D` | `ready` | Relay fixtures for 256-color integration. |
+| `HT-051E` | `ready` | Contract + queue sync for 256-color support. |
 
 ## Guardrails
 
