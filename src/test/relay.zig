@@ -898,3 +898,84 @@ test "replay: malformed bright SGR does not corrupt subsequent valid style" {
     try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg);
     try std.testing.expectEqual(@as(u8, 11), screen.cells_attr.?[1].fg);
 }
+
+test "replay: parser CSI 4 underline on then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[4m");
+    feed(&pl, &screen, "under");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].underline);
+    try std.testing.expectEqual(true, screen.cells_attr.?[4].underline);
+}
+
+test "replay: parser CSI 24 underline off then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[4m");
+    feed(&pl, &screen, "u1");
+    feed(&pl, &screen, "\x1b[24m");
+    feed(&pl, &screen, "u2");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].underline);
+    try std.testing.expectEqual(false, screen.cells_attr.?[2].underline);
+}
+
+test "replay: parser CSI 7 inverse on then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[7m");
+    feed(&pl, &screen, "inv");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].inverse);
+    try std.testing.expectEqual(true, screen.cells_attr.?[2].inverse);
+}
+
+test "replay: parser CSI 27 inverse off then text" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[7m");
+    feed(&pl, &screen, "i1");
+    feed(&pl, &screen, "\x1b[27m");
+    feed(&pl, &screen, "i2");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].inverse);
+    try std.testing.expectEqual(false, screen.cells_attr.?[2].inverse);
+}
+
+test "replay: mixed style batch with bold underline and color" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[1;4;31m");
+    feed(&pl, &screen, "bux");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].bold);
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].underline);
+    try std.testing.expectEqual(@as(u8, 2), screen.cells_attr.?[0].fg);
+}
+
+test "replay: reset clears underline and inverse before next write" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[4;7m");
+    feed(&pl, &screen, "s1");
+    feed(&pl, &screen, "\x1b[0m");
+    feed(&pl, &screen, "s2");
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].underline);
+    try std.testing.expectEqual(true, screen.cells_attr.?[0].inverse);
+    try std.testing.expectEqual(false, screen.cells_attr.?[2].underline);
+    try std.testing.expectEqual(false, screen.cells_attr.?[2].inverse);
+}
