@@ -9,6 +9,7 @@ const csi_mod = @import("../parser/csi.zig");
 const bridge_mod = @import("../event/bridge.zig");
 const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");
+const runtime_mod = @import("../runtime/engine.zig");
 
 // --- Dispatch harness ---
 
@@ -1201,4 +1202,186 @@ test "zero-dim: rows=10, cols=0: repeated text writes remain safe" {
     feed(&pl, &screen, "more");
     try std.testing.expectEqual(@as(u16, 3), screen.cursor_row);
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+// --- Runtime engine facade tests ---
+
+test "runtime: init and deinit lifecycle" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    try std.testing.expectEqual(@as(u16, 24), engine.screenRef().rows);
+    try std.testing.expectEqual(@as(u16, 80), engine.screenRef().cols);
+    try std.testing.expectEqual(@as(u16, 0), engine.screenRef().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screenRef().cursor_col);
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: initWithCells and deinit with allocated cells" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 4, 20);
+    defer engine.deinit();
+    try std.testing.expectEqual(@as(u16, 4), engine.screenRef().rows);
+    try std.testing.expectEqual(@as(u16, 20), engine.screenRef().cols);
+    try std.testing.expect(engine.screenRef().cells != null);
+    try std.testing.expectEqual(@as(u21, 0), engine.screenRef().cellAt(0, 0));
+}
+
+test "runtime: feedByte and feedSlice accumulate in queue" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    engine.feedByte('A');
+    try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
+    engine.feedSlice("BC");
+    try std.testing.expectEqual(@as(usize, 2), engine.queuedEventCount());
+}
+
+test "runtime: apply drains queue and updates screen" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 4, 20);
+    defer engine.deinit();
+    engine.feedSlice("hello");
+    try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
+    engine.apply();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    try std.testing.expectEqual(@as(u21, 'h'), engine.screenRef().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'o'), engine.screenRef().cellAt(0, 4));
+    try std.testing.expectEqual(@as(u16, 5), engine.screenRef().cursor_col);
+}
+
+test "runtime: clear drops pending events" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("text\x1b[5A");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.clear();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    try std.testing.expectEqual(@as(u16, 0), engine.screenRef().cursor_row);
+}
+
+test "runtime: reset clears queue and parser state" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("abc\x1b[");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.reset();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    engine.feedSlice("xyz");
+    try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
+}
+
+test "runtime: cursor move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[5;10H");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 4), engine.screenRef().cursor_row);
+    try std.testing.expectEqual(@as(u16, 9), engine.screenRef().cursor_col);
+}
+
+test "runtime: text write and erase via apply" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 4, 20);
+    defer engine.deinit();
+    engine.feedSlice("hello");
+    engine.apply();
+    try std.testing.expectEqual(@as(u21, 'h'), engine.screenRef().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u16, 5), engine.screenRef().cursor_col);
+    engine.feedSlice("\x1b[K");
+    engine.apply();
+    try std.testing.expectEqual(@as(u21, 0), engine.screenRef().cellAt(0, 5));
+}
+
+test "runtime: repeated apply without feed is no-op" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 4, 20);
+    defer engine.deinit();
+    engine.feedSlice("test");
+    engine.apply();
+    const col1 = engine.screenRef().cursor_col;
+    engine.apply();
+    try std.testing.expectEqual(col1, engine.screenRef().cursor_col);
+    engine.apply();
+    try std.testing.expectEqual(col1, engine.screenRef().cursor_col);
+}
+
+test "runtime: zero-dimension init is safe" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 0, 0);
+    defer engine.deinit();
+    engine.feedSlice("text\x1b[5A\x1b[999C\x1b[J");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screenRef().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screenRef().cursor_col);
+}
+
+test "runtime: queuedEventCount after clear is zero" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[1m\x1b[31mtext");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.clear();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: queuedEventCount after reset is zero" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("abc\x1b[31m");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.reset();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: queuedEventCount after apply is zero" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("hello\x1b[5A");
+    try std.testing.expect(engine.queuedEventCount() > 0);
+    engine.apply();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+}
+
+test "runtime: feed after clear accumulates new events" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("old");
+    engine.clear();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    engine.feedSlice("new");
+    try std.testing.expectEqual(@as(usize, 1), engine.queuedEventCount());
+}
+
+test "runtime: complex sequence with cursor/text/erase" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 15);
+    defer engine.deinit();
+    engine.feedSlice("line0");
+    engine.apply();
+    engine.feedSlice("\x0D\x0A");
+    engine.apply();
+    engine.feedSlice("line1");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 1), engine.screenRef().cursor_row);
+    try std.testing.expectEqual(@as(u16, 5), engine.screenRef().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'l'), engine.screenRef().cellAt(1, 0));
+}
+
+test "runtime: screenMut allows direct screen modification" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.screenMut().cursor_row = 10;
+    engine.screenMut().cursor_col = 20;
+    try std.testing.expectEqual(@as(u16, 10), engine.screenRef().cursor_row);
+    try std.testing.expectEqual(@as(u16, 20), engine.screenRef().cursor_col);
 }
