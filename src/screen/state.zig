@@ -11,8 +11,8 @@ pub const SemanticEvent = semantic_mod.SemanticEvent;
 /// Cursor and optional cell-buffer state with deterministic clamped updates.
 const CellAttr = packed struct {
     bold: bool,
-    fg: u4,
-    bg: u4,
+    fg: u8,
+    bg: u8,
     _unused: u6 = 0,
 };
 
@@ -187,8 +187,8 @@ pub const ScreenState = struct {
         if (self.cells_attr) |ca| {
             ca[offset] = .{
                 .bold = self.current_bold,
-                .fg = @intCast(self.current_fg & 0xF),
-                .bg = @intCast(self.current_bg & 0xF),
+                .fg = self.current_fg,
+                .bg = self.current_bg,
                 ._unused = 0,
             };
         }
@@ -486,7 +486,7 @@ test "screen: color 8 (white) preserved without truncation" {
     defer s.deinit(gpa);
     s.apply(SemanticEvent{ .style_fg_color = 8 });
     s.apply(SemanticEvent{ .write_text = "w" });
-    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 8), s.cells_attr.?[0].fg);
 }
 
 test "screen: background color 8 preserved" {
@@ -495,7 +495,7 @@ test "screen: background color 8 preserved" {
     defer s.deinit(gpa);
     s.apply(SemanticEvent{ .style_bg_color = 8 });
     s.apply(SemanticEvent{ .write_text = "w" });
-    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].bg);
+    try std.testing.expectEqual(@as(u8, 8), s.cells_attr.?[0].bg);
 }
 
 test "screen: color reset (0) distinct from white (8)" {
@@ -506,8 +506,8 @@ test "screen: color reset (0) distinct from white (8)" {
     s.apply(SemanticEvent{ .write_text = "w" });
     s.apply(SemanticEvent{ .style_fg_color = 0 });
     s.apply(SemanticEvent{ .write_text = "d" });
-    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].fg);
-    try std.testing.expectEqual(@as(u4, 0), s.cells_attr.?[1].fg);
+    try std.testing.expectEqual(@as(u8, 8), s.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 0), s.cells_attr.?[1].fg);
 }
 
 test "screen: erase_line mode 0 clears attributes" {
@@ -522,7 +522,7 @@ test "screen: erase_line mode 0 clears attributes" {
     try std.testing.expectEqual(true, s.cells_attr.?[0].bold);
     try std.testing.expectEqual(true, s.cells_attr.?[1].bold);
     try std.testing.expectEqual(false, s.cells_attr.?[2].bold);
-    try std.testing.expectEqual(@as(u4, 0), s.cells_attr.?[2].fg);
+    try std.testing.expectEqual(@as(u8, 0), s.cells_attr.?[2].fg);
 }
 
 test "screen: erase_display mode 2 clears all attributes" {
@@ -536,6 +536,27 @@ test "screen: erase_display mode 2 clears all attributes" {
     for (0..15) |i| {
         const attr = s.cells_attr.?[i];
         try std.testing.expectEqual(false, attr.bold);
-        try std.testing.expectEqual(@as(u4, 0), attr.fg);
+        try std.testing.expectEqual(@as(u8, 0), attr.fg);
     }
+}
+
+test "screen: write with fg 256-color persists" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_fg_256 = 196 });
+    s.apply(SemanticEvent{ .write_text = "red" });
+    try std.testing.expectEqual(@as(u8, 196), s.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 196), s.cells_attr.?[1].fg);
+    try std.testing.expectEqual(@as(u8, 196), s.cells_attr.?[2].fg);
+}
+
+test "screen: write with bg 256-color persists" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_bg_256 = 21 });
+    s.apply(SemanticEvent{ .write_text = "bg" });
+    try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[0].bg);
+    try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[1].bg);
 }
