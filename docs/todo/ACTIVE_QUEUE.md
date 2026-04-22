@@ -57,12 +57,14 @@ src/root.zig                               — public API surface
 | `HT-040` | `done` | Migrate unit tests inline; remove scattered test files. | all modules + `src/test/relay.zig` |
 | `HT-041` | `done` | Simplify build test wiring to module + integration suites. | `build.zig` |
 | `HT-042` | `done` | Sync architecture/docs to new naming and test conventions. | this file |
+| `HT-043` | `done` | Align checklist paths and normalize model module path. | `docs/todo/REPORT_CHECKLIST.md`, `src/model.zig`, `src/root.zig` |
+| `HT-044` | `done` | Freeze model API authority contract. | `app_architecture/terminal/MODEL_API_CONTRACT.md` |
 
 ## Next
 
 | ID | Status | Intent |
 | --- | --- | --- |
-| `HT-043` | `ready` | Next feature work (TBD). |
+| `HT-045` | `ready` | Next feature work (TBD). |
 
 ## Guardrails
 
