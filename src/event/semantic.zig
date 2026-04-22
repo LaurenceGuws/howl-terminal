@@ -16,6 +16,10 @@ pub const StyleOp = union(enum) {
     reset,
     bold_on,
     bold_off,
+    dim_on,
+    dim_off,
+    strikethrough_on,
+    strikethrough_off,
     underline_on,
     underline_off,
     inverse_on,
@@ -45,6 +49,10 @@ pub const SemanticEvent = union(enum) {
     style_reset,
     style_bold_on,
     style_bold_off,
+    style_dim_on,
+    style_dim_off,
+    style_strikethrough_on,
+    style_strikethrough_off,
     style_underline_on,
     style_underline_off,
     style_inverse_on,
@@ -124,6 +132,9 @@ fn processSgr(params: [16]i32, count: u8) ?SemanticEvent {
             0 => StyleOp.reset,
             1 => StyleOp.bold_on,
             22 => StyleOp.bold_off,
+            2 => StyleOp.dim_on,
+            9 => StyleOp.strikethrough_on,
+            29 => StyleOp.strikethrough_off,
             4 => StyleOp.underline_on,
             24 => StyleOp.underline_off,
             7 => StyleOp.inverse_on,
@@ -135,31 +146,51 @@ fn processSgr(params: [16]i32, count: u8) ?SemanticEvent {
             90...97 => StyleOp{ .fg_color = @intCast(param - 90 + 9) },
             100...107 => StyleOp{ .bg_color = @intCast(param - 100 + 9) },
             38 => blk: {
-                if (i + 4 < param_count and params[i + 1] == 2) {
-                    const r = if (i + 2 < count) clampRgbComponent(params[i + 2]) else 0;
-                    const g = if (i + 3 < count) clampRgbComponent(params[i + 3]) else 0;
-                    const b = if (i + 4 < count) clampRgbComponent(params[i + 4]) else 0;
-                    i += 4;
-                    break :blk StyleOp{ .fg_rgb = .{ .r = r, .g = g, .b = b } };
-                } else if (i + 2 < param_count and params[i + 1] == 5) {
-                    const color_idx = if (i + 2 < count) params[i + 2] else 0;
-                    i += 2;
-                    break :blk StyleOp{ .fg_256 = @intCast(color_idx & 0xFF) };
+                if (i + 1 < param_count and params[i + 1] == 2) {
+                    if (i + 4 < param_count) {
+                        const r = if (i + 2 < count) clampRgbComponent(params[i + 2]) else 0;
+                        const g = if (i + 3 < count) clampRgbComponent(params[i + 3]) else 0;
+                        const b = if (i + 4 < count) clampRgbComponent(params[i + 4]) else 0;
+                        i += 4;
+                        break :blk StyleOp{ .fg_rgb = .{ .r = r, .g = g, .b = b } };
+                    }
+                    // Incomplete truecolor form: consume remainder to avoid misinterpreting subparams.
+                    i = param_count - 1;
+                    break :blk null;
+                } else if (i + 1 < param_count and params[i + 1] == 5) {
+                    if (i + 2 < param_count) {
+                        const color_idx = if (i + 2 < count) params[i + 2] else 0;
+                        i += 2;
+                        break :blk StyleOp{ .fg_256 = @intCast(color_idx & 0xFF) };
+                    }
+                    // Incomplete 256-color form: consume remainder to avoid misinterpreting subparams.
+                    i = param_count - 1;
+                    break :blk null;
                 } else {
                     break :blk null;
                 }
             },
             48 => blk: {
-                if (i + 4 < param_count and params[i + 1] == 2) {
-                    const r = if (i + 2 < count) clampRgbComponent(params[i + 2]) else 0;
-                    const g = if (i + 3 < count) clampRgbComponent(params[i + 3]) else 0;
-                    const b = if (i + 4 < count) clampRgbComponent(params[i + 4]) else 0;
-                    i += 4;
-                    break :blk StyleOp{ .bg_rgb = .{ .r = r, .g = g, .b = b } };
-                } else if (i + 2 < param_count and params[i + 1] == 5) {
-                    const color_idx = if (i + 2 < count) params[i + 2] else 0;
-                    i += 2;
-                    break :blk StyleOp{ .bg_256 = @intCast(color_idx & 0xFF) };
+                if (i + 1 < param_count and params[i + 1] == 2) {
+                    if (i + 4 < param_count) {
+                        const r = if (i + 2 < count) clampRgbComponent(params[i + 2]) else 0;
+                        const g = if (i + 3 < count) clampRgbComponent(params[i + 3]) else 0;
+                        const b = if (i + 4 < count) clampRgbComponent(params[i + 4]) else 0;
+                        i += 4;
+                        break :blk StyleOp{ .bg_rgb = .{ .r = r, .g = g, .b = b } };
+                    }
+                    // Incomplete truecolor form: consume remainder to avoid misinterpreting subparams.
+                    i = param_count - 1;
+                    break :blk null;
+                } else if (i + 1 < param_count and params[i + 1] == 5) {
+                    if (i + 2 < param_count) {
+                        const color_idx = if (i + 2 < count) params[i + 2] else 0;
+                        i += 2;
+                        break :blk StyleOp{ .bg_256 = @intCast(color_idx & 0xFF) };
+                    }
+                    // Incomplete 256-color form: consume remainder to avoid misinterpreting subparams.
+                    i = param_count - 1;
+                    break :blk null;
                 } else {
                     break :blk null;
                 }
@@ -169,6 +200,10 @@ fn processSgr(params: [16]i32, count: u8) ?SemanticEvent {
         if (op) |o| {
             ops[op_count] = o;
             op_count += 1;
+            if (param == 22 and op_count < 16) {
+                ops[op_count] = StyleOp.dim_off;
+                op_count += 1;
+            }
         }
     }
     if (op_count == 0) return null;
@@ -178,6 +213,10 @@ fn processSgr(params: [16]i32, count: u8) ?SemanticEvent {
             .reset => SemanticEvent.style_reset,
             .bold_on => SemanticEvent.style_bold_on,
             .bold_off => SemanticEvent.style_bold_off,
+            .dim_on => SemanticEvent.style_dim_on,
+            .dim_off => SemanticEvent.style_dim_off,
+            .strikethrough_on => SemanticEvent.style_strikethrough_on,
+            .strikethrough_off => SemanticEvent.style_strikethrough_off,
             .underline_on => SemanticEvent.style_underline_on,
             .underline_off => SemanticEvent.style_underline_off,
             .inverse_on => SemanticEvent.style_inverse_on,
@@ -331,9 +370,27 @@ test "semantic: SGR 1 bold on" {
     try std.testing.expect(sem == .style_bold_on);
 }
 
-test "semantic: SGR 22 bold off" {
+test "semantic: SGR 2 dim on" {
+    const sem = process(makeStyleChange('m', 2, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_dim_on);
+}
+
+test "semantic: SGR 22 emits bold_off and dim_off" {
     const sem = process(makeStyleChange('m', 22, 0, 1)) orelse return error.NoEvent;
-    try std.testing.expect(sem == .style_bold_off);
+    try std.testing.expect(sem == .style_operations);
+    try std.testing.expectEqual(@as(u8, 2), sem.style_operations.count);
+    try std.testing.expect(sem.style_operations.ops[0] == .bold_off);
+    try std.testing.expect(sem.style_operations.ops[1] == .dim_off);
+}
+
+test "semantic: SGR 9 strikethrough on" {
+    const sem = process(makeStyleChange('m', 9, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_strikethrough_on);
+}
+
+test "semantic: SGR 29 strikethrough off" {
+    const sem = process(makeStyleChange('m', 29, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_strikethrough_off);
 }
 
 test "semantic: SGR 31 foreground red" {
