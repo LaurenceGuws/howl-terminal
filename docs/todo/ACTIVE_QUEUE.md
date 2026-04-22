@@ -14,7 +14,7 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 | `HT-050A` | `done` | Queue hygiene: reset to lean active scope. |
 | `HT-050B` | `done` | Multi-parameter SGR mapping. |
 | `HT-050C` | `done` | Screen apply for ordered style event stream. |
-| `HT-050D` | `next` | Contract + queue sync for multi-parameter SGR. |
+| `HT-050D` | `done` | Contract + queue sync for multi-parameter SGR. |
 
 ## Guardrails
 
