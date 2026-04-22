@@ -584,6 +584,38 @@ test "replay: CHA clamps at last column" {
     try std.testing.expectEqual(@as(u16, 19), screen.cursor_col);
 }
 
+test "replay: split CHA interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("Gx");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, '!'), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
+}
+
+test "replay: split CHA after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 2, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("Gx");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
+}
+
 test "replay: CUP absolute move" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1758,6 +1790,44 @@ test "parity: CHA clamps at last column identically" {
     });
 }
 
+test "parity: split CHA interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CHA interrupted by DECSTR bytes",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[7\x1b[!pGx",
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity: split CHA after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CHA after DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[!p\x1b[7Gx",
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
 test "parity: CUP absolute position identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2558,6 +2628,44 @@ test "parity-chunked: CHA split into byte fragments remains identical" {
     });
 }
 
+test "parity-chunked: split CHA interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CHA interrupted by DECSTR bytes",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[7", "\x1b[!p", "Gx" },
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'a' },
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CHA after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CHA after DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[!p", "\x1b[7", "Gx" },
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
 test "parity-chunked: CHT split into byte fragments remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -3248,6 +3356,35 @@ test "runtime: CHA clamp via apply matches direct pipeline" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 19), engine.screen().cursor_col);
+}
+
+test "runtime: split CHA interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("Gx");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, '!'), engine.screen().cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 6));
+}
+
+test "runtime: split CHA after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 2, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("Gx");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 6));
 }
 
 test "runtime: CHT and CBT tab navigation via apply" {
