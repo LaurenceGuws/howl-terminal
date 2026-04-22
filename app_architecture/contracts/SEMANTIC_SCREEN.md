@@ -46,13 +46,13 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 - `Pipeline.reset()` clears the bridge queue and resets the parser (including partial escape/CSI state); bytes after reset decode as if the parser were freshly initialized.
 - Each `applyToScreen` call walks the current bridge queue exactly once, applies `semantic.process` for each event in order, then clears the bridge. A second `applyToScreen` with no intervening `feedByte` / `feedSlice` sees an empty queue and does not mutate `ScreenState`.
 - Split-CSI interruption rule: if a CSI sequence is started and then another escape sequence begins before the first CSI final byte arrives, behavior is deterministic but stream-order dependent. The interrupted bytes are not retroactively reinterpreted as a completed prior CSI; they are handled exactly as parsed in order.
-- This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`) and tabulation CSI streams (`I` / `Z`).
+- This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`), tabulation CSI streams (`I` / `Z`), and absolute-position CSI streams (`G` / `d`).
 
 Interruption coverage index (`src/test/relay.zig`):
-- Direct replay: split-tab (`I`/`Z`) and split-private-mode (`?25`/`?7`) interruption scenarios around DECSTR bytes.
-- Parity (non-chunked): interrupted split-tab and split-private-mode streams produce identical direct/runtime end state.
-- Parity (chunked): interrupted split-tab and split-private-mode streams remain identical under chunk boundaries.
-- Runtime integration: interrupted split-tab and split-private-mode streams match deterministic cursor/cell/mode outcomes.
+- Direct replay: split-tab (`I`/`Z`), split-private-mode (`?25`/`?7`), and split-absolute-position (`G`/`d`) interruption scenarios around DECSTR bytes.
+- Parity (non-chunked): interrupted split-tab, split-private-mode, and split-absolute-position streams produce identical direct/runtime end state.
+- Parity (chunked): interrupted split-tab, split-private-mode, and split-absolute-position streams remain identical under chunk boundaries.
+- Runtime integration: interrupted split-tab, split-private-mode, and split-absolute-position streams match deterministic cursor/cell/mode outcomes.
 
 ## Process Mapping Policy
 
