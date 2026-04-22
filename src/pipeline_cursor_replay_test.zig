@@ -1,6 +1,6 @@
 const std = @import("std");
-const pipeline_mod = @import("terminal/parser_core_event_pipeline.zig");
-const screen_mod = @import("terminal/terminal_screen_state.zig");
+const pipeline_mod = @import("event/pipeline.zig");
+const screen_mod = @import("screen/state.zig");
 
 fn feed(pl: *pipeline_mod.Pipeline, screen: *screen_mod.ScreenState, bytes: []const u8) void {
     pl.feedSlice(bytes);

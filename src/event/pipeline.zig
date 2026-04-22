@@ -1,8 +1,8 @@
 const std = @import("std");
-const parser_mod = @import("parser.zig");
-const bridge_mod = @import("parser_core_event_bridge.zig");
-const semantic_mod = @import("parser_core_semantic_consumer.zig");
-const screen_mod = @import("terminal_screen_state.zig");
+const parser_mod = @import("../parser/parser.zig");
+const bridge_mod = @import("bridge.zig");
+const semantic_mod = @import("semantic.zig");
+const screen_mod = @import("../screen/state.zig");
 
 pub const CoreEvent = bridge_mod.CoreEvent;
 

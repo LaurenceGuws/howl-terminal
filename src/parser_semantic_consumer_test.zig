@@ -1,5 +1,5 @@
 const std = @import("std");
-const consumer = @import("terminal/parser_core_semantic_consumer.zig");
+const consumer = @import("event/semantic.zig");
 
 const CoreEvent = consumer.CoreEvent;
 const SemanticEvent = consumer.SemanticEvent;

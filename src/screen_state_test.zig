@@ -1,6 +1,6 @@
 const std = @import("std");
-const screen_mod = @import("terminal/terminal_screen_state.zig");
-const semantic_mod = @import("terminal/parser_core_semantic_consumer.zig");
+const screen_mod = @import("screen/state.zig");
+const semantic_mod = @import("event/semantic.zig");
 
 const ScreenState = screen_mod.ScreenState;
 const SemanticEvent = semantic_mod.SemanticEvent;

@@ -1,5 +1,7 @@
 const std = @import("std");
-const parser_mod = @import("parser.zig");
+const parser_mod = @import("../parser/parser.zig");
+const stream_mod = @import("../parser/stream.zig");
+const csi_mod = @import("../parser/csi.zig");
 
 pub const CoreEvent = union(enum) {
     text: []const u8,
@@ -66,7 +68,7 @@ pub const ParserCoreBridge = struct {
         };
     }
 
-    fn onStreamEvent(ptr: *anyopaque, event: parser_mod.stream.StreamEvent) void {
+    fn onStreamEvent(ptr: *anyopaque, event: stream_mod.StreamEvent) void {
         const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
         const ce = switch (event) {
             .codepoint => |cp| CoreEvent{ .codepoint = cp },
@@ -82,7 +84,7 @@ pub const ParserCoreBridge = struct {
         self.events.append(self.allocator, CoreEvent{ .text = owned }) catch {};
     }
 
-    fn onCsi(ptr: *anyopaque, action: parser_mod.csi.CsiAction) void {
+    fn onCsi(ptr: *anyopaque, action: csi_mod.CsiAction) void {
         const self: *ParserCoreBridge = @ptrCast(@alignCast(ptr));
         self.events.append(self.allocator, CoreEvent{
             .style_change = .{

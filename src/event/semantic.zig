@@ -1,5 +1,5 @@
 const std = @import("std");
-const bridge_mod = @import("parser_core_event_bridge.zig");
+const bridge_mod = @import("bridge.zig");
 
 pub const CoreEvent = bridge_mod.CoreEvent;
 

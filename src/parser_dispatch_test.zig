@@ -1,11 +1,11 @@
-//! Responsibility: validate parser dispatch behavior and edge boundaries.
-//! Ownership: terminal parser test layer.
-//! Reason: lock parser contracts with deterministic transcript assertions.
+//! Parser dispatch and edge-case tests.
+//! Deterministic event-order harness with exact sequence assertions.
+//! Tests: mixed streams, split input, control boundaries, stray ESC contract.
 
 const std = @import("std");
-const parser_mod = @import("terminal/parser.zig");
-const stream_mod = parser_mod.stream;
-const csi_mod = parser_mod.csi;
+const parser_mod = @import("parser/parser.zig");
+const stream_mod = @import("parser/stream.zig");
+const csi_mod = @import("parser/csi.zig");
 
 pub const Event = union(enum) {
     stream_codepoint: u21,

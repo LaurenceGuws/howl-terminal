@@ -137,7 +137,7 @@ pub fn build(b: *std.Build) void {
 
     // Add explicit test for parser proof tests via separate module.
     const parser_test_mod = b.addModule("parser_tests", .{
-        .root_source_file = b.path("src/terminal_csi_parse_test.zig"),
+        .root_source_file = b.path("src/csi_parse_test.zig"),
         .target = target,
     });
     const parser_tests = b.addTest(.{
@@ -147,7 +147,7 @@ pub fn build(b: *std.Build) void {
 
     // Add explicit test for parser dispatch tests via separate module.
     const parser_dispatch_test_mod = b.addModule("parser_dispatch_tests", .{
-        .root_source_file = b.path("src/terminal_parser_dispatch_test.zig"),
+        .root_source_file = b.path("src/parser_dispatch_test.zig"),
         .target = target,
     });
     const parser_dispatch_tests = b.addTest(.{
@@ -156,7 +156,7 @@ pub fn build(b: *std.Build) void {
     const run_parser_dispatch_tests = b.addRunArtifact(parser_dispatch_tests);
 
     const parser_core_event_bridge_test_mod = b.addModule("parser_core_event_bridge_tests", .{
-        .root_source_file = b.path("src/terminal_parser_core_event_bridge_test.zig"),
+        .root_source_file = b.path("src/parser_event_bridge_test.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "terminal", .module = mod },
@@ -168,7 +168,7 @@ pub fn build(b: *std.Build) void {
     const run_parser_core_event_bridge_tests = b.addRunArtifact(parser_core_event_bridge_tests);
 
     const parser_core_event_pipeline_test_mod = b.addModule("parser_core_event_pipeline_tests", .{
-        .root_source_file = b.path("src/terminal_parser_core_event_pipeline_test.zig"),
+        .root_source_file = b.path("src/parser_event_pipeline_test.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "terminal", .module = mod },
@@ -180,7 +180,7 @@ pub fn build(b: *std.Build) void {
     const run_parser_core_event_pipeline_tests = b.addRunArtifact(parser_core_event_pipeline_tests);
 
     const parser_core_semantic_consumer_test_mod = b.addModule("parser_core_semantic_consumer_tests", .{
-        .root_source_file = b.path("src/terminal_parser_core_semantic_consumer_test.zig"),
+        .root_source_file = b.path("src/parser_semantic_consumer_test.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "terminal", .module = mod },
@@ -192,7 +192,7 @@ pub fn build(b: *std.Build) void {
     const run_parser_core_semantic_consumer_tests = b.addRunArtifact(parser_core_semantic_consumer_tests);
 
     const terminal_screen_state_test_mod = b.addModule("terminal_screen_state_tests", .{
-        .root_source_file = b.path("src/terminal_screen_state_test.zig"),
+        .root_source_file = b.path("src/screen_state_test.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "terminal", .module = mod },
@@ -204,7 +204,7 @@ pub fn build(b: *std.Build) void {
     const run_terminal_screen_state_tests = b.addRunArtifact(terminal_screen_state_tests);
 
     const terminal_pipeline_cursor_replay_test_mod = b.addModule("terminal_pipeline_cursor_replay_tests", .{
-        .root_source_file = b.path("src/terminal_pipeline_cursor_replay_test.zig"),
+        .root_source_file = b.path("src/pipeline_cursor_replay_test.zig"),
         .target = target,
         .imports = &.{
             .{ .name = "terminal", .module = mod },

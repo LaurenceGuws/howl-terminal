@@ -2,8 +2,8 @@
 //! Ownership: package root API boundary.
 //! Reason: provide stable imports for parser and model primitives.
 
-pub const parser = @import("terminal/parser.zig");
+pub const parser = @import("parser/parser.zig");
 pub const model = @import("terminal/model.zig");
-pub const pipeline = @import("terminal/parser_core_event_pipeline.zig");
-pub const semantic_consumer = @import("terminal/parser_core_semantic_consumer.zig");
-pub const screen_state = @import("terminal/terminal_screen_state.zig");
+pub const pipeline = @import("event/pipeline.zig");
+pub const semantic = @import("event/semantic.zig");
+pub const screen = @import("screen/state.zig");

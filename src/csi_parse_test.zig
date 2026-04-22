@@ -1,12 +1,11 @@
-//! Responsibility: verify CSI/UTF-8/stream parser primitives.
-//! Ownership: terminal parser test layer.
-//! Reason: keep parser primitive contracts explicit and regression-safe.
+//! First proof test - CSI parser tokenization.
+//! Demonstrates that core parser primitives work: feed bytes, parse sequences, capture params.
 
 const std = @import("std");
-const parser_mod = @import("terminal/parser.zig");
-const csi = parser_mod.csi;
-const utf8 = parser_mod.utf8;
-const stream = parser_mod.stream;
+const parser_mod = @import("parser/parser.zig");
+const csi = @import("parser/csi.zig");
+const utf8 = @import("parser/utf8.zig");
+const stream = @import("parser/stream.zig");
 
 test "CSI parser: basic ANSI color sequence (31m = red)" {
     var parser = csi.CsiParser{};

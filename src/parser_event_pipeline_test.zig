@@ -1,5 +1,5 @@
 const std = @import("std");
-const pipeline_mod = @import("terminal/parser_core_event_pipeline.zig");
+const pipeline_mod = @import("event/pipeline.zig");
 
 test "pipeline: mixed text and CSI and text" {
     const gpa = std.testing.allocator;

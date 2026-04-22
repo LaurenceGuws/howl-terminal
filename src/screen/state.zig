@@ -1,5 +1,5 @@
 const std = @import("std");
-const semantic_mod = @import("parser_core_semantic_consumer.zig");
+const semantic_mod = @import("../event/semantic.zig");
 
 pub const SemanticEvent = semantic_mod.SemanticEvent;
 
