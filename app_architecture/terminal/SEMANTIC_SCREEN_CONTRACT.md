@@ -77,11 +77,11 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
 - Style operations update current-style state; subsequent text writes apply active style to each cell.
   - `style_reset`: clears bold, restores foreground/background to defaults.
   - `style_bold_on` / `style_bold_off`: toggle bold attribute.
-  - `style_fg_color` / `style_bg_color`: set color index (payload 0=default, 1-8=basic colors); stored without truncation.
+- `style_fg_color` / `style_bg_color`: set indexed color (payload 0=default, 1-8=basic colors, 9-16=bright ANSI); stored without truncation.
   - Style state is independent of cell content; does not affect non-text operations.
   - Style attributes on a cell are immutable after the cell is written; style state changes do not retroactively affect written cells.
 - Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, fg=0, bg=0).
-- Style attribute storage uses u8 fields for fg/bg to preserve basic colors (0-8) and 256-color indices (0-255) without truncation.
+- Style attribute storage uses u8 fields for fg/bg to preserve indexed colors (0-16) and 256-color indices (0-255) without truncation.
 
 ## SGR (Style) Scope
 
