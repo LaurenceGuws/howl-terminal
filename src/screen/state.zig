@@ -11,8 +11,9 @@ pub const SemanticEvent = semantic_mod.SemanticEvent;
 /// Cursor and optional cell-buffer state with deterministic clamped updates.
 const CellAttr = packed struct {
     bold: bool,
-    fg: u3,
-    bg: u3,
+    fg: u4,
+    bg: u4,
+    _unused: u6 = 0,
 };
 
 pub const ScreenState = struct {
@@ -49,7 +50,7 @@ pub const ScreenState = struct {
         } else null;
         const cells_attr: ?[]CellAttr = if (size > 0) blk: {
             const buf = try allocator.alloc(CellAttr, size);
-            @memset(buf, .{ .bold = false, .fg = 0, .bg = 0 });
+            @memset(buf, .{ .bold = false, .fg = 0, .bg = 0, ._unused = 0 });
             break :blk buf;
         } else null;
         return .{
@@ -144,8 +145,8 @@ pub const ScreenState = struct {
         if (self.cells_attr) |ca| {
             ca[offset] = .{
                 .bold = self.current_bold,
-                .fg = @intCast(self.current_fg & 0x7),
-                .bg = @intCast(self.current_bg & 0x7),
+                .fg = @intCast(self.current_fg & 0xF),
+                .bg = @intCast(self.current_bg & 0xF),
             };
         }
         if (self.cursor_col < self.cols - 1) {
@@ -434,4 +435,34 @@ test "screen: no cell attributes without cell buffer" {
     s.apply(SemanticEvent{ .write_text = "a" });
     try std.testing.expectEqual(@as(u16, 1), s.cursor_col);
     try std.testing.expectEqual(true, s.current_bold);
+}
+
+test "screen: color 8 (white) preserved without truncation" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_fg_color = 8 });
+    s.apply(SemanticEvent{ .write_text = "w" });
+    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].fg);
+}
+
+test "screen: background color 8 preserved" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_bg_color = 8 });
+    s.apply(SemanticEvent{ .write_text = "w" });
+    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].bg);
+}
+
+test "screen: color reset (0) distinct from white (8)" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_fg_color = 8 });
+    s.apply(SemanticEvent{ .write_text = "w" });
+    s.apply(SemanticEvent{ .style_fg_color = 0 });
+    s.apply(SemanticEvent{ .write_text = "d" });
+    try std.testing.expectEqual(@as(u4, 8), s.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u4, 0), s.cells_attr.?[1].fg);
 }
