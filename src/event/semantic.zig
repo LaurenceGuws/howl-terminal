@@ -22,6 +22,11 @@ pub const SemanticEvent = union(enum) {
     backspace,
     erase_display: u2,
     erase_line: u2,
+    style_reset,
+    style_bold_on,
+    style_bold_off,
+    style_fg_color: u8,
+    style_bg_color: u8,
 };
 
 /// Convert a parser event into a semantic screen operation when supported.
@@ -48,6 +53,7 @@ fn processCsi(final: u8, params: [16]i32, count: u8) ?SemanticEvent {
         },
         'J' => return SemanticEvent{ .erase_display = eraseMode(params[0]) },
         'K' => return SemanticEvent{ .erase_line = eraseMode(params[0]) },
+        'm' => return processSgr(params[0]),
         else => return null,
     }
 }
@@ -66,6 +72,19 @@ fn eraseMode(v: i32) u2 {
         1 => 1,
         2 => 2,
         else => 0,
+    };
+}
+
+fn processSgr(param: i32) ?SemanticEvent {
+    return switch (param) {
+        0 => SemanticEvent.style_reset,
+        1 => SemanticEvent.style_bold_on,
+        22 => SemanticEvent.style_bold_off,
+        30...37 => SemanticEvent{ .style_fg_color = @intCast(param - 30 + 1) },
+        39 => SemanticEvent{ .style_fg_color = 0 },
+        40...47 => SemanticEvent{ .style_bg_color = @intCast(param - 40 + 1) },
+        49 => SemanticEvent{ .style_bg_color = 0 },
+        else => null,
     };
 }
 
@@ -119,8 +138,8 @@ test "semantic: CUP no params defaults to origin" {
     try std.testing.expectEqual(@as(u16, 0), sem.cursor_position.col);
 }
 
-test "semantic: non-cursor CSI returns null" {
-    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('m', 1, 0, 1)));
+test "semantic: unsupported CSI returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('X', 1, 0, 1)));
 }
 
 test "semantic: text event maps to write_text" {
@@ -189,4 +208,53 @@ test "semantic: EL mode 2 full line" {
 test "semantic: EL invalid mode maps to 0" {
     const sem = process(makeStyleChange('K', 5, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u2, 0), sem.erase_line);
+}
+
+test "semantic: SGR reset with no params defaults to 0" {
+    const sem = process(makeStyleChange('m', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_reset);
+}
+
+test "semantic: SGR 0 reset" {
+    const sem = process(makeStyleChange('m', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_reset);
+}
+
+test "semantic: SGR 1 bold on" {
+    const sem = process(makeStyleChange('m', 1, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_bold_on);
+}
+
+test "semantic: SGR 22 bold off" {
+    const sem = process(makeStyleChange('m', 22, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expect(sem == .style_bold_off);
+}
+
+test "semantic: SGR 31 foreground red" {
+    const sem = process(makeStyleChange('m', 31, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 2), sem.style_fg_color);
+}
+
+test "semantic: SGR 37 foreground white" {
+    const sem = process(makeStyleChange('m', 37, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 8), sem.style_fg_color);
+}
+
+test "semantic: SGR 39 foreground reset" {
+    const sem = process(makeStyleChange('m', 39, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 0), sem.style_fg_color);
+}
+
+test "semantic: SGR 44 background blue" {
+    const sem = process(makeStyleChange('m', 44, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 5), sem.style_bg_color);
+}
+
+test "semantic: SGR 49 background reset" {
+    const sem = process(makeStyleChange('m', 49, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 0), sem.style_bg_color);
+}
+
+test "semantic: SGR unsupported param returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('m', 5, 0, 1)));
 }

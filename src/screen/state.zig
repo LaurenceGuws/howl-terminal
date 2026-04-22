@@ -9,15 +9,35 @@ const semantic_mod = @import("../event/semantic.zig");
 pub const SemanticEvent = semantic_mod.SemanticEvent;
 
 /// Cursor and optional cell-buffer state with deterministic clamped updates.
+const CellAttr = packed struct {
+    bold: bool,
+    fg: u3,
+    bg: u3,
+};
+
 pub const ScreenState = struct {
     rows: u16,
     cols: u16,
     cursor_row: u16,
     cursor_col: u16,
     cells: ?[]u21,
+    cells_attr: ?[]CellAttr,
+    current_bold: bool,
+    current_fg: u8,
+    current_bg: u8,
 
     pub fn init(rows: u16, cols: u16) ScreenState {
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .cells = null };
+        return .{
+            .rows = rows,
+            .cols = cols,
+            .cursor_row = 0,
+            .cursor_col = 0,
+            .cells = null,
+            .cells_attr = null,
+            .current_bold = false,
+            .current_fg = 0,
+            .current_bg = 0,
+        };
     }
 
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !ScreenState {
@@ -27,12 +47,29 @@ pub const ScreenState = struct {
             @memset(buf, 0);
             break :blk buf;
         } else null;
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .cells = cells };
+        const cells_attr: ?[]CellAttr = if (size > 0) blk: {
+            const buf = try allocator.alloc(CellAttr, size);
+            @memset(buf, .{ .bold = false, .fg = 0, .bg = 0 });
+            break :blk buf;
+        } else null;
+        return .{
+            .rows = rows,
+            .cols = cols,
+            .cursor_row = 0,
+            .cursor_col = 0,
+            .cells = cells,
+            .cells_attr = cells_attr,
+            .current_bold = false,
+            .current_fg = 0,
+            .current_bg = 0,
+        };
     }
 
     pub fn deinit(self: *ScreenState, allocator: std.mem.Allocator) void {
         if (self.cells) |c| allocator.free(c);
+        if (self.cells_attr) |ca| allocator.free(ca);
         self.cells = null;
+        self.cells_attr = null;
     }
 
     pub fn cellAt(self: *const ScreenState, row: u16, col: u16) u21 {
@@ -62,6 +99,15 @@ pub const ScreenState = struct {
             .backspace => self.cursor_col = self.cursor_col -| 1,
             .erase_display => |mode| self.eraseDisplay(mode),
             .erase_line => |mode| self.eraseLine(mode),
+            .style_reset => {
+                self.current_bold = false;
+                self.current_fg = 0;
+                self.current_bg = 0;
+            },
+            .style_bold_on => self.current_bold = true,
+            .style_bold_off => self.current_bold = false,
+            .style_fg_color => |color| self.current_fg = color,
+            .style_bg_color => |color| self.current_bg = color,
         }
     }
 
