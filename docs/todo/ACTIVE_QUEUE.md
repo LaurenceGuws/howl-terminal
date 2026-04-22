@@ -22,6 +22,10 @@ behavior, replayable tests, and no dependency on app/editor/platform code.
 | `HT-049C` | `done` | Apply style state in screen cell writes. |
 | `HT-049D` | `done` | Relay integration fixtures for style flow. |
 | `HT-049E` | `done` | Contract sync and queue status update for style. |
+| `HT-049F1` | `done` | Fix style color range storage without truncation. |
+| `HT-049F2` | `done` | Make initWithCells allocation-failure safe. |
+| `HT-049F3` | `done` | Clear cell attributes in erase operations. |
+| `HT-049F4` | `done` | Sync contract and queue after blocker fixes. |
 
 ## Guardrails
 

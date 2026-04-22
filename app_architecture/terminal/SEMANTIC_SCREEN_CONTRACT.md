@@ -1,6 +1,6 @@
 # Semantic Screen Contract
 
-`SEMANTIC_SCREEN_CONTRACT` — updated at HT-049E. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
+`SEMANTIC_SCREEN_CONTRACT` — updated at HT-049F4. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
 
 ## SemanticEvent Variants
 
@@ -21,8 +21,8 @@
 | `style_reset` | — | CSI 0m | Reset all style attributes to defaults |
 | `style_bold_on` | — | CSI 1m | Enable bold |
 | `style_bold_off` | — | CSI 22m | Disable bold |
-| `style_fg_color` | `u8` | CSI 30-37,39m | Set foreground color; 0=default, 1-8=colors 30-37 |
-| `style_bg_color` | `u8` | CSI 40-47,49m | Set background color; 0=default, 1-8=colors 40-47 |
+| `style_fg_color` | `u8` (0-8) | CSI 30-37,39m | Set foreground color; 0=default, 1-8=colors 30-37 |
+| `style_bg_color` | `u8` (0-8) | CSI 40-47,49m | Set background color; 0=default, 1-8=colors 40-47 |
 
 ## Ownership and Lifetime
 
@@ -59,22 +59,25 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
 - `line_feed` moves `cursor_row` down one row, clamped at `rows-1`. No scrolling.
 - `carriage_return` resets `cursor_col` to 0; `cursor_row` is unchanged.
 - `backspace` moves `cursor_col` left one column, saturating at 0.
-- `erase_line` zeroes cells in the current row; cursor position is unchanged.
+- `erase_line` zeroes cells and their attributes in the current row; cursor position is unchanged.
   - Mode 0: cursor position through end of line (inclusive).
   - Mode 1: start of line through cursor position (inclusive).
   - Mode 2: entire line.
-- `erase_display` zeroes cells across rows; cursor position is unchanged.
+  - Erased cell attributes reset to defaults (bold=false, fg=0, bg=0).
+- `erase_display` zeroes cells and their attributes across rows; cursor position is unchanged.
   - Mode 0: cursor position through end of screen (inclusive).
   - Mode 1: start of screen through cursor position (inclusive).
   - Mode 2: entire screen.
-- Erase operations are no-ops when no cell buffer is present (`cells == null`).
+  - Erased cell attributes reset to defaults (bold=false, fg=0, bg=0).
+- Erase operations are no-ops when no cell buffer is present (`cells == null`); style state is unaffected.
 - Style operations update current-style state; subsequent text writes apply active style to each cell.
   - `style_reset`: clears bold, restores foreground/background to defaults.
   - `style_bold_on` / `style_bold_off`: toggle bold attribute.
-  - `style_fg_color` / `style_bg_color`: set color index (payload 0=default, 1-8=basic colors).
+  - `style_fg_color` / `style_bg_color`: set color index (payload 0=default, 1-8=basic colors); stored without truncation.
   - Style state is independent of cell content; does not affect non-text operations.
-  - Style attributes on a cell are immutable after the cell is written; erase operations clear cells but do not reset active style state.
-- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style.
+  - Style attributes on a cell are immutable after the cell is written; style state changes do not retroactively affect written cells.
+- Cell buffer (when present) is zero-initialized. Unwritten cells contain codepoint 0 with default style (bold=false, fg=0, bg=0).
+- Style attribute storage uses u4 fields (0-15) to preserve all semantic color values (0-8) without truncation.
 
 ## SGR (Style) Scope
 
