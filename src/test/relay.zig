@@ -2035,6 +2035,29 @@ test "parity: private mode changes after DECSTR remain effective identically" {
     });
 }
 
+test "parity: tab and private modes with DECSTR remain identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "tab + private modes + DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .input = "a\x1b[2I\x1b[?7lbc\x1b[!p\x1b[Zd",
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cursor_visible = true,
+        .expected_cursor_visible = true,
+        .check_auto_wrap = true,
+        .expected_auto_wrap = true,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'd' },
+            .{ .row = 0, .col = 16, .codepoint = 0 },
+        },
+    });
+}
+
 test "parity-chunked: UTF-8 split decode with CRLF remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -2268,6 +2291,52 @@ test "parity-chunked: private modes after split DECSTR remain effective identica
         .expected_cursor_visible = true,
         .check_auto_wrap = true,
         .expected_auto_wrap = false,
+    });
+}
+
+test "parity-chunked: tab and private modes with split DECSTR remain identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked tab + private modes + DECSTR",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "a", "\x1b[2", "I", "\x1b[?7", "l", "bc", "\x1b[", "!", "p", "\x1b[", "Z", "d" },
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cursor_visible = true,
+        .expected_cursor_visible = true,
+        .check_auto_wrap = true,
+        .expected_auto_wrap = true,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'd' },
+            .{ .row = 0, .col = 16, .codepoint = 0 },
+        },
+    });
+}
+
+test "parity-chunked: private modes after DECSTR with tab navigation remain identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked private modes after DECSTR + tabs",
+        .rows = 2,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "\x1b[?25", "l", "a", "\x1b[2I", "b", "\x1b[", "!", "p", "\x1b[?7", "l", "\x1b[?25", "h", "\x1b[2", "I", "c" },
+        .expected_row = 0,
+        .expected_col = 17,
+        .expected_queue_depth = 0,
+        .check_cursor_visible = true,
+        .expected_cursor_visible = true,
+        .check_auto_wrap = true,
+        .expected_auto_wrap = false,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 0 },
+            .{ .row = 0, .col = 16, .codepoint = 'c' },
+        },
     });
 }
 
