@@ -244,7 +244,7 @@ test "parser: CSI with multiple parameters exact order" {
     try std.testing.expectEqual(@as(i32, 1), harness.events.items[0].csi.params[0]);
     try std.testing.expectEqual(@as(i32, 31), harness.events.items[0].csi.params[1]);
     try std.testing.expectEqual(@as(i32, 40), harness.events.items[0].csi.params[2]);
-    try std.testing.expectEqual(@as(u8, 2), harness.events.items[0].csi.count);
+    try std.testing.expectEqual(@as(u8, 3), harness.events.items[0].csi.count);
 }
 
 // --- Bridge integration tests ---
@@ -685,9 +685,9 @@ test "replay: text with fg color changes" {
     feed(&pl, &screen, "green");
     feed(&pl, &screen, "\x1b[39m");
     feed(&pl, &screen, "none");
-    try std.testing.expectEqual(@as(u3, 0), screen.cells_attr.?[0].fg);
-    try std.testing.expectEqual(@as(u3, 2), screen.cells_attr.?[3].fg);
-    try std.testing.expectEqual(@as(u3, 0), screen.cells_attr.?[8].fg);
+    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[3].fg);
+    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[8].fg);
 }
 
 test "replay: style reset clears attributes" {
@@ -702,9 +702,9 @@ test "replay: style reset clears attributes" {
     feed(&pl, &screen, "\x1b[0m");
     feed(&pl, &screen, "reset");
     try std.testing.expectEqual(true, screen.cells_attr.?[0].bold);
-    try std.testing.expectEqual(@as(u3, 2), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[0].fg);
     try std.testing.expectEqual(false, screen.cells_attr.?[6].bold);
-    try std.testing.expectEqual(@as(u3, 0), screen.cells_attr.?[6].fg);
+    try std.testing.expectEqual(@as(u4, 0), screen.cells_attr.?[6].fg);
 }
 
 test "replay: mixed cursor move and style and text" {
@@ -721,5 +721,5 @@ test "replay: mixed cursor move and style and text" {
     try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
     try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
     try std.testing.expectEqual(true, screen.cells_attr.?[20].bold);
-    try std.testing.expectEqual(@as(u3, 2), screen.cells_attr.?[20].fg);
+    try std.testing.expectEqual(@as(u4, 2), screen.cells_attr.?[20].fg);
 }

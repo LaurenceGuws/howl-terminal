@@ -110,6 +110,23 @@ pub const ScreenState = struct {
             .style_bold_off => self.current_bold = false,
             .style_fg_color => |color| self.current_fg = color,
             .style_bg_color => |color| self.current_bg = color,
+            .style_operations => |batch| {
+                var i: u8 = 0;
+                while (i < batch.count) : (i += 1) {
+                    const op = batch.ops[i];
+                    switch (op) {
+                        .reset => {
+                            self.current_bold = false;
+                            self.current_fg = 0;
+                            self.current_bg = 0;
+                        },
+                        .bold_on => self.current_bold = true,
+                        .bold_off => self.current_bold = false,
+                        .fg_color => |color| self.current_fg = color,
+                        .bg_color => |color| self.current_bg = color,
+                    }
+                }
+            },
         }
     }
 
@@ -168,6 +185,7 @@ pub const ScreenState = struct {
                 .bold = self.current_bold,
                 .fg = @intCast(self.current_fg & 0xF),
                 .bg = @intCast(self.current_bg & 0xF),
+                ._unused = 0,
             };
         }
         if (self.cursor_col < self.cols - 1) {

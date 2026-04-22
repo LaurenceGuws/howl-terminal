@@ -44,10 +44,12 @@ pub const CsiParser = struct {
     pub fn feed(self: *CsiParser, byte: u8) ?CsiAction {
         // Final byte in 0x40..0x7E
         if (byte >= 0x40 and byte <= 0x7E) {
+            var final_count = self.count;
+            if (self.in_param) final_count += 1;
             const action = CsiAction{
                 .final = byte,
                 .params = self.params,
-                .count = self.count,
+                .count = final_count,
                 .leader = self.leader,
                 .private = self.private,
                 .intermediates = self.intermediates,
@@ -152,7 +154,7 @@ test "CSI parser: basic ANSI color sequence (31m = red)" {
     for ("31m") |byte| action = parser.feed(byte);
     try std.testing.expectEqual(@as(u8, 'm'), action.?.final);
     try std.testing.expectEqual(@as(i32, 31), action.?.params[0]);
-    try std.testing.expectEqual(@as(u8, 0), action.?.count);
+    try std.testing.expectEqual(@as(u8, 1), action.?.count);
 }
 
 test "CSI parser: multi-param sequence (1;31;40m)" {
@@ -163,7 +165,7 @@ test "CSI parser: multi-param sequence (1;31;40m)" {
     try std.testing.expectEqual(@as(i32, 1), action.?.params[0]);
     try std.testing.expectEqual(@as(i32, 31), action.?.params[1]);
     try std.testing.expectEqual(@as(i32, 40), action.?.params[2]);
-    try std.testing.expectEqual(@as(u8, 2), action.?.count);
+    try std.testing.expectEqual(@as(u8, 3), action.?.count);
 }
 
 test "CSI parser: cursor position query (6n)" {
