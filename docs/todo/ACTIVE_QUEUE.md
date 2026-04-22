@@ -7,7 +7,7 @@ Execution-only queue for `howl-terminal`.
 Build `howl-terminal` into a standalone, portable VT engine with deterministic
 behavior, replayable tests, and no dependency on app/editor/platform code.
 
-Freeze as-of: `HT-059D`.
+Freeze as-of: `HT-060E`.
 
 ## Active / Next
 
@@ -53,10 +53,10 @@ Freeze as-of: `HT-059D`.
 | `HT-059C` | `done` | Build graph cleanup after executable removal. |
 | `HT-059D` | `done` | Validation and queue close sync. |
 | `HT-060A` | `done` | Scope seed: deterministic SGR overflow/truncation contract. |
-| `HT-060B` | `todo` | Semantic hardening for oversized SGR payloads and op cap safety. |
-| `HT-060C` | `todo` | Screen apply invariants for truncated style batches. |
-| `HT-060D` | `todo` | Relay robustness fixtures for overflow/recovery chains. |
-| `HT-060E` | `todo` | Contract and queue close sync for overflow hardening batch. |
+| `HT-060B` | `done` | Semantic hardening for oversized SGR payloads and op cap safety. |
+| `HT-060C` | `done` | Screen apply invariants for truncated style batches. |
+| `HT-060D` | `done` | Relay robustness fixtures for overflow/recovery chains. |
+| `HT-060E` | `done` | Contract and queue close sync for overflow hardening batch. |
 
 ## Guardrails
 

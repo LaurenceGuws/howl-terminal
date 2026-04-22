@@ -1,6 +1,6 @@
 # Semantic Screen Contract
 
-`SEMANTIC_SCREEN_CONTRACT` — updated at HT-059D. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
+`SEMANTIC_SCREEN_CONTRACT` — updated at HT-060E. Authority for `SemanticEvent`, `semantic.process`, and `ScreenState`.
 
 ## SemanticEvent Variants
 
@@ -57,7 +57,7 @@ The `ScreenState.cells` buffer (when present) is heap-allocated and owned by the
 | `style_change` with final H/f | `cursor_position` | 1-based VT params converted to 0-based |
 | `style_change` with final J | `erase_display` | Param default 0; modes 0/1/2 only; other values map to 0 |
 | `style_change` with final K | `erase_line` | Param default 0; modes 0/1/2 only; other values map to 0 |
-| `style_change` with final m | `style_*` variants or `style_operations` | Ordered multi-parameter SGR processing; single param returns single variant; multiple params return batch; unsupported params skipped; params and ops are deterministically truncated at internal capacity |
+| `style_change` with final m | `style_*` variants or `style_operations` | Ordered multi-parameter SGR processing; single param returns single variant; multiple params return batch; unsupported params skipped; params and ops are deterministically truncated at internal capacity (max 16 params evaluated, max 16 emitted ops) |
 | `style_change` with other finals | `null` | Explicitly ignored |
 | `text` | `write_text` | Borrowed slice |
 | `codepoint` | `write_codepoint` | Value copy |
