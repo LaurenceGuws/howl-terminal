@@ -1203,3 +1203,49 @@ test "replay: mixed ordered underline color style batch continuity" {
     try std.testing.expect(screen.cells_attr.?[2].underline_color_rgb != null);
     try std.testing.expectEqual(@as(u8, 1), screen.cells_attr.?[2].underline_color_rgb.?.r);
 }
+
+test "replay: long mixed SGR chain remains stable under cap" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 40);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[1;4;7;38;5;196;58;5;120;22;24;27;31;48;2;1;2;3m");
+    feed(&pl, &screen, "x");
+    const attr = screen.cells_attr.?[0];
+    try std.testing.expectEqual(false, attr.bold);
+    try std.testing.expectEqual(false, attr.underline);
+    try std.testing.expectEqual(false, attr.inverse);
+    try std.testing.expectEqual(@as(u8, 2), attr.fg);
+    try std.testing.expect(attr.bg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 120), attr.underline_color.?);
+}
+
+test "replay: style chain beyond op cap truncates deterministically" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 40);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[1;22;22;22;22;22;22;22;22;31m");
+    feed(&pl, &screen, "x");
+    const attr = screen.cells_attr.?[0];
+    try std.testing.expectEqual(false, attr.bold);
+    try std.testing.expectEqual(false, attr.dim);
+    try std.testing.expectEqual(@as(u8, 0), attr.fg);
+}
+
+test "replay: malformed and overflow sequence recovers for following writes" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 4, 40);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "\x1b[1;22;22;22;22;22;22;22;22;31m");
+    feed(&pl, &screen, "\x1b[38;2;255m");
+    feed(&pl, &screen, "a");
+    feed(&pl, &screen, "\x1b[32m");
+    feed(&pl, &screen, "b");
+    try std.testing.expectEqual(@as(u8, 0), screen.cells_attr.?[0].fg);
+    try std.testing.expectEqual(@as(u8, 3), screen.cells_attr.?[1].fg);
+}
