@@ -574,6 +574,72 @@ test "replay: CPL moves cursor up and resets column" {
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
 }
 
+test "replay: split CNL interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 10, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("Ex");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, '!'), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
+}
+
+test "replay: split CNL after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 10, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("Ex");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(7, 0));
+}
+
+test "replay: split CPL interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 10, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("Fx");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, '!'), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
+}
+
+test "replay: split CPL after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 10, 20);
+    defer screen.deinit(gpa);
+    feed(&pl, &screen, "abc");
+    pl.feedSlice("\x1b[!p");
+    pl.feedSlice("\x1b[7");
+    pl.feedSlice("Fx");
+    pl.applyToScreen(&screen);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 0));
+}
+
 test "replay: CHA moves cursor to absolute column" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1882,6 +1948,80 @@ test "parity: CPL moves cursor up and resets column identically" {
     });
 }
 
+test "parity: split CNL interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CNL interrupted by DECSTR bytes",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[7\x1b[!pEx",
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity: split CNL after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CNL after DECSTR",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[!p\x1b[7Ex",
+        .expected_row = 7,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 7, .col = 0, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity: split CPL interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CPL interrupted by DECSTR bytes",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[7\x1b[!pFx",
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity: split CPL after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "split CPL after DECSTR",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .input = "abc\x1b[!p\x1b[7Fx",
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'x' },
+        },
+    });
+}
+
 test "parity: CHA moves cursor to absolute column identically" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
@@ -2842,6 +2982,80 @@ test "parity-chunked: CPL split into byte fragments remains identical" {
     });
 }
 
+test "parity-chunked: split CNL interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CNL interrupted by DECSTR bytes",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[7", "\x1b[!p", "Ex" },
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CNL after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CNL after DECSTR",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[!p", "\x1b[7", "E", "x" },
+        .expected_row = 7,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 7, .col = 0, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CPL interrupted by DECSTR bytes remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CPL interrupted by DECSTR bytes",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[7", "\x1b[!p", "Fx" },
+        .expected_row = 0,
+        .expected_col = 7,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 3, .codepoint = '!' },
+            .{ .row = 0, .col = 6, .codepoint = 'x' },
+        },
+    });
+}
+
+test "parity-chunked: split CPL after DECSTR remains identical" {
+    const gpa = std.testing.allocator;
+    try runParityChunkScenario(gpa, .{
+        .name = "chunked CPL after DECSTR",
+        .rows = 10,
+        .cols = 20,
+        .with_cells = true,
+        .chunks = &.{ "abc", "\x1b[!p", "\x1b[7", "F", "x" },
+        .expected_row = 0,
+        .expected_col = 1,
+        .expected_queue_depth = 0,
+        .check_cells = true,
+        .cell_checks = &.{
+            .{ .row = 0, .col = 0, .codepoint = 'x' },
+        },
+    });
+}
+
 test "parity-chunked: VPA split into byte fragments remains identical" {
     const gpa = std.testing.allocator;
     try runParityChunkScenario(gpa, .{
@@ -3622,6 +3836,68 @@ test "runtime: CPL move via apply matches direct pipeline" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+}
+
+test "runtime: split CNL interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("Ex");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, '!'), engine.screen().cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 6));
+}
+
+test "runtime: split CNL after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("Ex");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(7, 0));
+}
+
+test "runtime: split CPL interrupted by DECSTR bytes remains deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("Fx");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 7), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, '!'), engine.screen().cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 6));
+}
+
+test "runtime: split CPL after DECSTR applies from reset origin" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine.deinit();
+    engine.feedSlice("abc");
+    engine.apply();
+    engine.feedSlice("\x1b[!p");
+    engine.feedSlice("\x1b[7");
+    engine.feedSlice("Fx");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(u21, 'x'), engine.screen().cellAt(0, 0));
 }
 
 test "runtime: CHA move via apply matches direct pipeline" {
