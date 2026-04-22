@@ -1,5 +1,5 @@
 //! Responsibility: parse terminal byte streams into parser-layer events.
-//! Ownership: terminal parser module; no host/session/runtime policy.
+//! Ownership: terminal parser module;
 //! Reason: keep escape-sequence parsing isolated behind callback dispatch.
 
 const std = @import("std");
