@@ -172,12 +172,30 @@ pub const ScreenState = struct {
             .style_conceal_off => self.current_conceal = false,
             .style_inverse_on => self.current_inverse = true,
             .style_inverse_off => self.current_inverse = false,
-            .style_fg_color => |color| self.current_fg = color,
-            .style_bg_color => |color| self.current_bg = color,
-            .style_fg_256 => |color| self.current_fg = color,
-            .style_bg_256 => |color| self.current_bg = color,
-            .style_fg_rgb => |rgb| self.current_fg_rgb = rgb,
-            .style_bg_rgb => |rgb| self.current_bg_rgb = rgb,
+            .style_fg_color => |color| {
+                self.current_fg = color;
+                self.current_fg_rgb = null;
+            },
+            .style_bg_color => |color| {
+                self.current_bg = color;
+                self.current_bg_rgb = null;
+            },
+            .style_fg_256 => |color| {
+                self.current_fg = color;
+                self.current_fg_rgb = null;
+            },
+            .style_bg_256 => |color| {
+                self.current_bg = color;
+                self.current_bg_rgb = null;
+            },
+            .style_fg_rgb => |rgb| {
+                self.current_fg = 0;
+                self.current_fg_rgb = rgb;
+            },
+            .style_bg_rgb => |rgb| {
+                self.current_bg = 0;
+                self.current_bg_rgb = rgb;
+            },
             .style_underline_color_256 => |color| {
                 self.current_underline_color = color;
                 self.current_underline_color_rgb = null;
@@ -225,12 +243,30 @@ pub const ScreenState = struct {
                         .conceal_off => self.current_conceal = false,
                         .inverse_on => self.current_inverse = true,
                         .inverse_off => self.current_inverse = false,
-                        .fg_color => |color| self.current_fg = color,
-                        .bg_color => |color| self.current_bg = color,
-                        .fg_256 => |color| self.current_fg = color,
-                        .bg_256 => |color| self.current_bg = color,
-                        .fg_rgb => |rgb| self.current_fg_rgb = rgb,
-                        .bg_rgb => |rgb| self.current_bg_rgb = rgb,
+                        .fg_color => |color| {
+                            self.current_fg = color;
+                            self.current_fg_rgb = null;
+                        },
+                        .bg_color => |color| {
+                            self.current_bg = color;
+                            self.current_bg_rgb = null;
+                        },
+                        .fg_256 => |color| {
+                            self.current_fg = color;
+                            self.current_fg_rgb = null;
+                        },
+                        .bg_256 => |color| {
+                            self.current_bg = color;
+                            self.current_bg_rgb = null;
+                        },
+                        .fg_rgb => |rgb| {
+                            self.current_fg = 0;
+                            self.current_fg_rgb = rgb;
+                        },
+                        .bg_rgb => |rgb| {
+                            self.current_bg = 0;
+                            self.current_bg_rgb = rgb;
+                        },
                         .underline_color_256 => |color| {
                             self.current_underline_color = color;
                             self.current_underline_color_rgb = null;
@@ -697,6 +733,52 @@ test "screen: write with bg 256-color persists" {
     s.apply(SemanticEvent{ .write_text = "bg" });
     try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[0].bg);
     try std.testing.expectEqual(@as(u8, 21), s.cells_attr.?[1].bg);
+}
+
+test "screen: fg indexed clears fg rgb state" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_fg_rgb = .{ .r = 7, .g = 8, .b = 9 } });
+    s.apply(SemanticEvent{ .style_fg_color = 3 });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(@as(u8, 3), s.cells_attr.?[0].fg);
+    try std.testing.expect(s.cells_attr.?[0].fg_rgb == null);
+}
+
+test "screen: fg rgb clears indexed fg to default sentinel" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_fg_color = 4 });
+    s.apply(SemanticEvent{ .style_fg_rgb = .{ .r = 1, .g = 2, .b = 3 } });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(@as(u8, 0), s.cells_attr.?[0].fg);
+    try std.testing.expect(s.cells_attr.?[0].fg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 1), s.cells_attr.?[0].fg_rgb.?.r);
+}
+
+test "screen: bg indexed clears bg rgb state" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_bg_rgb = .{ .r = 9, .g = 8, .b = 7 } });
+    s.apply(SemanticEvent{ .style_bg_256 = 45 });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(@as(u8, 45), s.cells_attr.?[0].bg);
+    try std.testing.expect(s.cells_attr.?[0].bg_rgb == null);
+}
+
+test "screen: bg rgb clears indexed bg to default sentinel" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .style_bg_color = 6 });
+    s.apply(SemanticEvent{ .style_bg_rgb = .{ .r = 4, .g = 5, .b = 6 } });
+    s.apply(SemanticEvent{ .write_text = "x" });
+    try std.testing.expectEqual(@as(u8, 0), s.cells_attr.?[0].bg);
+    try std.testing.expect(s.cells_attr.?[0].bg_rgb != null);
+    try std.testing.expectEqual(@as(u8, 4), s.cells_attr.?[0].bg_rgb.?.r);
 }
 
 test "screen: style_dim_on applies to written cell" {
