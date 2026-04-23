@@ -1,3 +1,7 @@
+//! Responsibility: consume byte streams and emit parser events.
+//! Ownership: parser state-machine core.
+//! Reason: implement deterministic VT stream decoding boundaries.
+
 const std = @import("std");
 const stream_mod = @import("stream.zig");
 const csi_mod = @import("csi.zig");

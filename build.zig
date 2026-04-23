@@ -1,3 +1,7 @@
+//! Responsibility: define the package build and test graph.
+//! Ownership: repository build configuration surface.
+//! Reason: keep compile/test entrypoints explicit and host-neutral.
+
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {

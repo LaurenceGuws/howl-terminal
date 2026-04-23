@@ -1,3 +1,7 @@
+//! Responsibility: define CSI action data structures.
+//! Ownership: parser CSI representation layer.
+//! Reason: provide stable typed storage for parsed CSI sequences.
+
 pub const max_params: usize = 16;
 
 pub const max_intermediates: usize = 4;

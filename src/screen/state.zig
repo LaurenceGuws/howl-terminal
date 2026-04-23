@@ -1,3 +1,7 @@
+//! Responsibility: hold screen cursor/cell/history state and apply semantics.
+//! Ownership: screen state authority.
+//! Reason: centralize deterministic screen mutations behind semantic events.
+
 const std = @import("std");
 const semantic_mod = @import("../event/semantic.zig");
 

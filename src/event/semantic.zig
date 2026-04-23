@@ -1,3 +1,7 @@
+//! Responsibility: map parser/bridge events into semantic screen operations.
+//! Ownership: semantic translation layer.
+//! Reason: separate escape parsing from screen behavior intent.
+
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 

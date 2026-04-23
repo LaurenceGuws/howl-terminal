@@ -1,3 +1,7 @@
+//! Responsibility: orchestrate feed, queue, and apply flow.
+//! Ownership: event pipeline control surface.
+//! Reason: provide deterministic parser-to-screen event progression.
+
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const bridge_mod = @import("bridge.zig");

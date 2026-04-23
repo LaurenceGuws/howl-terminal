@@ -1,3 +1,7 @@
+//! Responsibility: run integration and parity tests across terminal lanes.
+//! Ownership: cross-module behavioral validation surface.
+//! Reason: enforce deterministic contract evidence for parser/runtime/screen flow.
+
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");

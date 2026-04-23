@@ -1,3 +1,7 @@
+//! Responsibility: expose terminal model primitives and re-exports.
+//! Ownership: model API module boundary.
+//! Reason: centralize shared types for runtime and consumers.
+
 pub const types = @import("model/types.zig");
 
 pub const selection = @import("model/selection.zig");

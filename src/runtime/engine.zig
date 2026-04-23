@@ -1,3 +1,7 @@
+//! Responsibility: provide host-neutral runtime facade over parser/pipeline/screen.
+//! Ownership: runtime interface boundary.
+//! Reason: compose feed/apply/state-access operations in one deterministic surface.
+
 const std = @import("std");
 const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");

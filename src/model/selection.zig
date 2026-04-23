@@ -1,3 +1,7 @@
+//! Responsibility: implement selection state and lifecycle transitions.
+//! Ownership: model selection primitive.
+//! Reason: keep selection behavior explicit and host-independent.
+
 const std = @import("std");
 
 pub const SelectionPos = struct {

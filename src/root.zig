@@ -1,3 +1,7 @@
+//! Responsibility: expose the package public module surface.
+//! Ownership: root API export boundary.
+//! Reason: provide stable import paths for parser/runtime/model lanes.
+
 const std = @import("std");
 
 pub const parser = @import("parser/parser.zig");

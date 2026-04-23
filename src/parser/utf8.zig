@@ -1,3 +1,7 @@
+//! Responsibility: decode UTF-8 incrementally for parser consumption.
+//! Ownership: parser UTF-8 utility.
+//! Reason: keep codepoint extraction deterministic and reusable.
+
 const std = @import("std");
 
 pub const Utf8Result = union(enum) {

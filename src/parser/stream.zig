@@ -1,3 +1,7 @@
+//! Responsibility: classify stream bytes into text/control events.
+//! Ownership: parser stream decoding helper.
+//! Reason: isolate UTF-8 and control-path normalization logic.
+
 const std = @import("std");
 const utf8 = @import("utf8.zig");
 
