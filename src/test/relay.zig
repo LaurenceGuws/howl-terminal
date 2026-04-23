@@ -10,6 +10,7 @@ const bridge_mod = @import("../event/bridge.zig");
 const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");
 const runtime_mod = @import("../runtime/engine.zig");
+const model_mod = @import("../model.zig");
 
 // --- Dispatch harness ---
 
@@ -4431,4 +4432,65 @@ test "runtime: history accessor ordering remains stable after wraparound" {
     try std.testing.expectEqual(@as(u21, '4'), engine.historyRowAt(0, 1));
     try std.testing.expectEqual(@as(u21, '3'), engine.historyRowAt(1, 0));
     try std.testing.expectEqual(@as(u21, '3'), engine.historyRowAt(1, 1));
+}
+
+test "selection: start and update with viewport coordinates" {
+    var sel = model_mod.SelectionState.init();
+    sel.start(5, 10);
+    var state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, 5), state.start.row);
+    try std.testing.expectEqual(@as(u16, 10), state.start.col);
+
+    sel.update(7, 15);
+    state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, 7), state.end.row);
+    try std.testing.expectEqual(@as(u16, 15), state.end.col);
+}
+
+test "selection: start and update with history coordinates" {
+    var sel = model_mod.SelectionState.init();
+    sel.start(-3, 2);
+    var state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, -3), state.start.row);
+    try std.testing.expectEqual(@as(u16, 2), state.start.col);
+
+    sel.update(-1, 8);
+    state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, -1), state.end.row);
+    try std.testing.expectEqual(@as(u16, 8), state.end.col);
+}
+
+test "selection: span from history to viewport" {
+    var sel = model_mod.SelectionState.init();
+    sel.start(-2, 0);
+    var state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, -2), state.start.row);
+
+    sel.update(5, 20);
+    state = sel.state().?;
+    try std.testing.expectEqual(@as(i32, -2), state.start.row);
+    try std.testing.expectEqual(@as(i32, 5), state.end.row);
+    try std.testing.expect(state.active);
+    try std.testing.expect(state.selecting);
+}
+
+test "selection: clear deactivates selection" {
+    var sel = model_mod.SelectionState.init();
+    sel.start(2, 5);
+    try std.testing.expect(sel.state() != null);
+
+    sel.clear();
+    try std.testing.expectEqual(@as(?model_mod.TerminalSelection, null), sel.state());
+}
+
+test "selection: finish stops selecting but keeps active" {
+    var sel = model_mod.SelectionState.init();
+    sel.start(3, 7);
+    var state = sel.state().?;
+    try std.testing.expect(state.selecting);
+
+    sel.finish();
+    state = sel.state().?;
+    try std.testing.expect(state.active);
+    try std.testing.expect(!state.selecting);
 }

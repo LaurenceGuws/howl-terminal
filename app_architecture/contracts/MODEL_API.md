@@ -31,7 +31,8 @@ Authority for `src/model.zig`, `src/model/types.zig`, `src/model/selection.zig`,
 - Responsibility: selection endpoint and state data representation.
 - Ownership: M3 selection primitive.
 - Breakage: field/type changes; coordinate representation changes.
-- Coordinate semantics: defined in `app_architecture/contracts/HISTORY_SELECTION.md`.
+- Coordinate semantics: `row: i32` (signed, negative for history; non-negative for viewport), `col: u16` (unsigned viewport range).
+- Full coordinate model: defined in `app_architecture/contracts/HISTORY_SELECTION.md`.
 
 **defaultCell**
 - Responsibility: default cell construction helper.
