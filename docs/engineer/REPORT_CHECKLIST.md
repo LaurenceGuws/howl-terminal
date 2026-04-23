@@ -11,10 +11,13 @@ Before reporting work as complete, run this checklist.
 3. Confirm the planned scope does not violate any rule.
 
 Human Rules:
-- No compatibility/fallback/workaround/in-case code paths. Keep things KISS, DRY, and unambiguous.
-- Naming conventions and docstrings are treated the same way: details live in markdown, and file/fn/folder/comment names stay simple, clean, and intentional.
-- `///` and `//!` comment lines are architect/human owned unless explicitly authorized.
-- `checkins/` is read-only for agents; use it only as context.
+1. No compatibility/fallback/workaround/in-case code paths. Keep things KISS, DRY, and unambiguous.
+2. Naming conventions and docstrings are treated the same way: details live in markdown; file/fn/folder/comment names stay simple, clean, and intentional.
+3. `//!` rule: every `.zig` file in this repo must have a module definition doc comment in the approved format.
+4. `///` rule: every frozen public symbol must document intent and responsibility (where applicable) for ZLS completion integration.
+5. Doc-comment scope rule: `//!` and `///` comments must be short, accurate, and domain-focused. They are consumer-facing module/API documentation, not ticket tracking, historical notes, or team collaboration logs.
+6. `///` and `//!` comment lines are architect/human owned unless explicitly authorized.
+7. `checkins/` is read-only for agents; use it only as context.
 
 ### Post-execution check
 
@@ -52,14 +55,6 @@ git show --name-status <hash>
 Expected: output matches all files claimed in the report.
 
 ## Code Quality Checks
-
-### No ticket tags in Zig source
-
-```bash
-rg -n "HT-[0-9]+|CZH-[0-9]+|JIRA|ticket" --glob '*.zig' src build.zig
-```
-
-Expected: zero matches.
 
 ### No forbidden imports in parser/event/screen/tests
 
