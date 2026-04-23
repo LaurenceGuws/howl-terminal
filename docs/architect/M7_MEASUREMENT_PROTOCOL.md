@@ -76,6 +76,8 @@ Each optimization claim must report:
 - percent delta
 - allocation count delta
 - allocated-bytes delta
+- max queue depth delta (for queue-growth-targeted work)
+- peak live bytes delta (for queue-growth-targeted work)
 - retained-memory delta (if applicable)
 
 ## Memory Accounting Rules

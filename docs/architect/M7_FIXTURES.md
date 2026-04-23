@@ -106,6 +106,26 @@ Measurement requirement:
 - report snapshot latency and allocation deltas independently
 - do not combine with hot-loop throughput score
 
+## F_QUEUE_GROWTH_V1
+
+Purpose:
+
+- characterize queue-depth and peak-live memory pressure before `apply`
+- provide stable stress fixtures for `F2` policy and implementation work
+
+Shape:
+
+- `queue_growth_ascii_chunked_64`: `F_ASCII_HEAVY_V1` fed in 64-byte chunks,
+  with a single `apply` at the end
+- `queue_growth_scroll_chunked_16`: `F_SCROLL_HEAVY_V1` fed in 16-byte chunks,
+  with a single `apply` at the end
+
+Measurement requirement:
+
+- report `median_max_queue_depth`
+- report `median_peak_live_bytes`
+- report existing latency/allocation/throughput metrics for context
+
 ## Versioning Rule
 
 Fixture IDs are versioned (`*_V1`, `*_V2`, ...).

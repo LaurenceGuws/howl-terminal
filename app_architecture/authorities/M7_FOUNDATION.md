@@ -157,6 +157,17 @@ For `M7`, this means:
 - snapshot optimization does not outrank interactive latency or queue/scroll
   pressure work
 
+### D4: Queue Envelope Must Be Reported Explicitly
+
+Queue growth remains contractually allowed between `feed*` and `apply`, but
+`M7` now requires explicit queue-envelope reporting in baseline/evidence runs.
+
+For `M7`, this means:
+
+- queue-focused runs must report max queue depth and peak live bytes
+- queue policy/mitigation changes are governed by `M7_F2_SPEC`
+- no queue behavior change is accepted without `M7-BL-003` comparison evidence
+
 ## Non-Goals
 
 `M7` is not:

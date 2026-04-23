@@ -13,12 +13,16 @@ const WorkloadResult = struct {
     p95_ns: u64,
     median_alloc_count: usize,
     median_alloc_bytes: usize,
+    median_peak_live_bytes: usize,
+    median_max_queue_depth: usize,
 };
 
 const RunObservation = struct {
     ns: u64,
     alloc_count: usize,
     alloc_bytes: usize,
+    peak_live_bytes: usize,
+    max_queue_depth: usize,
 };
 
 const CountingAllocator = struct {
@@ -203,12 +207,15 @@ fn runFeedApplyWorkload(
         counting.resetWindow();
         const start = timer.read();
         engine.feedSlice(fixture);
+        const max_queue_depth = engine.queuedEventCount();
         engine.apply();
         const end = timer.read();
         observations[i] = .{
             .ns = end - start,
             .alloc_count = counting.window_alloc_count,
             .alloc_bytes = counting.window_alloc_bytes,
+            .peak_live_bytes = counting.window_peak_live_bytes,
+            .max_queue_depth = max_queue_depth,
         };
     }
 
@@ -218,11 +225,17 @@ fn runFeedApplyWorkload(
     defer base_allocator.free(alloc_count_values);
     const alloc_bytes_values = try base_allocator.alloc(usize, runs);
     defer base_allocator.free(alloc_bytes_values);
+    const peak_live_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(peak_live_values);
+    const queue_depth_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(queue_depth_values);
 
     for (observations, 0..) |obs, idx| {
         ns_values[idx] = obs.ns;
         alloc_count_values[idx] = obs.alloc_count;
         alloc_bytes_values[idx] = obs.alloc_bytes;
+        peak_live_values[idx] = obs.peak_live_bytes;
+        queue_depth_values[idx] = obs.max_queue_depth;
     }
 
     return .{
@@ -233,6 +246,8 @@ fn runFeedApplyWorkload(
         .p95_ns = p95U64(ns_values),
         .median_alloc_count = medianUsize(alloc_count_values),
         .median_alloc_bytes = medianUsize(alloc_bytes_values),
+        .median_peak_live_bytes = medianUsize(peak_live_values),
+        .median_max_queue_depth = medianUsize(queue_depth_values),
     };
 }
 
@@ -259,8 +274,10 @@ fn runMixedInteractiveWorkload(
         counting.resetWindow();
         const start = timer.read();
         var j: usize = 0;
+        var max_queue_depth: usize = 0;
         while (j < bursts_per_run) : (j += 1) {
             engine.feedSlice(burst);
+            max_queue_depth = @max(max_queue_depth, engine.queuedEventCount());
             engine.apply();
         }
         const end = timer.read();
@@ -268,6 +285,8 @@ fn runMixedInteractiveWorkload(
             .ns = end - start,
             .alloc_count = counting.window_alloc_count,
             .alloc_bytes = counting.window_alloc_bytes,
+            .peak_live_bytes = counting.window_peak_live_bytes,
+            .max_queue_depth = max_queue_depth,
         };
     }
 
@@ -277,11 +296,17 @@ fn runMixedInteractiveWorkload(
     defer base_allocator.free(alloc_count_values);
     const alloc_bytes_values = try base_allocator.alloc(usize, runs);
     defer base_allocator.free(alloc_bytes_values);
+    const peak_live_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(peak_live_values);
+    const queue_depth_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(queue_depth_values);
 
     for (observations, 0..) |obs, idx| {
         ns_values[idx] = obs.ns;
         alloc_count_values[idx] = obs.alloc_count;
         alloc_bytes_values[idx] = obs.alloc_bytes;
+        peak_live_values[idx] = obs.peak_live_bytes;
+        queue_depth_values[idx] = obs.max_queue_depth;
     }
 
     return .{
@@ -292,6 +317,8 @@ fn runMixedInteractiveWorkload(
         .p95_ns = p95U64(ns_values),
         .median_alloc_count = medianUsize(alloc_count_values),
         .median_alloc_bytes = medianUsize(alloc_bytes_values),
+        .median_peak_live_bytes = medianUsize(peak_live_values),
+        .median_max_queue_depth = medianUsize(queue_depth_values),
     };
 }
 
@@ -329,6 +356,8 @@ fn runSnapshotWorkload(
             .ns = end - start,
             .alloc_count = counting.window_alloc_count,
             .alloc_bytes = counting.window_alloc_bytes,
+            .peak_live_bytes = counting.window_peak_live_bytes,
+            .max_queue_depth = 0,
         };
     }
 
@@ -338,11 +367,17 @@ fn runSnapshotWorkload(
     defer base_allocator.free(alloc_count_values);
     const alloc_bytes_values = try base_allocator.alloc(usize, runs);
     defer base_allocator.free(alloc_bytes_values);
+    const peak_live_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(peak_live_values);
+    const queue_depth_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(queue_depth_values);
 
     for (observations, 0..) |obs, idx| {
         ns_values[idx] = obs.ns;
         alloc_count_values[idx] = obs.alloc_count;
         alloc_bytes_values[idx] = obs.alloc_bytes;
+        peak_live_values[idx] = obs.peak_live_bytes;
+        queue_depth_values[idx] = obs.max_queue_depth;
     }
 
     return .{
@@ -353,6 +388,86 @@ fn runSnapshotWorkload(
         .p95_ns = p95U64(ns_values),
         .median_alloc_count = medianUsize(alloc_count_values),
         .median_alloc_bytes = medianUsize(alloc_bytes_values),
+        .median_peak_live_bytes = medianUsize(peak_live_values),
+        .median_max_queue_depth = medianUsize(queue_depth_values),
+    };
+}
+
+fn runQueueGrowthChunkedWorkload(
+    base_allocator: std.mem.Allocator,
+    name: []const u8,
+    fixture: []const u8,
+    chunk_size: usize,
+    rows: u16,
+    cols: u16,
+    history_capacity: u16,
+    runs: usize,
+) !WorkloadResult {
+    const observations = try base_allocator.alloc(RunObservation, runs);
+    defer base_allocator.free(observations);
+    var timer = try std.time.Timer.start();
+
+    var i: usize = 0;
+    while (i < runs) : (i += 1) {
+        var counting = CountingAllocator.init(base_allocator);
+        var engine = try terminal.runtime.Engine.initWithCellsAndHistory(
+            counting.allocator(),
+            rows,
+            cols,
+            history_capacity,
+        );
+        defer engine.deinit();
+
+        counting.resetWindow();
+        var offset: usize = 0;
+        var max_queue_depth: usize = 0;
+        const start = timer.read();
+        while (offset < fixture.len) {
+            const next = @min(offset + chunk_size, fixture.len);
+            engine.feedSlice(fixture[offset..next]);
+            max_queue_depth = @max(max_queue_depth, engine.queuedEventCount());
+            offset = next;
+        }
+        engine.apply();
+        const end = timer.read();
+        observations[i] = .{
+            .ns = end - start,
+            .alloc_count = counting.window_alloc_count,
+            .alloc_bytes = counting.window_alloc_bytes,
+            .peak_live_bytes = counting.window_peak_live_bytes,
+            .max_queue_depth = max_queue_depth,
+        };
+    }
+
+    const ns_values = try base_allocator.alloc(u64, runs);
+    defer base_allocator.free(ns_values);
+    const alloc_count_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(alloc_count_values);
+    const alloc_bytes_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(alloc_bytes_values);
+    const peak_live_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(peak_live_values);
+    const queue_depth_values = try base_allocator.alloc(usize, runs);
+    defer base_allocator.free(queue_depth_values);
+
+    for (observations, 0..) |obs, idx| {
+        ns_values[idx] = obs.ns;
+        alloc_count_values[idx] = obs.alloc_count;
+        alloc_bytes_values[idx] = obs.alloc_bytes;
+        peak_live_values[idx] = obs.peak_live_bytes;
+        queue_depth_values[idx] = obs.max_queue_depth;
+    }
+
+    return .{
+        .name = name,
+        .bytes_per_run = fixture.len,
+        .runs = runs,
+        .median_ns = medianU64(ns_values),
+        .p95_ns = p95U64(ns_values),
+        .median_alloc_count = medianUsize(alloc_count_values),
+        .median_alloc_bytes = medianUsize(alloc_bytes_values),
+        .median_peak_live_bytes = medianUsize(peak_live_values),
+        .median_max_queue_depth = medianUsize(queue_depth_values),
     };
 }
 
@@ -373,6 +488,8 @@ fn printResult(result: WorkloadResult) void {
     std.debug.print("throughput_mib_s={d:.2}\n", .{throughput_mib});
     std.debug.print("median_alloc_count={d}\n", .{result.median_alloc_count});
     std.debug.print("median_alloc_bytes={d}\n", .{result.median_alloc_bytes});
+    std.debug.print("median_peak_live_bytes={d}\n", .{result.median_peak_live_bytes});
+    std.debug.print("median_max_queue_depth={d}\n", .{result.median_max_queue_depth});
     std.debug.print("---\n", .{});
 }
 
@@ -425,6 +542,26 @@ pub fn main() !void {
     );
     const mixed_result = try runMixedInteractiveWorkload(allocator, runs);
     const snapshot_result = try runSnapshotWorkload(allocator, scroll_fixture, runs);
+    const queue_growth_ascii = try runQueueGrowthChunkedWorkload(
+        allocator,
+        "queue_growth_ascii_chunked_64",
+        ascii_fixture,
+        64,
+        40,
+        120,
+        0,
+        runs,
+    );
+    const queue_growth_scroll = try runQueueGrowthChunkedWorkload(
+        allocator,
+        "queue_growth_scroll_chunked_16",
+        scroll_fixture,
+        16,
+        40,
+        120,
+        1_000,
+        runs,
+    );
 
     std.debug.print("m7_baseline_v1\n", .{});
     std.debug.print("rows=40 cols=120 runs={d}\n", .{runs});
@@ -435,4 +572,6 @@ pub fn main() !void {
     printResult(scroll_with_history);
     printResult(mixed_result);
     printResult(snapshot_result);
+    printResult(queue_growth_ascii);
+    printResult(queue_growth_scroll);
 }

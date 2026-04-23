@@ -239,3 +239,5 @@ Execution spec status:
 - `F1` implementation spec published: `docs/architect/M7_F1_SPEC.md`
 - `F1` first execution completed; evidence in `docs/architect/M7_BASELINE.md`
   (`M7-BL-002`) with gate outcomes.
+- `F2` queue-growth spec published: `docs/architect/M7_F2_SPEC.md`
+- `F2` queue-envelope baseline captured in `M7-BL-003`.

@@ -99,3 +99,39 @@ Architect note:
 - To treat this slice as accepted, gate 2 requires explicit architect waiver or
   a follow-up `F1R` slice focused on reducing total allocated bytes rather than
   allocation count.
+
+---
+
+## M7-BL-003 (F2 Queue Envelope Baseline)
+
+Baseline ID: `M7-BL-003`
+
+Timestamp (UTC): `2026-04-23 19:35:25Z`
+
+Command:
+
+- `zig build m7-baseline`
+
+### Results
+
+| Workload | Median (ms) | P95 (ms) | Throughput (MiB/s) | Median alloc count | Median alloc bytes | Median peak live bytes | Median max queue depth |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ascii_heavy` | 72.457 | 73.494 | 8.69 | 1 | 3294176 | 3294176 | 30000 |
+| `csi_heavy` | 24.991 | 25.406 | 2.67 | 1 | 1778576 | 1778576 | 16000 |
+| `scroll_heavy_history0` | 104.286 | 107.218 | 0.55 | 4 | 6024374 | 6003867 | 60000 |
+| `scroll_heavy_history1000` | 103.900 | 104.822 | 0.55 | 4 | 6024374 | 6003867 | 60000 |
+| `mixed_interactive` | 7.022 | 7.040 | 6.79 | 1 | 54 | 54 | 4 |
+| `snapshot_opt_in` | 35.968 | 36.169 | n/a | 400 | 99840000 | 499200 | 0 |
+| `queue_growth_ascii_chunked_64` | 77.135 | 78.115 | 8.16 | 8 | 5309084 | 4649824 | 39687 |
+| `queue_growth_scroll_chunked_16` | 105.852 | 107.263 | 0.54 | 4 | 6024374 | 6003867 | 60000 |
+
+### F2 Baseline Interpretation
+
+- Queue depth is substantial in sustained pre-apply buffering scenarios.
+- `queue_growth_ascii_chunked_64` shows queue-depth expansion beyond the single
+  feed `ascii_heavy` shape (39,687 vs 30,000 median max queue depth), confirming
+  chunking pattern affects queue profile.
+- Scroll-heavy workloads naturally push queue depth to 60,000 under current
+  fixture/load shape, establishing a high-water reference for F2 policy work.
+- F2 can now be evaluated with explicit queue-depth and peak-live metrics,
+  rather than only latency/throughput/allocation counts.
