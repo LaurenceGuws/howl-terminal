@@ -516,7 +516,20 @@ pub const Engine = struct {
         return self.encode_buf[0..0];
     }
 
-    /// Capture snapshot of engine observable state.
+    /// Capture deterministic snapshot of engine observable state (SNAPSHOT_REPLAY contract).
+    ///
+    /// Returns an EngineSnapshot containing visible cells, cursor, modes, history,
+    /// and selection state at the time of the call. Snapshots are host-neutral and
+    /// do not capture parser state, queued events, or internal encode buffers.
+    ///
+    /// Determinism: identical observable engine state produces identical snapshots.
+    /// Identical byte sequences fed via feedByte/feedSlice, followed by apply(),
+    /// produce identical snapshots regardless of how bytes are chunked.
+    ///
+    /// Memory: allocates owned copies of cell and history buffers. Caller must
+    /// call snapshot.deinit() to release them when done.
+    ///
+    /// Error: returns allocation error if owned buffer allocation fails.
     pub fn snapshot(self: *Engine) !model_mod.EngineSnapshot {
         return model_mod.snapshot.EngineSnapshot.captureFromScreen(
             self.allocator,
