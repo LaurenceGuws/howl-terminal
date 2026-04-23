@@ -120,6 +120,43 @@ Every future `M7` implementation proposal must state:
 Evidence must be reproducible on local developer machines with repo-local tools
 or simple documented commands. If evidence cannot be rerun, it is not authority.
 
+## Doctrine Decisions (Current)
+
+### D1: Queue Growth Is Allowed Between `feed*` and `apply`, But Must Be Measured
+
+Current runtime contract remains two-phase: input is queued during `feed*`, and
+state mutates on `apply`.
+
+For `M7`, this means:
+
+- no semantic shortcut that mutates screen state directly from `feed*`
+- queue growth is currently allowed as a contract property
+- memory and allocation pressure from queue growth must be explicitly measured
+- if bounded queue semantics are later proposed, they require explicit contract
+  review, not incidental optimization
+
+### D2: Bridge Text Ownership Is A Primary Optimization Target
+
+Per-event text duplication in the bridge is currently accepted behavior but is
+treated as the first high-impact `M7` optimization target.
+
+For `M7`, this means:
+
+- changes may redesign internal ownership to reduce allocator traffic
+- deterministic parser-to-semantic behavior must remain unchanged
+- improvements are accepted only with runtime-mode evidence and parity safety
+
+### D3: Snapshot Cost Is Explicitly Opt-In
+
+Snapshot capture is allowed to be expensive because it is a deterministic,
+owned-state diagnostic surface.
+
+For `M7`, this means:
+
+- snapshot performance is measured separately from hot-loop throughput
+- snapshot optimization does not outrank interactive latency or queue/scroll
+  pressure work
+
 ## Non-Goals
 
 `M7` is not:

@@ -225,3 +225,11 @@ Next architect work should be:
 2. decide the doctrine for acceptable queue growth before `apply()`
 3. decide whether bridge text ownership should remain per-event duplication or
    be replaced by a more bounded representation
+
+## Decision Status
+
+Doctrine decisions corresponding to findings are now recorded in:
+
+- `D1` queue growth policy: `M7_FOUNDATION.md`
+- `D2` bridge ownership priority: `M7_FOUNDATION.md`
+- `D3` snapshot opt-in cost policy: `M7_FOUNDATION.md`
