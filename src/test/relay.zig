@@ -6044,6 +6044,7 @@ const ConformanceCheckpoint = struct {
     cursor_col: u16,
     cursor_visible: bool,
     auto_wrap: bool,
+    visible_cells_hash: u64,
     history_count: u16,
     history_capacity: u16,
     selection: ?model_mod.TerminalSelection,
@@ -6057,6 +6058,16 @@ const ConformanceCheckpoint = struct {
             selection = sel;
         }
 
+        var hasher = std.hash.Fnv1a_64.init();
+        var r: u16 = 0;
+        while (r < screen.rows) : (r += 1) {
+            var c: u16 = 0;
+            while (c < screen.cols) : (c += 1) {
+                const cell = screen.cellAt(r, c);
+                hasher.update(std.mem.asBytes(&cell));
+            }
+        }
+
         return .{
             .rows = screen.rows,
             .cols = screen.cols,
@@ -6064,6 +6075,7 @@ const ConformanceCheckpoint = struct {
             .cursor_col = screen.cursor_col,
             .cursor_visible = screen.cursor_visible,
             .auto_wrap = screen.auto_wrap,
+            .visible_cells_hash = hasher.final(),
             .history_count = engine.historyCount(),
             .history_capacity = engine.historyCapacity(),
             .selection = selection,
@@ -6078,7 +6090,8 @@ const ConformanceCheckpoint = struct {
                 sel_self.start.col == sel_other.start.col and
                 sel_self.end.row == sel_other.end.row and
                 sel_self.end.col == sel_other.end.col and
-                sel_self.active == sel_other.active
+                sel_self.active == sel_other.active and
+                sel_self.selecting == sel_other.selecting
             else
                 false
         else
@@ -6090,6 +6103,7 @@ const ConformanceCheckpoint = struct {
             self.cursor_col == other.cursor_col and
             self.cursor_visible == other.cursor_visible and
             self.auto_wrap == other.auto_wrap and
+            self.visible_cells_hash == other.visible_cells_hash and
             self.history_count == other.history_count and
             self.history_capacity == other.history_capacity and
             selection_equal and
@@ -6193,7 +6207,7 @@ test "M9-FX-001: text baseline - ASCII writes and cursor progression" {
     engine.apply();
 
     const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
-    try std.testing.expect(cp2.cursor_col >= 9);
+    try std.testing.expectEqual(@as(u16, 9), cp2.cursor_col);
 }
 
 test "M9-FX-001: text baseline - CR/LF line wrapping" {
@@ -6218,7 +6232,7 @@ test "M9-FX-002: UTF-8 text baseline - mixed codepoints" {
     engine.apply();
 
     const cp = try ConformanceCheckpoint.capture(gpa, &engine);
-    try std.testing.expect(cp.cursor_col > 5);
+    try std.testing.expectEqual(@as(u16, 9), cp.cursor_col);
 }
 
 test "M9-FX-003: cursor/erase baseline - CSI H cursor movement" {
@@ -6253,7 +6267,10 @@ test "M9-FX-003: cursor/erase baseline - ED erase display" {
     engine.apply();
 
     const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
-    try std.testing.expect(cp_after.cursor_row <= cp_before.cursor_row);
+    try std.testing.expectEqual(cp_before.cursor_row, cp_after.cursor_row);
+    try std.testing.expectEqual(cp_before.cursor_col, cp_after.cursor_col);
+    try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(2, 4));
 }
 
 test "M9-FX-004: mode baseline - DEC private mode ?25 cursor visibility" {
