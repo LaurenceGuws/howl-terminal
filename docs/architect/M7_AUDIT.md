@@ -237,3 +237,5 @@ Doctrine decisions corresponding to findings are now recorded in:
 Execution spec status:
 
 - `F1` implementation spec published: `docs/architect/M7_F1_SPEC.md`
+- `F1` first execution completed; evidence in `docs/architect/M7_BASELINE.md`
+  (`M7-BL-002`) with gate outcomes.

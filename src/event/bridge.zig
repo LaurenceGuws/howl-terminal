@@ -28,12 +28,15 @@ pub const Event = union(enum) {
 /// Owned event queue bridge for parser sink callbacks.
 pub const Bridge = struct {
     allocator: std.mem.Allocator,
+    arena: std.heap.ArenaAllocator,
     events: std.ArrayList(Event),
 
     /// Initialize bridge queue.
     pub fn init(allocator: std.mem.Allocator) Bridge {
+        const arena = std.heap.ArenaAllocator.init(allocator);
         return .{
             .allocator = allocator,
+            .arena = arena,
             .events = std.ArrayList(Event).initCapacity(allocator, 32) catch unreachable,
         };
     }
@@ -42,6 +45,7 @@ pub const Bridge = struct {
     pub fn deinit(self: *Bridge) void {
         self.clear();
         self.events.deinit(self.allocator);
+        self.arena.deinit();
     }
 
     /// Return queued event count.
@@ -56,13 +60,8 @@ pub const Bridge = struct {
 
     /// Clear queued events and free owned payloads.
     pub fn clear(self: *Bridge) void {
-        for (self.events.items) |event| {
-            switch (event) {
-                .text, .title_set => |data| self.allocator.free(data),
-                else => {},
-            }
-        }
         self.events.clearRetainingCapacity();
+        _ = self.arena.reset(.retain_capacity);
     }
 
     /// Drain queued events into destination list.
@@ -97,7 +96,7 @@ pub const Bridge = struct {
 
     fn onAsciiSlice(ptr: *anyopaque, bytes: []const u8) void {
         const self: *Bridge = @ptrCast(@alignCast(ptr));
-        const owned = self.allocator.dupe(u8, bytes) catch return;
+        const owned = self.arena.allocator().dupe(u8, bytes) catch return;
         self.events.append(self.allocator, Event{ .text = owned }) catch {};
     }
 
@@ -119,7 +118,7 @@ pub const Bridge = struct {
     fn onOsc(ptr: *anyopaque, data: []const u8, term: parser_mod.OscTerminator) void {
         const self: *Bridge = @ptrCast(@alignCast(ptr));
         _ = term;
-        const owned = self.allocator.dupe(u8, data) catch return;
+        const owned = self.arena.allocator().dupe(u8, data) catch return;
         self.events.append(self.allocator, Event{ .title_set = owned }) catch {};
     }
 
