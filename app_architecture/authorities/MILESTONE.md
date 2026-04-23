@@ -102,7 +102,7 @@ and parity-tested for real host-loop usage patterns.
 M6 is complete only when snapshot/replay behavior is explicit, host-neutral, and
 proven deterministic through runtime/direct parity evidence.
 
-- `[ ]` M6-A: Snapshot/replay contract closure: payload boundaries, replay framing, and invariants are unambiguous.
+- `[x]` M6-A: Snapshot/replay contract closure: payload boundaries, replay framing, and invariants are unambiguous.
 - `[ ]` M6-B: Snapshot surface: runtime/model const read APIs align to contract without mutable escapes.
 - `[ ]` M6-C: Replay evidence matrix: snapshot/replay invariants are test-backed across direct and runtime flows.
 - `[ ]` M6-D: Freeze evidence: M6 authority/progress/queue are finalized and M7 handoff is published.
