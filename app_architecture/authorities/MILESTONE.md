@@ -21,7 +21,8 @@ It is intentionally non-implementation-detailed.
 
 ## Current Direction
 
-Current milestone target is `M2`, with `M1` baseline retained.
+Current milestone target is `M3`, with `M1` foundation and `M2` terminal
+state breadth retained as frozen baselines.
 
 ## M2 Checklist
 
@@ -39,6 +40,25 @@ validated by replay/parity/runtime evidence.
 1. Run a final M2 breadth-gap audit against current contracts and replay surface.
 2. Implement or explicitly defer each in-scope gap with tests and authority updates.
 3. Perform one M2 freeze pass (contracts, milestone progress, active queue) and mark `M2` done.
+
+## M3 Checklist
+
+M3 is complete only when history and selection behavior are portable,
+host-neutral, and covered by replay/parity/runtime evidence.
+
+- `[ ]` Scope boundary: scrollback/history and selection are model/runtime behavior; host UI gestures, clipboard, renderer policy, and platform integration stay out of scope.
+- `[ ]` Coordinate model: viewport coordinates, history coordinates, and selection endpoints are explicit and deterministic across scroll.
+- `[ ]` History storage: bottom scrolling captures visible rows into bounded history without changing frozen M2 visible-screen semantics.
+- `[ ]` Reset/clear policy: `clear`, `reset`, `resetScreen`, DECSTR, zero-dimension screens, and history truncation have documented, tested behavior.
+- `[ ]` Selection lifecycle: selection start/update/finish/clear works across viewport and history coordinates with deterministic invalidation rules.
+- `[ ]` Runtime API: hosts can read history/selection through minimal const, host-neutral accessors; no mutable screen/history escape hatch is introduced.
+- `[ ]` Replay evidence: direct pipeline, runtime facade, and chunked-feed parity tests cover history-producing streams and selection state transitions.
+
+### M3 Closeout Sequence
+
+1. Freeze M3 history/selection contracts and update the model/runtime API contracts.
+2. Run the full M3 replay/parity/runtime validation matrix.
+3. Mark `M3` done in milestone progress and replace the active queue with the next milestone handoff.
 
 ## Authority Rules
 
