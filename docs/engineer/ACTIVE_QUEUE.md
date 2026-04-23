@@ -11,86 +11,68 @@ Execution-only queue for the current engineer loop.
 ## Scope Anchor
 
 - Milestone authority: `app_architecture/authorities/MILESTONE.md`
-- M5 authority: `app_architecture/authorities/M5_FOUNDATION.md`
 - Runtime contract: `app_architecture/contracts/RUNTIME_API.md`
+- Snapshot/Replay authority: `app_architecture/authorities/M6_FOUNDATION.md` (to be published)
 - Architect workflow: `docs/architect/WORKFLOW.md`
 
 ## Current Loop
 
-**Status:** M5-A complete and accepted. Execute M5-B.
+**Status:** M5 complete. M6 planning phase active.
 
-M1-M4 and M5-A are frozen. Do not reopen parser/screen/history/selection/input
-or M5-A contract/test work unless an M5-B parity test exposes a direct regression.
+M1-M5 are frozen. Do not reopen parser/screen/history/selection/input/runtime
+behavior unless an M6 test exposes a direct regression.
 
-## M5-B Execution Order (Do Not Reorder)
+## M6 Planning Phase
 
-### M5-B1: Runtime API Docstrings and Ownership Headers
+Before M6 execution queue is published, architect must:
 
-- Target files:
-  - `src/runtime/engine.zig`
-- Allowed change type: docstring additions only (no signature or behavior changes).
-- Required output:
-  - Top-level `//!` ownership header for Engine struct
-  - `///` docstrings on all stable public methods aligning to RUNTIME_API.md contract
-  - Docstrings document behavior, not implementation
-- Non-goals:
-  - no code changes beyond docstrings
-  - no internal function documentation
-  - no parameter-by-parameter method docs (reference RUNTIME_API.md for details)
-- Stop conditions:
-  - if docstring wording conflicts with RUNTIME_API.md contract text, stop and report exact discrepancy.
+1. **Scope M6 boundaries**
+   - Define what "snapshot and replay contracts" means in howl-terminal context
+   - Clarify whether M6 covers checkpoint/restore semantics, deterministic replay for testing, or both
+   - Decide which M6 outputs (snapshot format, replay validation, metadata) are in scope
 
-### M5-B2: Runtime Parity Matrix (Mixed Host-Loop Tests)
+2. **Identify M6 dependencies**
+   - Snapshot format: does it require encoding history buffer and selection state?
+   - Replay validation: does it require comparing direct vs. runtime pipeline outputs?
+   - Coverage: which M1-M5 contracts need snapshot/replay evidence?
 
-- Target files:
-  - `src/test/relay.zig`
-- Allowed change type: parity test additions only.
-- Required output:
-  - add 4-5 parity tests covering mixed feed/apply/reset/encode sequences
-  - include at least one split-feed scenario where chunking boundary affects parser/queue
-  - one scenario with selection/history interaction during apply
-  - prove runtime facade behavior matches direct pipeline+screen for same bytes
-- Non-goals:
-  - no new runtime API surface
-  - no refactor of existing tests
-  - no performance/stress testing
-- Stop conditions:
-  - if parity test indicates runtime behavior diverges from underlying pipeline/screen contracts for same byte stream, stop and report exact failing scenario + expected/actual state.
+3. **Draft M6_FOUNDATION.md**
+   - Start point: M1-M5 frozen behavior
+   - End point: snapshot/replay contracts frozen and test-backed
+   - Execution gates: M6-A through M6-D (tentative)
+   - Stop conditions: where snapshot/replay logic conflicts with frozen behavior
 
-### M5-B3: M5-B Closeout + M5 Freeze Handoff
+4. **Publish M6 execution queue**
+   - Once M6_FOUNDATION is reviewed, post M6-A Batch 1 tickets to ACTIVE_QUEUE.md
 
-- Target files:
-  - `docs/architect/MILESTONE_PROGRESS.md`
-  - `docs/engineer/ACTIVE_QUEUE.md`
-  - `app_architecture/authorities/MILESTONE.md` (checkpoint only)
-- Allowed change type: status, queue, and minimal checklist updates.
-- Required output:
-  - mark M5-A and M5-B complete in progress notes
-  - mark M5 checklist items M5-B1/M5-B2 as [x]
-  - replace queue with M6 planning scope
-- Non-goals:
-  - no code changes
-  - no contracts reopened
+## Gatekeeping: M5-D Final Checklist
 
-## Engineer Handoff: M5-B Batch 1
+Before M6 execution:
 
-Commit per ticket:
-- `#DONE` ticket ID
-- `#OUTSTANDING` remaining tickets
-- commit hash + subject
-- validation output (zig build, zig build test, shim grep)
-- files changed
+- [ ] M5 contracts (RUNTIME_API.md + M5_FOUNDATION.md) reviewed and frozen
+- [ ] M5 tests (M5-A conformance + M5-B parity) pass validation
+- [ ] M5 checklist updated (M5-A/B/C marked [x], M5-D pending)
+- [ ] Working tree clean; all M5 commits on main
+- [ ] M6_FOUNDATION.md drafted and ready for review
 
-## Mandatory Validation Per Ticket
+## Non-Execution Guidance
 
-- `zig build`
-- `zig build test`
-- `rg -n "compat[^ib]|fallback|workaround|shim" --glob '*.zig' src`
+### Current State
 
-## Guardrails
+- M1-M4 frozen with contracts and replay coverage.
+- M5 runtime interface complete: contract closure + interface hardening + parity matrix.
+- No M6 scope or execution authority yet published.
 
-- No compatibility/fallback/workaround/shim paths.
-- No host/platform/renderer lifecycle imports in runtime/model/event/screen lanes.
-- No scope expansion into M5-C/M5-D during M5-B execution.
-- Docstring-only commits have zero runtime diff.
-- Parity tests use existing test framework, no new testing libraries.
+### Next Steps for Architect
+
+1. Review M5 deliverables (RUNTIME_API.md contract matrix, docstrings, parity tests).
+2. Decide M6 scope and boundaries (snapshot/replay semantics, coverage).
+3. Draft M6_FOUNDATION.md authority document.
+4. Publish M6-A batch and replace this queue with M6 execution tickets.
+
+## Guardrails (M5 Complete)
+
+- No compatibility/fallback/workaround/shim paths in M5 code.
+- No host/platform/renderer imports in runtime/model/event/screen lanes.
+- No code changes except in M5-A/B execution.
+- Engineer does not plan M6; architect owns scope definition.

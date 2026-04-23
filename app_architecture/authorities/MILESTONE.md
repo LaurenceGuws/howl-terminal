@@ -84,9 +84,11 @@ and replay-tested through runtime surfaces.
 M5 is complete only when runtime interface behavior is explicit, host-neutral,
 and parity-tested for real host-loop usage patterns.
 
-- `[ ]` M5-A: Runtime contract closure: lifecycle, mutation boundaries, and reset/clear interactions are unambiguous in authority docs.
-- `[ ]` M5-B: Runtime interface hardening: `Engine` API aligns to contract without host/platform leakage or mutable escapes.
-- `[ ]` M5-C: Runtime parity matrix: mixed host-loop operation sequences are covered by replay/parity/runtime tests.
+- `[x]` M5-A: Runtime contract closure: lifecycle, mutation boundaries, and reset/clear interactions are unambiguous in authority docs.
+- `[x]` M5-B: Runtime interface hardening: `Engine` API aligns to contract without host/platform leakage or mutable escapes.
+  - M5-B1 (docstrings): all stable methods documented with behavior and mutation/read boundaries
+  - M5-B2 (parity tests): 5 mixed host-loop tests proving runtime facade transparency
+- `[x]` M5-C: Runtime parity matrix: mixed host-loop operation sequences are covered by replay/parity/runtime tests (M5-B2 completed).
 - `[ ]` M5-D: Freeze evidence: M5 authority/progress/queue are finalized and M6 handoff is published.
 
 ### M5 Closeout Sequence
