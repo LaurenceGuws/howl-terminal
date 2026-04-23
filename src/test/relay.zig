@@ -862,6 +862,7 @@ test "replay: split CHA after DECSTR applies from reset origin" {
     try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
 }
 
+
 test "replay: CUP absolute move" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);

@@ -48,7 +48,7 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 - `Pipeline.reset()` clears the bridge queue and resets the parser (including partial escape/CSI state); bytes after reset decode as if the parser were freshly initialized.
 - Each `applyToScreen` call walks the current bridge queue exactly once, applies `semantic.process` for each event in order, then clears the bridge. A second `applyToScreen` with no intervening `feedByte` / `feedSlice` sees an empty queue and does not mutate `ScreenState`.
 - Split-CSI interruption rule: if a CSI sequence is started and then another escape sequence begins before the first CSI final byte arrives, behavior is deterministic but stream-order dependent. The interrupted bytes are not retroactively reinterpreted as a completed prior CSI; they are handled exactly as parsed in order.
-- This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`), tabulation CSI streams (`I` / `Z`), absolute-position CSI streams (`G` / `d`), and line-position CSI streams (`E` / `F`).
+- This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`), tabulation CSI streams (`I` / `Z`), absolute-position CSI streams (`G` / `d` / `` ` ``), line-position CSI streams (`E` / `F`), relative-vertical CSI streams (`B` / `e`), and relative-horizontal CSI streams (`C` / `a`).
 
 Interruption coverage index (`src/test/relay.zig`):
 - Direct replay: split-tab (`I`/`Z`), split-private-mode (`?25`/`?7`), split-absolute-position (`G`/`d`/`` ` ``), split-line-position (`E`/`F`), split-relative-vertical (`B`/`e`), and split-relative-horizontal (`C`/`a`) interruption scenarios around DECSTR bytes.
