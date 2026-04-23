@@ -6036,3 +6036,451 @@ test "M8-E2: snapshot stable across mixed feed/encode/selection operations" {
         snap.deinit();
     }
 }
+
+const ConformanceCheckpoint = struct {
+    rows: u16,
+    cols: u16,
+    cursor_row: u16,
+    cursor_col: u16,
+    cursor_visible: bool,
+    auto_wrap: bool,
+    history_count: u16,
+    history_capacity: u16,
+    selection: ?model_mod.TerminalSelection,
+    queued_event_count: usize,
+
+    fn capture(_: std.mem.Allocator, engine: *const runtime_mod.Engine) !ConformanceCheckpoint {
+        const screen = engine.screen();
+        const selection_state = engine.selectionState();
+        var selection: ?model_mod.TerminalSelection = null;
+        if (selection_state) |sel| {
+            selection = sel;
+        }
+
+        return .{
+            .rows = screen.rows,
+            .cols = screen.cols,
+            .cursor_row = screen.cursor_row,
+            .cursor_col = screen.cursor_col,
+            .cursor_visible = screen.cursor_visible,
+            .auto_wrap = screen.auto_wrap,
+            .history_count = engine.historyCount(),
+            .history_capacity = engine.historyCapacity(),
+            .selection = selection,
+            .queued_event_count = engine.queuedEventCount(),
+        };
+    }
+
+    fn eql(self: ConformanceCheckpoint, other: ConformanceCheckpoint) bool {
+        const selection_equal = if (self.selection) |sel_self|
+            if (other.selection) |sel_other|
+                sel_self.start.row == sel_other.start.row and
+                sel_self.start.col == sel_other.start.col and
+                sel_self.end.row == sel_other.end.row and
+                sel_self.end.col == sel_other.end.col and
+                sel_self.active == sel_other.active
+            else
+                false
+        else
+            other.selection == null;
+
+        return self.rows == other.rows and
+            self.cols == other.cols and
+            self.cursor_row == other.cursor_row and
+            self.cursor_col == other.cursor_col and
+            self.cursor_visible == other.cursor_visible and
+            self.auto_wrap == other.auto_wrap and
+            self.history_count == other.history_count and
+            self.history_capacity == other.history_capacity and
+            selection_equal and
+            self.queued_event_count == other.queued_event_count;
+    }
+};
+
+test "M9-E1: ConformanceCheckpoint captures contract-visible fields" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expectEqual(@as(u16, 5), cp.rows);
+    try std.testing.expectEqual(@as(u16, 10), cp.cols);
+    try std.testing.expectEqual(@as(u16, 0), cp.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), cp.cursor_col);
+    try std.testing.expectEqual(true, cp.cursor_visible);
+    try std.testing.expectEqual(true, cp.auto_wrap);
+    try std.testing.expectEqual(@as(u16, 20), cp.history_capacity);
+    try std.testing.expectEqual(@as(usize, 0), cp.queued_event_count);
+}
+
+test "M9-E1: ConformanceCheckpoint determinism across repeated captures" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expect(cp1.eql(cp2));
+}
+
+test "M9-E1: encode calls do not alter ConformanceCheckpoint state" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("DATA");
+    engine.apply();
+
+    const cp_before = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    _ = engine.encodeKey('A', 0);
+    _ = engine.encodeKey('B', 1);
+
+    const mouse = model_mod.MouseEvent{
+        .kind = .move,
+        .button = .none,
+        .row = 0,
+        .col = 0,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = 0,
+        .buttons_down = 0,
+    };
+    _ = engine.encodeMouse(mouse);
+
+    const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expect(cp_before.eql(cp_after));
+}
+
+test "M9-E1: feed/apply checkpoint boundaries captured correctly" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    const cp_initial = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(usize, 0), cp_initial.queued_event_count);
+
+    engine.feedSlice("ABC");
+    const cp_after_feed = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp_after_feed.queued_event_count > 0);
+
+    engine.apply();
+    const cp_after_apply = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(usize, 0), cp_after_apply.queued_event_count);
+}
+
+test "M9-FX-001: text baseline - ASCII writes and cursor progression" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("Hello");
+    engine.apply();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(u16, 5), cp.cursor_col);
+
+    engine.feedSlice("World");
+    engine.apply();
+
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp2.cursor_col >= 9);
+}
+
+test "M9-FX-001: text baseline - CR/LF line wrapping" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
+    defer engine.deinit();
+
+    engine.feedSlice("12345\r\n");
+    engine.apply();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(u16, 1), cp.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), cp.cursor_col);
+}
+
+test "M9-FX-002: UTF-8 text baseline - mixed codepoints" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 20);
+    defer engine.deinit();
+
+    engine.feedSlice("Hello \xC3\xA9 \xE2\x82\xAC");
+    engine.apply();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp.cursor_col > 5);
+}
+
+test "M9-FX-003: cursor/erase baseline - CSI H cursor movement" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("ABC");
+    engine.apply();
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(u16, 0), cp1.cursor_row);
+
+    engine.feedSlice("\x1b[2;3H");
+    engine.apply();
+
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(u16, 1), cp2.cursor_row);
+    try std.testing.expectEqual(@as(u16, 2), cp2.cursor_col);
+}
+
+test "M9-FX-003: cursor/erase baseline - ED erase display" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
+    defer engine.deinit();
+
+    engine.feedSlice("12345\r\n67890\r\nABCDE");
+    engine.apply();
+
+    const cp_before = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    engine.feedSlice("\x1b[2J");
+    engine.apply();
+
+    const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp_after.cursor_row <= cp_before.cursor_row);
+}
+
+test "M9-FX-004: mode baseline - DEC private mode ?25 cursor visibility" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(true, cp1.cursor_visible);
+
+    engine.feedSlice("\x1b[?25l");
+    engine.apply();
+
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(false, cp2.cursor_visible);
+
+    engine.feedSlice("\x1b[?25h");
+    engine.apply();
+
+    const cp3 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(true, cp3.cursor_visible);
+}
+
+test "M9-FX-004: mode baseline - DEC private mode ?7 auto wrap" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(true, cp1.auto_wrap);
+
+    engine.feedSlice("\x1b[?7l");
+    engine.apply();
+
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(false, cp2.auto_wrap);
+}
+
+test "M9-FX-005: history baseline - scroll-producing stream" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("L1\r\nL2\r\nL3\r\nL4");
+    engine.apply();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp.history_count > 0);
+    try std.testing.expectEqual(@as(u16, 10), cp.history_capacity);
+}
+
+test "M9-FX-006: selection baseline - start/update/finish/clear" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("0123456789");
+    engine.apply();
+
+    engine.selectionStart(0, 1);
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp1.selection != null);
+
+    engine.selectionUpdate(0, 5);
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    if (cp2.selection) |sel| {
+        try std.testing.expectEqual(@as(u16, 5), sel.end.col);
+    }
+
+    engine.selectionFinish();
+    const cp3 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp3.selection != null);
+
+    engine.selectionClear();
+    const cp4 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp4.selection == null);
+}
+
+test "M9-FX-007: reset boundary - clear does not change screen" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEXT");
+    engine.apply();
+
+    const cp_before = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    engine.feedSlice("\x1b[H");
+    engine.clear();
+
+    const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expectEqual(cp_before.cursor_row, cp_after.cursor_row);
+    try std.testing.expectEqual(cp_before.cursor_col, cp_after.cursor_col);
+}
+
+test "M9-FX-007: reset boundary - reset preserves screen" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+
+    const cp_before = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    engine.feedSlice("\x1b[H");
+    engine.reset();
+
+    const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expectEqual(cp_before.cursor_row, cp_after.cursor_row);
+    try std.testing.expectEqual(cp_before.cursor_col, cp_after.cursor_col);
+}
+
+test "M9-FX-007: reset boundary - resetScreen clears screen" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("DATA\r\nMORE");
+    engine.apply();
+
+    const hist_before = engine.historyCount();
+
+    engine.resetScreen();
+
+    const cp = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(u16, 0), cp.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), cp.cursor_col);
+    try std.testing.expectEqual(hist_before, cp.history_count);
+}
+
+test "M9-FX-008: encode interleave - encodeKey mixed with feed/apply" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("ABC");
+    engine.apply();
+
+    const cp1 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(usize, 0), cp1.queued_event_count);
+
+    _ = engine.encodeKey('X', 0);
+    engine.feedSlice("D");
+    _ = engine.encodeKey('Y', 1);
+
+    const cp2 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expect(cp2.queued_event_count > 0);
+
+    engine.apply();
+
+    const cp3 = try ConformanceCheckpoint.capture(gpa, &engine);
+    try std.testing.expectEqual(@as(usize, 0), cp3.queued_event_count);
+}
+
+test "M9-FX-008: encode interleave - encodeMouse with state checks" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
+    defer engine.deinit();
+
+    engine.feedSlice("INITIAL");
+    engine.apply();
+
+    const mouse = model_mod.MouseEvent{
+        .kind = .press,
+        .button = .left,
+        .row = 0,
+        .col = 2,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = 0,
+        .buttons_down = 1,
+    };
+
+    const cp_before = try ConformanceCheckpoint.capture(gpa, &engine);
+    _ = engine.encodeMouse(mouse);
+    const cp_after = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    try std.testing.expect(cp_before.eql(cp_after));
+}
+
+test "M9-FX-009: snapshot stability - repeated captures across mixed ops" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 15);
+    defer engine.deinit();
+
+    engine.feedSlice("LINE1\r\nLINE2");
+    engine.apply();
+
+    var cp_seq: [5]ConformanceCheckpoint = undefined;
+    cp_seq[0] = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    _ = engine.encodeKey('A', 0);
+    cp_seq[1] = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    engine.selectionStart(0, 0);
+    cp_seq[2] = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    const mouse = model_mod.MouseEvent{
+        .kind = .move,
+        .button = .none,
+        .row = 1,
+        .col = 2,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = 0,
+        .buttons_down = 0,
+    };
+    _ = engine.encodeMouse(mouse);
+    cp_seq[3] = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    engine.selectionUpdate(0, 5);
+    cp_seq[4] = try ConformanceCheckpoint.capture(gpa, &engine);
+
+    for (0..4) |i| {
+        try std.testing.expectEqual(cp_seq[i].rows, cp_seq[i + 1].rows);
+        try std.testing.expectEqual(cp_seq[i].cols, cp_seq[i + 1].cols);
+        try std.testing.expectEqual(cp_seq[i].cursor_visible, cp_seq[i + 1].cursor_visible);
+        try std.testing.expectEqual(cp_seq[i].auto_wrap, cp_seq[i + 1].auto_wrap);
+    }
+}
