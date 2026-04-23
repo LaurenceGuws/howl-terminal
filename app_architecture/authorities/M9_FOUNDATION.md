@@ -99,3 +99,8 @@ M9-C closure status:
 ### M9-D: Freeze and M10 Handoff (Architect)
 
 - freeze conformance authority and publish M10 handoff.
+
+M9-D closure status:
+
+- freeze review published in `docs/review/m9/M9_FREEZE_REVIEW.md`.
+- M10 handoff authority published in `app_architecture/authorities/M10_FOUNDATION.md`.

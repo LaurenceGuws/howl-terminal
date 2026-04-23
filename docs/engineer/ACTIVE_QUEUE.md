@@ -1,105 +1,25 @@
 # Howl Terminal Active Queue
 
-Mode: dual-engineer execution.
+No engineer execution queue is published.
 
-Milestone lane: `M9` Multi-Host Confidence.
+## Current State
 
-This queue is execution-only. No planning/scoping reprioritization.
+`M9` is complete and frozen.
 
-## Read Order
+`M10` is active, but it is currently architect-owned.
 
-1. `app_architecture/authorities/M9_FOUNDATION.md`
-2. `app_architecture/contracts/HOST_CONFORMANCE.md`
-3. `docs/review/m9/M9_B_EVIDENCE_PROTOCOL.md`
-4. `docs/review/m9/M9_FIXTURES.md`
-5. `app_architecture/contracts/RUNTIME_API.md`
-6. `app_architecture/contracts/SNAPSHOT_REPLAY.md`
+The repo is in quality-doctrine and evidence-protocol planning mode.
 
-## Ticket M9-E1: Conformance Capture Helper + Checkpoint Tests
+## Read Before Any New Queue Exists
 
-Status: `ready`
-
-Target files:
-
-- `src/test/relay.zig`
-
-Allowed change type:
-
-- add test helper(s) and tests only.
-- helper must capture contract-visible fields used in M9 protocol checkpoints.
-
-Required coverage:
-
-- deterministic capture of required observable fields (`rows`, `cols`, cursor,
-  mode flags, history count/capacity, selection).
-- assertions proving encode interleaving does not alter capture state.
-- assertions proving feed/apply checkpoint boundaries are captured correctly.
-
-Explicit non-goals:
-
-- no production code changes.
-- no API signature changes.
-- no host/platform policy logic.
-
-Validation commands:
-
-- `zig build`
-- `zig build test`
-- `rg -n "compat[^ib]|fallback|workaround|shim" --glob '*.zig' src`
-
-Stop conditions:
-
-- any capture requirement needs runtime/model API expansion.
-- helper design requires modifying frozen `M1-M8` behavior.
-
-## Ticket M9-E2: Fixture-Class Conformance Evidence Tests
-
-Status: `ready`
-
-Target files:
-
-- `src/test/relay.zig`
-
-Allowed change type:
-
-- add integration tests only, mapped to `M9-FX-001..009` classes.
-
-Required coverage:
-
-- representative tests for text/utf8, cursor+erase, mode toggles,
-  history, selection, reset boundaries, encode interleave, snapshot stability.
-- test naming includes fixture ids for traceability.
-- each added test asserts checkpoint fields defined by M9 protocol.
-
-Explicit non-goals:
-
-- no production code changes.
-- no new runtime semantics.
-- no contract rewrites.
-
-Validation commands:
-
-- `zig build`
-- `zig build test`
-- `rg -n "compat[^ib]|fallback|workaround|shim" --glob '*.zig' src`
-
-Stop conditions:
-
-- fixture class cannot be represented without changing frozen behavior.
-- mismatch indicates contract ambiguity between `HOST_CONFORMANCE.md` and runtime contracts.
-
-## Reporting Contract
-
-Each response must include:
-
-- `#DONE`
-- `#OUTSTANDING`
-- commits (hash + subject)
-- validation results
-- files changed (`git show --name-status`)
+- `app_architecture/authorities/M10_FOUNDATION.md`
+- `app_architecture/authorities/MILESTONE.md`
+- `docs/architect/MILESTONE_PROGRESS.md`
+- `docs/review/m9/M9_FREEZE_REVIEW.md`
 
 ## Guardrail
 
-Do not execute M9 freeze/handoff work from this queue.
+Do not start `M10` implementation work from this file.
 
-`M9-D` freeze and `M10` handoff remain architect-owned.
+An engineer queue may be published only after M10 doctrine closure and M10
+evidence protocol publication.

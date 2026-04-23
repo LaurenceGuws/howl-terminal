@@ -21,7 +21,7 @@ It is intentionally non-implementation-detailed.
 
 ## Current Direction
 
-Current milestone target is `M9`, with `M1-M8` retained as frozen baselines.
+Current milestone target is `M10`, with `M1-M9` retained as frozen baselines.
 
 ## M2 Checklist
 
@@ -155,13 +155,29 @@ and bounded to frozen runtime/model contracts.
 - `[x]` M9-A: Cross-host conformance contract closure.
 - `[x]` M9-B: Evidence protocol and canonical fixture strategy publication.
 - `[x]` M9-C: Bounded execution queue publication and acceptance gates.
-- `[ ]` M9-D: Freeze evidence and M10 handoff publication.
+- `[x]` M9-D: Freeze evidence and M10 handoff publication.
 
 ### M9 Closeout Sequence
 
 1. Complete architect-owned conformance and evidence authority before opening execution queue.
 2. Publish bounded execution queue only after M9-A/B closure.
 3. Mark `M9` done only when cross-host reproducibility evidence is accepted and frozen.
+
+## M10 Checklist
+
+M10 is complete only when best-in-class quality is explicit, reproducible, and
+sustained without reopening frozen contracts.
+
+- `[ ]` M10-A: Quality doctrine closure.
+- `[ ]` M10-B: Evidence expansion protocol publication.
+- `[ ]` M10-C: Bounded execution queue publication and gate closure.
+- `[ ]` M10-D: Continuous freeze cadence publication.
+
+### M10 Closeout Sequence
+
+1. Complete architect-owned doctrine and evidence protocol closure.
+2. Publish bounded execution queue only after M10-A/B closure.
+3. Mark `M10` done only when sustained quality evidence is frozen and enforceable.
 
 ## Authority Rules
 
