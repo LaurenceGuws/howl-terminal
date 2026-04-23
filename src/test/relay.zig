@@ -5521,3 +5521,203 @@ test "M6-A snapshot: parity with direct screen state" {
     try std.testing.expectEqual(screen.cursor_visible, snap.cursor_visible);
     try std.testing.expectEqual(screen.auto_wrap, snap.auto_wrap);
 }
+
+test "M6-C replay evidence: clear does not change snapshot" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("ABC");
+    engine.apply();
+    var snap_before = try engine.snapshot();
+    defer snap_before.deinit();
+
+    engine.feedSlice("\x1b[H");
+    engine.clear();
+
+    var snap_after = try engine.snapshot();
+    defer snap_after.deinit();
+
+    try std.testing.expectEqual(snap_before.cursor_col, snap_after.cursor_col);
+    try std.testing.expectEqual(snap_before.cursor_row, snap_after.cursor_row);
+}
+
+test "M6-C replay evidence: reset preserves screen state in snapshot" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+    var snap_before = try engine.snapshot();
+    defer snap_before.deinit();
+
+    engine.feedSlice("\x1b[H");
+    engine.reset();
+
+    var snap_after = try engine.snapshot();
+    defer snap_after.deinit();
+
+    try std.testing.expectEqual(snap_before.cursor_col, snap_after.cursor_col);
+    try std.testing.expectEqual(snap_before.cursor_row, snap_after.cursor_row);
+    if (snap_before.cells != null and snap_after.cells != null) {
+        const size = @as(usize, snap_before.rows) * @as(usize, snap_before.cols);
+        try std.testing.expectEqualSlices(u21, snap_before.cells.?[0..size], snap_after.cells.?[0..size]);
+    }
+}
+
+test "M6-C replay evidence: resetScreen clears cells but preserves history" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("LINE1\nLINE2\nLINE3\nLINE4");
+    engine.apply();
+    const hist_before = engine.historyCount();
+
+    var snap_before = try engine.snapshot();
+    defer snap_before.deinit();
+
+    engine.resetScreen();
+
+    var snap_after = try engine.snapshot();
+    defer snap_after.deinit();
+
+    try std.testing.expectEqual(@as(u16, 0), snap_after.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), snap_after.cursor_col);
+    try std.testing.expectEqual(hist_before, snap_after.history_count);
+    if (snap_after.cells != null) {
+        const size = @as(usize, snap_after.rows) * @as(usize, snap_after.cols);
+        for (snap_after.cells.?[0..size]) |cell| {
+            try std.testing.expectEqual(@as(u21, 0), cell);
+        }
+    }
+}
+
+test "M6-C replay evidence: snapshot determinism across feed sequence variations" {
+    const gpa = std.testing.allocator;
+
+    var engine1 = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine1.deinit();
+    engine1.feedSlice("\x1b[2J");
+    engine1.feedSlice("Line1\nLine2");
+    engine1.apply();
+    var snap1 = try engine1.snapshot();
+    defer snap1.deinit();
+
+    var engine2 = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine2.deinit();
+    engine2.feedByte('\x1b');
+    engine2.feedByte('[');
+    engine2.feedByte('2');
+    engine2.feedByte('J');
+    engine2.feedByte('L');
+    engine2.feedByte('i');
+    engine2.feedSlice("ne1\nLine2");
+    engine2.apply();
+    var snap2 = try engine2.snapshot();
+    defer snap2.deinit();
+
+    try std.testing.expectEqual(snap1.cursor_row, snap2.cursor_row);
+    try std.testing.expectEqual(snap1.cursor_col, snap2.cursor_col);
+    if (snap1.cells != null and snap2.cells != null) {
+        const size = @as(usize, snap1.rows) * @as(usize, snap1.cols);
+        try std.testing.expectEqualSlices(u21, snap1.cells.?[0..size], snap2.cells.?[0..size]);
+    }
+}
+
+test "M6-C replay evidence: snapshot reflects mode changes" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+    var snap1 = try engine.snapshot();
+    defer snap1.deinit();
+    try std.testing.expectEqual(true, snap1.cursor_visible);
+
+    engine.feedSlice("\x1b[?25l");
+    engine.apply();
+    var snap2 = try engine.snapshot();
+    defer snap2.deinit();
+    try std.testing.expectEqual(false, snap2.cursor_visible);
+
+    engine.feedSlice("\x1b[?25h");
+    engine.apply();
+    var snap3 = try engine.snapshot();
+    defer snap3.deinit();
+    try std.testing.expectEqual(true, snap3.cursor_visible);
+}
+
+test "M6-C replay evidence: snapshot includes active selection with endpoints" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("0123456789");
+    engine.apply();
+
+    engine.selectionStart(0, 2);
+    engine.selectionUpdate(0, 7);
+    engine.selectionFinish();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(true, snap.selection != null);
+    if (snap.selection) |sel| {
+        try std.testing.expectEqual(true, sel.active);
+        try std.testing.expectEqual(@as(i32, 0), sel.start.row);
+        try std.testing.expectEqual(@as(u16, 2), sel.start.col);
+        try std.testing.expectEqual(@as(i32, 0), sel.end.row);
+        try std.testing.expectEqual(@as(u16, 7), sel.end.col);
+    }
+}
+
+test "M6-C replay evidence: snapshot parity across direct pipeline vs runtime" {
+    const gpa = std.testing.allocator;
+    const test_bytes = "ABC\x1b[1;5HXY";
+
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try screen_mod.ScreenState.initWithCells(gpa, 5, 10);
+    defer screen.deinit(gpa);
+
+    pl.feedSlice(test_bytes);
+    pl.applyToScreen(&screen);
+
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+    engine.feedSlice(test_bytes);
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(screen.cursor_row, snap.cursor_row);
+    try std.testing.expectEqual(screen.cursor_col, snap.cursor_col);
+    if (snap.cells != null and screen.cells != null) {
+        const size = @as(usize, screen.rows) * @as(usize, screen.cols);
+        try std.testing.expectEqualSlices(u21, screen.cells.?[0..size], snap.cells.?[0..size]);
+    }
+}
+
+test "M6-C replay evidence: snapshot wraparound history indices after eviction" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 2, 5, 3);
+    defer engine.deinit();
+
+    engine.feedSlice("AAA\nBBB\nCCC\nDDD\nEEE");
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(@as(u16, 3), snap.history_capacity);
+    try std.testing.expectEqual(@as(u16, 3), snap.history_count);
+
+    if (snap.history != null) {
+        try std.testing.expect(snap.history.?.len == 15);
+    }
+}
