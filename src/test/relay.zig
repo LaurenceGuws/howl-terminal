@@ -4716,6 +4716,87 @@ test "runtime: mouse event supports history row indices" {
     try std.testing.expect(viewport_event.row >= 0);
 }
 
+test "runtime: encodeKey handles extended keys (HOME, END, INS, DEL)" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const home_bytes = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 3), home_bytes.len);
+    try std.testing.expectEqual(@as(u8, '\x1b'), home_bytes[0]);
+    try std.testing.expectEqual(@as(u8, '['), home_bytes[1]);
+    try std.testing.expectEqual(@as(u8, 'H'), home_bytes[2]);
+
+    const ins_bytes = engine.encodeKey(model_mod.VTERM_KEY_INS, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 4), ins_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[2~", ins_bytes);
+
+    const del_bytes = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 4), del_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[3~", del_bytes);
+}
+
+test "runtime: encodeKey handles page keys (PAGEUP, PAGEDOWN)" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const pageup_bytes = engine.encodeKey(model_mod.VTERM_KEY_PAGEUP, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 4), pageup_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[5~", pageup_bytes);
+
+    const pagedown_bytes = engine.encodeKey(model_mod.VTERM_KEY_PAGEDOWN, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 4), pagedown_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[6~", pagedown_bytes);
+}
+
+test "runtime: extended key encoding with modifiers" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const shift_home = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqual(@as(usize, 6), shift_home.len);
+    try std.testing.expectEqual(@as(u8, '2'), shift_home[4]);
+
+    const ctrl_del = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqual(@as(usize, 6), ctrl_del.len);
+    try std.testing.expectEqual(@as(u8, '5'), ctrl_del[4]);
+}
+
+test "runtime: extended key encoding survives reset" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    const before_reset = engine.encodeKey(model_mod.VTERM_KEY_INS, model_mod.VTERM_MOD_NONE);
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..before_reset.len], before_reset);
+    const before_len = before_reset.len;
+
+    engine.reset();
+
+    const after_reset = engine.encodeKey(model_mod.VTERM_KEY_INS, model_mod.VTERM_MOD_NONE);
+
+    try std.testing.expectEqual(before_len, after_reset.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..before_len], after_reset);
+}
+
+test "runtime: extended key encoding deterministic for repeated calls" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const call1 = engine.encodeKey(model_mod.VTERM_KEY_END, model_mod.VTERM_MOD_ALT);
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..call1.len], call1);
+
+    const call2 = engine.encodeKey(model_mod.VTERM_KEY_END, model_mod.VTERM_MOD_ALT);
+
+    try std.testing.expectEqual(call1.len, call2.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..call1.len], call2);
+}
+
 test "runtime: input encoding is deterministic for repeated calls" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);

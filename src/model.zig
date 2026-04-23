@@ -54,6 +54,12 @@ pub const VTERM_KEY_UP = types.VTERM_KEY_UP;
 pub const VTERM_KEY_DOWN = types.VTERM_KEY_DOWN;
 pub const VTERM_KEY_LEFT = types.VTERM_KEY_LEFT;
 pub const VTERM_KEY_RIGHT = types.VTERM_KEY_RIGHT;
+pub const VTERM_KEY_INS = types.VTERM_KEY_INS;
+pub const VTERM_KEY_DEL = types.VTERM_KEY_DEL;
+pub const VTERM_KEY_HOME = types.VTERM_KEY_HOME;
+pub const VTERM_KEY_END = types.VTERM_KEY_END;
+pub const VTERM_KEY_PAGEUP = types.VTERM_KEY_PAGEUP;
+pub const VTERM_KEY_PAGEDOWN = types.VTERM_KEY_PAGEDOWN;
 
 /// Selection state API re-export.
 pub const SelectionState = selection.SelectionState;

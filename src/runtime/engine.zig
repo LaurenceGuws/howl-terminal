@@ -237,6 +237,90 @@ pub const Engine = struct {
                     len = 3;
                 }
             },
+            model_mod.VTERM_KEY_HOME => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'H';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'H';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_END => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'F';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'F';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_INS => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '2';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = '~';
+                    len = 6;
+                } else {
+                    self.encode_buf[3] = '~';
+                    len = 4;
+                }
+            },
+            model_mod.VTERM_KEY_DEL => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '3';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = '~';
+                    len = 6;
+                } else {
+                    self.encode_buf[3] = '~';
+                    len = 4;
+                }
+            },
+            model_mod.VTERM_KEY_PAGEUP => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '5';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = '~';
+                    len = 6;
+                } else {
+                    self.encode_buf[3] = '~';
+                    len = 4;
+                }
+            },
+            model_mod.VTERM_KEY_PAGEDOWN => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '6';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = '~';
+                    len = 6;
+                } else {
+                    self.encode_buf[3] = '~';
+                    len = 4;
+                }
+            },
             else => {
                 if (key > 31 and key < 127) {
                     self.encode_buf[0] = @intCast(key);

@@ -175,17 +175,24 @@ Required for any breaking change:
 - With any modifier (Shift, Alt, Ctrl): output CSI 1 ; (1+mod) letter format.
   - Modifier parameter: 1+shift=2, 1+alt=3, 1+ctrl=5, combinations add (e.g. 1+shift+alt=4).
 
+**Extended Keys** (M4-B2)
+- VTERM_KEY_HOME: output `CSI H`; with modifiers output `CSI 1 ; (1+mod) H`.
+- VTERM_KEY_END: output `CSI F`; with modifiers output `CSI 1 ; (1+mod) F`.
+- VTERM_KEY_INS: output `CSI 2 ~`; with modifiers output `CSI 2 ; (1+mod) ~`.
+- VTERM_KEY_DEL: output `CSI 3 ~`; with modifiers output `CSI 3 ; (1+mod) ~`.
+- VTERM_KEY_PAGEUP: output `CSI 5 ~`; with modifiers output `CSI 5 ; (1+mod) ~`.
+- VTERM_KEY_PAGEDOWN: output `CSI 6 ~`; with modifiers output `CSI 6 ; (1+mod) ~`.
+
 **Determinism Guarantees**
 - encodeKey(key, mod) returns identical bytes for identical inputs.
 - encodeMouse currently returns empty slice (placeholder for future mouse reporting).
 - No context-dependent encoding; reset/resetScreen do not affect encoding output.
 - Input operations do not mutate parser, screen, history, or selection state.
 
-### Future Coverage (Post-M4-A)
+### Future Coverage (Post-M4-B2)
 
-- Function keys (F1-F12) with modifiers.
+- Function keys (F1-F12) with modifiers (M4-B3).
 - Mouse event reporting (SGR 1006, X11 formats).
-- Additional special keys (Insert, Delete, Page Up/Down, Home, End).
 - Mode-dependent behaviors (paste mode, application keypad).
 
 ## Non-Goals
