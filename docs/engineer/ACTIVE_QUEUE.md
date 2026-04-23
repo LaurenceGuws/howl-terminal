@@ -16,14 +16,34 @@ Execution-only queue for the current engineer loop.
 
 ## Current Loop
 
-**Status:** M3 frozen. Execute M4-A contract and baseline implementation slice.
+**Status:** M4-A completed and frozen.
 
-M1/M2/M3 are frozen. Do not reopen parser/screen/history/selection behavior unless
-an M4 test exposes a direct regression.
+M1/M2/M3/M4-A are frozen. Do not reopen input encoding or prior-milestone behavior unless
+a subsequent test exposes a direct regression.
 
-## M4-A Tickets
+### M4-A Closeout Summary (COMPLETED)
 
-### M4-A1: Input/Control Contract Authority
+- M4-A1: Input/Control contract authority (8923640)
+- M4-A2: Runtime input encode surface (97cfbfb)
+- M4-A3: Input parity and reset/mode contracts (46e1aee)
+
+All validation passed. Technical issues identified by architect have been corrected:
+- Cursor key modifier encoding fixed (now supports Shift, uses correct CSI format)
+- Determinism tests fixed (no longer rely on buffer aliasing)
+- Mouse coordinate types updated (row: i32 for history support, col: u16)
+- Contracts updated to reflect implementation
+- Tracking documents updated
+
+Ready for M4-B phase.
+
+## M4-B Tickets (Next - Not Yet Active)
+
+Placeholder for next phase. M4-B will cover:
+- Mode interactions (mouse reporting, paste mode, etc.)
+- Extended key coverage (function keys, special keys)
+- Compliance and closeout testing
+
+### M4-A1: Input/Control Contract Authority (COMPLETED)
 
 - `ID`: M4-A1
 - `Target files`: new `app_architecture/contracts/INPUT_CONTROL.md`, `app_architecture/contracts/RUNTIME_API.md`, `app_architecture/contracts/MODEL_API.md`

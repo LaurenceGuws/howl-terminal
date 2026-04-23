@@ -4685,16 +4685,50 @@ test "runtime: encodeMouse returns empty when not enabled" {
     try std.testing.expectEqual(@as(usize, 0), bytes.len);
 }
 
+test "runtime: mouse event supports history row indices" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const history_event = model_mod.MouseEvent{
+        .kind = .move,
+        .button = .none,
+        .row = -2,
+        .col = 10,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = model_mod.VTERM_MOD_NONE,
+        .buttons_down = 0,
+    };
+
+    const viewport_event = model_mod.MouseEvent{
+        .kind = .move,
+        .button = .none,
+        .row = 5,
+        .col = 10,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = model_mod.VTERM_MOD_NONE,
+        .buttons_down = 0,
+    };
+
+    try std.testing.expect(history_event.row < 0);
+    try std.testing.expect(viewport_event.row >= 0);
+}
+
 test "runtime: input encoding is deterministic for repeated calls" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
     const bytes1 = engine.encodeKey('X', model_mod.VTERM_MOD_SHIFT);
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..bytes1.len], bytes1);
+
     const bytes2 = engine.encodeKey('X', model_mod.VTERM_MOD_SHIFT);
 
     try std.testing.expectEqual(bytes1.len, bytes2.len);
-    try std.testing.expectEqualSlices(u8, bytes1, bytes2);
+    try std.testing.expectEqualSlices(u8, buf1[0..bytes1.len], bytes2);
 }
 
 test "runtime: input encoding survives reset operation" {
@@ -4703,14 +4737,16 @@ test "runtime: input encoding survives reset operation" {
     defer engine.deinit();
 
     const before_reset = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
-    const before_bytes = before_reset[0..before_reset.len];
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..before_reset.len], before_reset);
+    const before_len = before_reset.len;
 
     engine.reset();
 
     const after_reset = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
-    const after_bytes = after_reset[0..after_reset.len];
 
-    try std.testing.expectEqualSlices(u8, before_bytes, after_bytes);
+    try std.testing.expectEqual(before_len, after_reset.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..before_len], after_reset);
 }
 
 test "runtime: input encoding survives resetScreen operation" {
@@ -4722,14 +4758,16 @@ test "runtime: input encoding survives resetScreen operation" {
     engine.apply();
 
     const before_reset = engine.encodeKey(model_mod.VTERM_KEY_ESCAPE, model_mod.VTERM_MOD_NONE);
-    const before_bytes = before_reset[0..before_reset.len];
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..before_reset.len], before_reset);
+    const before_len = before_reset.len;
 
     engine.resetScreen();
 
     const after_reset = engine.encodeKey(model_mod.VTERM_KEY_ESCAPE, model_mod.VTERM_MOD_NONE);
-    const after_bytes = after_reset[0..after_reset.len];
 
-    try std.testing.expectEqualSlices(u8, before_bytes, after_bytes);
+    try std.testing.expectEqual(before_len, after_reset.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..before_len], after_reset);
 }
 
 test "runtime: input does not affect selection state" {

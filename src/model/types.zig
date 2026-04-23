@@ -110,8 +110,8 @@ pub const MouseEventKind = enum(u8) {
 pub const MouseEvent = struct {
     kind: MouseEventKind,
     button: MouseButton,
-    row: usize,
-    col: usize,
+    row: i32,
+    col: u16,
     pixel_x: ?u32 = null,
     pixel_y: ?u32 = null,
     mod: Modifier,

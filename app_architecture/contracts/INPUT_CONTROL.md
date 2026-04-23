@@ -148,7 +148,8 @@ Required for any breaking change:
 
 **Cursor Keys**
 - VTERM_KEY_UP, DOWN, LEFT, RIGHT: output CSI sequences (A, B, D, C).
-- With Ctrl or Alt: output modified CSI sequences with modifier parameter.
+- With any modifier (Shift, Alt, Ctrl): output CSI 1 ; (1+mod) letter format.
+  - Modifier parameter: 1+shift=2, 1+alt=3, 1+ctrl=5, combinations add (e.g. 1+shift+alt=4).
 
 **Determinism Guarantees**
 - encodeKey(key, mod) returns identical bytes for identical inputs.

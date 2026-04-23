@@ -65,9 +65,9 @@ host-neutral, and covered by replay/parity/runtime evidence.
 M4 is complete only when input/control behavior is contract-defined, host-neutral,
 and replay-tested through runtime surfaces.
 
-- `[ ]` Input contract: supported key/modifier/mouse/control event model is explicit and separate from host/platform event types.
-- `[ ]` Encoding contract: deterministic input-to-byte encoding rules are documented and test-backed for supported modes.
-- `[ ]` Runtime input surface: engine exposes host-neutral input encode/feed entry points without parser/pipeline leakage.
+- `[x]` M4-A1: Input contract: supported key/modifier/mouse/control event model is explicit and separate from host/platform event types.
+- `[x]` M4-A2: Encoding contract: deterministic input-to-byte encoding rules are documented and test-backed for supported modes.
+- `[x]` M4-A3: Runtime input surface: engine exposes host-neutral input encode/feed entry points without parser/pipeline leakage.
 - `[ ]` Mode interactions: input behavior with active modes is explicit and deterministic.
 - `[ ]` Replay evidence: direct and runtime parity tests cover control output for representative key/control sequences.
 

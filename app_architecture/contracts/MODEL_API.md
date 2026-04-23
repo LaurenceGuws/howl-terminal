@@ -76,7 +76,10 @@ Authority for `src/model.zig`, `src/model/types.zig`, `src/model/selection.zig`,
 - Breakage: field/enum changes, removing button/event types.
 
 **Input Coordinate Semantics (M4+)**
-- Mouse row/col: 0-based terminal cell coordinates (viewport, or negative if history-aware).
+- Mouse row: i32, signed to support viewport and history coordinates.
+  - Non-negative (0..rows-1): viewport coordinates.
+  - Negative (-1, -2, ...): history coordinates (per M3 selection model).
+- Mouse col: u16, always in viewport range [0, cols-1].
 - pixel_x, pixel_y: optional intra-cell pixel offsets (host-dependent, may be null).
 - Determinism: no context-dependent coordinate transformation.
 

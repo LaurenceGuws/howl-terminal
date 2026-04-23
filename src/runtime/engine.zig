@@ -156,8 +156,6 @@ pub const Engine = struct {
         var len: usize = 0;
 
         const shift_active = (mod & model_mod.VTERM_MOD_SHIFT) != 0;
-        const alt_active = (mod & model_mod.VTERM_MOD_ALT) != 0;
-        const ctrl_active = (mod & model_mod.VTERM_MOD_CTRL) != 0;
 
         switch (key) {
             model_mod.VTERM_KEY_ENTER => {
@@ -186,10 +184,10 @@ pub const Engine = struct {
             model_mod.VTERM_KEY_UP => {
                 self.encode_buf[0] = '\x1b';
                 self.encode_buf[1] = '[';
-                if (ctrl_active or alt_active) {
+                if (mod != model_mod.VTERM_MOD_NONE) {
                     self.encode_buf[2] = '1';
                     self.encode_buf[3] = ';';
-                    self.encode_buf[4] = '0' + mod;
+                    self.encode_buf[4] = '0' + (1 + mod);
                     self.encode_buf[5] = 'A';
                     len = 6;
                 } else {
@@ -200,10 +198,10 @@ pub const Engine = struct {
             model_mod.VTERM_KEY_DOWN => {
                 self.encode_buf[0] = '\x1b';
                 self.encode_buf[1] = '[';
-                if (ctrl_active or alt_active) {
+                if (mod != model_mod.VTERM_MOD_NONE) {
                     self.encode_buf[2] = '1';
                     self.encode_buf[3] = ';';
-                    self.encode_buf[4] = '0' + mod;
+                    self.encode_buf[4] = '0' + (1 + mod);
                     self.encode_buf[5] = 'B';
                     len = 6;
                 } else {
@@ -214,10 +212,10 @@ pub const Engine = struct {
             model_mod.VTERM_KEY_RIGHT => {
                 self.encode_buf[0] = '\x1b';
                 self.encode_buf[1] = '[';
-                if (ctrl_active or alt_active) {
+                if (mod != model_mod.VTERM_MOD_NONE) {
                     self.encode_buf[2] = '1';
                     self.encode_buf[3] = ';';
-                    self.encode_buf[4] = '0' + mod;
+                    self.encode_buf[4] = '0' + (1 + mod);
                     self.encode_buf[5] = 'C';
                     len = 6;
                 } else {
@@ -228,10 +226,10 @@ pub const Engine = struct {
             model_mod.VTERM_KEY_LEFT => {
                 self.encode_buf[0] = '\x1b';
                 self.encode_buf[1] = '[';
-                if (ctrl_active or alt_active) {
+                if (mod != model_mod.VTERM_MOD_NONE) {
                     self.encode_buf[2] = '1';
                     self.encode_buf[3] = ';';
-                    self.encode_buf[4] = '0' + mod;
+                    self.encode_buf[4] = '0' + (1 + mod);
                     self.encode_buf[5] = 'D';
                     len = 6;
                 } else {
