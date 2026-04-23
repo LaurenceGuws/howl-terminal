@@ -78,12 +78,25 @@ Scope: keyboard input (logical key + modifiers), mouse events (position, button,
 - **Cursor Keys** with modifiers (Ctrl+Up, Alt+Down, Shift+Left, etc.): output modified escape sequences per terminal protocol.
 - **Function Keys** (F1–F12, etc.): output function key escape sequences, modified by Shift/Alt/Ctrl.
 
-### Determinism Requirement
+### Determinism Rule (M4-B1 Closure)
 
-- For a given Key + Modifier combination, howl-terminal must output the same control byte sequence every time.
-- No context-dependent encoding (no "if in paste mode, encode differently").
-- No runtime mode flags that affect encoding choice after input is received.
-- Encoding determinism is validated by parity tests (M4-A3).
+**Encoding is deterministic and fully mode-agnostic for keyboard input:**
+
+- For a given Key + Modifier combination, `encodeKey()` must output the same control byte sequence every time.
+- No runtime mode state (paste mode, focus mode, etc.) affects keyboard encoding output.
+- Keyboard output is independent of terminal screen state, cursor position, or any application mode.
+
+**Mouse reporting is mode-aware but deterministic:**
+
+- `encodeMouse()` output depends on current mouse-report mode (SGR 1006, X11, or disabled).
+- Mode is read-only state during encoding (no side effects); output is deterministic for a given mode.
+- If mouse mode changes between calls, output may differ; this is not "context-dependent" but "mode-dependent" (intentional).
+- Mode state is configured orthogonally via existing SEMANTIC_SCREEN contracts, not INPUT_CONTROL.
+
+**Implementation note:**
+- Encoding does not consume mode state or trigger mode changes.
+- Encoding functions never call `reset()`, `resetScreen()`, or mutate screen/parser/history.
+- Determinism is validated by parity tests: same input (key/mod or event/mode) always produces same output.
 
 ### Unsupported Cases
 
@@ -94,17 +107,28 @@ Scope: keyboard input (logical key + modifiers), mouse events (position, button,
 
 ## Interaction with Frozen M1-M3 Contracts
 
-### Mode and Reset Behavior
+### Mode Effects on Input Encoding (M4-B1)
 
-- Input control byte generation does **not** mutate parser, screen, or history state.
-- Mouse mode (X11, SGR 1006, etc.) affects input *reporting* (what bytes are generated) but is configured via existing mode contracts (SEMANTIC_SCREEN.md, not INPUT_CONTROL.md).
-- Focus events, paste mode, and other terminal modes are configured orthogonally; input encoding respects current mode state for report format.
+**Keyboard encoding (`encodeKey`) is mode-independent:**
+- Ignores all terminal modes (mouse mode, paste mode, focus mode, application keypad, etc.)
+- Output is identical regardless of current mode state.
+- Mode state does NOT control keyboard output.
 
-### Reset and Clear Semantics
+**Mouse encoding (`encodeMouse`) is mode-dependent:**
+- Reads current mouse-report mode (SGR 1006 vs X11 vs disabled) as read-only input.
+- Returns different byte sequences depending on mode, but deterministically for a given mode.
+- Mouse mode is configured via SEMANTIC_SCREEN.md mode contracts, not here.
 
-- `reset()` (parser reset) does not affect input encoding behavior.
-- `resetScreen()` (screen reset) does not affect input encoding behavior.
-- Input operations do not trigger parser reset or screen reset internally.
+**Reset and Mode State:**
+- `reset()` (parser reset) resets parser state, does NOT reset terminal modes or affect input encoding.
+- `resetScreen()` (screen reset) resets visible screen, does NOT reset terminal modes or affect input encoding.
+- Input encoding functions never call `reset()` or `resetScreen()`.
+
+**Mode Interactions NOT in M4 Scope:**
+- Input does not trigger mode changes (e.g., auto-switching to mouse mode on key press).
+- Input does not depend on focus state, selection mode, or application keypad mode.
+- Paste mode affects how data is fed (not encoded by input functions).
+- Input provides raw key/mouse events; mode interpretation is downstream (in parser/screen).
 
 ### Selection and History
 

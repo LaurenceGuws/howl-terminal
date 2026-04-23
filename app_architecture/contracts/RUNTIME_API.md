@@ -109,10 +109,12 @@ Authority for `src/runtime/engine.zig` and the root `runtime` export.
 - Breakage: changing encoding output for covered key cases, returning mutable slice, adding context-dependent encoding.
 
 **encodeMouse(self, event) -> []const u8** (M4+)
-- Encode mouse event to control byte sequence per current mouse mode.
-- Returns slice of bytes (SGR 1006, X11, etc. format depends on mode).
-- Returns empty slice if mouse reporting is not active.
-- Breakage: changing mouse report format, returning mutable slice, mutating event or screen state.
+- Encode mouse event to control byte sequence per current mouse-report mode (M4-B1).
+- Returns slice of bytes in SGR 1006, X11, or other mode-determined format.
+- Returns empty slice if mouse reporting is disabled (mode-dependent, not error).
+- Reads mode state as read-only; does NOT mutate event, screen, or parser.
+- Deterministic: same event + mode always produces same bytes.
+- Breakage: changing mouse report output for covered mode combinations, returning mutable slice, mutating state.
 
 ## Behavioral Guarantees
 
