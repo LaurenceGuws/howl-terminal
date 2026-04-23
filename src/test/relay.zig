@@ -5350,3 +5350,150 @@ test "M5-B2 parity: complex state machine sequence" {
 
     try std.testing.expectEqual(@as(u16, 0), engine.historyCount());
 }
+
+test "M6-A snapshot: capture from simple text" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(@as(u16, 5), snap.rows);
+    try std.testing.expectEqual(@as(u16, 10), snap.cols);
+    try std.testing.expectEqual(@as(u16, 0), snap.cursor_row);
+    try std.testing.expectEqual(@as(u16, 5), snap.cursor_col);
+    try std.testing.expectEqual(true, snap.cursor_visible);
+    try std.testing.expectEqual(true, snap.auto_wrap);
+    try std.testing.expectEqual(@as(u21, 'H'), snap.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'E'), snap.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'L'), snap.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 'L'), snap.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'O'), snap.cellAt(0, 4));
+}
+
+test "M6-A snapshot: determinism - identical state produces identical snapshots" {
+    const gpa = std.testing.allocator;
+
+    var engine1 = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine1.deinit();
+    engine1.feedSlice("TEST");
+    engine1.apply();
+    var snap1 = try engine1.snapshot();
+    defer snap1.deinit();
+
+    var engine2 = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine2.deinit();
+    engine2.feedSlice("TEST");
+    engine2.apply();
+    var snap2 = try engine2.snapshot();
+    defer snap2.deinit();
+
+    try std.testing.expectEqual(snap1.cursor_row, snap2.cursor_row);
+    try std.testing.expectEqual(snap1.cursor_col, snap2.cursor_col);
+    try std.testing.expectEqual(snap1.cursor_visible, snap2.cursor_visible);
+    try std.testing.expectEqual(snap1.auto_wrap, snap2.auto_wrap);
+
+    if (snap1.cells != null and snap2.cells != null) {
+        const size = @as(usize, snap1.rows) * @as(usize, snap1.cols);
+        try std.testing.expectEqualSlices(u21, snap1.cells.?[0..size], snap2.cells.?[0..size]);
+    }
+}
+
+test "M6-A snapshot: split-feed replay equivalence - atomic vs chunked" {
+    const gpa = std.testing.allocator;
+
+    var engine_atomic = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine_atomic.deinit();
+    engine_atomic.feedSlice("ABCDEFGHIJ");
+    engine_atomic.apply();
+    var snap_atomic = try engine_atomic.snapshot();
+    defer snap_atomic.deinit();
+
+    var engine_chunked = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine_chunked.deinit();
+    engine_chunked.feedByte('A');
+    engine_chunked.feedByte('B');
+    engine_chunked.feedSlice("CD");
+    engine_chunked.feedSlice("EFGHIJ");
+    engine_chunked.apply();
+    var snap_chunked = try engine_chunked.snapshot();
+    defer snap_chunked.deinit();
+
+    try std.testing.expectEqual(snap_atomic.cursor_col, snap_chunked.cursor_col);
+    try std.testing.expectEqual(snap_atomic.cursor_row, snap_chunked.cursor_row);
+
+    if (snap_atomic.cells != null and snap_chunked.cells != null) {
+        const size = @as(usize, snap_atomic.rows) * @as(usize, snap_atomic.cols);
+        try std.testing.expectEqualSlices(u21, snap_atomic.cells.?[0..size], snap_chunked.cells.?[0..size]);
+    }
+}
+
+test "M6-A snapshot: history capture when history enabled" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("AAA\nBBB\nCCC\nDDD");
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(@as(u16, 3), snap.rows);
+    try std.testing.expectEqual(@as(u16, 5), snap.cols);
+    try std.testing.expectEqual(@as(u16, 10), snap.history_capacity);
+    try std.testing.expectEqual(snap.history_count, engine.historyCount());
+
+    if (snap.history != null) {
+        try std.testing.expect(snap.history.?.len > 0);
+    }
+}
+
+test "M6-A snapshot: selection state included in snapshot" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+
+    engine.selectionStart(0, 0);
+    engine.selectionUpdate(0, 4);
+    engine.selectionFinish();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(true, snap.selection != null);
+    if (snap.selection) |sel| {
+        try std.testing.expectEqual(@as(i32, 0), sel.start.row);
+        try std.testing.expectEqual(@as(u16, 0), sel.start.col);
+        try std.testing.expectEqual(@as(i32, 0), sel.end.row);
+        try std.testing.expectEqual(@as(u16, 4), sel.end.col);
+        try std.testing.expectEqual(true, sel.active);
+    }
+}
+
+test "M6-A snapshot: parity with direct screen state" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    const screen = engine.screen();
+    try std.testing.expectEqual(screen.rows, snap.rows);
+    try std.testing.expectEqual(screen.cols, snap.cols);
+    try std.testing.expectEqual(screen.cursor_row, snap.cursor_row);
+    try std.testing.expectEqual(screen.cursor_col, snap.cursor_col);
+    try std.testing.expectEqual(screen.cursor_visible, snap.cursor_visible);
+    try std.testing.expectEqual(screen.auto_wrap, snap.auto_wrap);
+}

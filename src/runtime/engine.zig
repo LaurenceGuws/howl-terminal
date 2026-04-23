@@ -515,4 +515,13 @@ pub const Engine = struct {
         _ = event;
         return self.encode_buf[0..0];
     }
+
+    /// Capture snapshot of engine observable state.
+    pub fn snapshot(self: *Engine) !model_mod.EngineSnapshot {
+        return model_mod.snapshot.EngineSnapshot.captureFromScreen(
+            self.allocator,
+            &self.state,
+            self.selection.state(),
+        );
+    }
 };

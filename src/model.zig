@@ -11,6 +11,9 @@ pub const selection = @import("model/selection.zig");
 /// Metrics submodule export.
 pub const metrics = @import("model/metrics.zig");
 
+/// Snapshot submodule export.
+pub const snapshot = @import("model/snapshot.zig");
+
 /// Cursor position type re-export.
 pub const CursorPos = types.CursorPos;
 
@@ -154,3 +157,6 @@ pub const SelectionState = selection.SelectionState;
 
 /// Metrics API re-export.
 pub const Metrics = metrics.Metrics;
+
+/// Engine snapshot re-export.
+pub const EngineSnapshot = snapshot.EngineSnapshot;
