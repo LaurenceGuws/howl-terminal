@@ -168,6 +168,17 @@ For `M7`, this means:
 - queue policy/mitigation changes are governed by `M7_F2_SPEC`
 - no queue behavior change is accepted without `M7-BL-003` comparison evidence
 
+### D5: Scroll Optimization Is Allowed Only With Full Observable Parity
+
+Scroll-path improvements are in-scope for `M7`, but only if they preserve
+visible output, history ordering, and snapshot parity.
+
+For `M7`, this means:
+
+- scroll optimization work is governed by `M7_F3_SPEC`
+- internal representation changes are allowed
+- contract-visible behavior changes are not allowed
+
 ## Non-Goals
 
 `M7` is not:

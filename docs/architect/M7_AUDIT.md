@@ -244,3 +244,4 @@ Execution spec status:
 - `F2` policy phase accepted in `docs/architect/M7_F2_REVIEW.md`.
 - `F2B` implementation slice accepted in `docs/architect/M7_F2B_REVIEW.md`
   with evidence baseline `M7-BL-004`.
+- `F3` scroll-path implementation spec published: `docs/architect/M7_F3_SPEC.md`.
