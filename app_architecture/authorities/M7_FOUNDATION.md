@@ -100,6 +100,11 @@ Any future `M7` implementation slice must tie back to one or more of these:
 - allocation count and bytes allocated along hot runtime paths
 - configured memory footprint for screen, history, snapshot, and selection state
 
+Measurement procedure, workload definitions, and reporting format are defined
+in:
+
+- `docs/architect/M7_MEASUREMENT_PROTOCOL.md`
+
 ## Evidence Standard
 
 No optimization work is accepted on style or intuition alone.

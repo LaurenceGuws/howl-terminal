@@ -13,6 +13,7 @@ audit mode for performance and memory discipline.
 
 - `app_architecture/authorities/M7_FOUNDATION.md`
 - `docs/architect/M7_AUDIT.md`
+- `docs/architect/M7_MEASUREMENT_PROTOCOL.md`
 - `app_architecture/authorities/MILESTONE.md`
 - `docs/architect/MILESTONE_PROGRESS.md`
 
@@ -20,5 +21,5 @@ audit mode for performance and memory discipline.
 
 Do not start `M7` implementation work from this file.
 
-An engineer queue may be published only after architect doctrine closure and
-hot-path audit are complete.
+An engineer queue may be published only after architect doctrine closure,
+hot-path audit, and baseline measurement protocol completion.
