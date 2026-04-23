@@ -86,6 +86,29 @@ Authority for `src/model.zig`, `src/model/types.zig`, `src/model/selection.zig`,
 **Detailed Input Semantics**
 - Canonical input model and encoding boundary defined in `app_architecture/contracts/INPUT_CONTROL.md`.
 
+### Key and Modifier Constants (M4+)
+
+**Modifier Constants**
+- VTERM_MOD_NONE: 0 (no modifiers).
+- VTERM_MOD_SHIFT: 1 (shift flag).
+- VTERM_MOD_ALT: 2 (alt flag).
+- VTERM_MOD_CTRL: 4 (ctrl flag).
+- Constants can be combined: e.g., VTERM_MOD_SHIFT | VTERM_MOD_CTRL = 5.
+
+**Special Key Constants** (M4-A, M4-B1/B2)
+- VTERM_KEY_NONE, VTERM_KEY_ENTER, VTERM_KEY_TAB, VTERM_KEY_BACKSPACE, VTERM_KEY_ESCAPE.
+- VTERM_KEY_UP, VTERM_KEY_DOWN, VTERM_KEY_LEFT, VTERM_KEY_RIGHT.
+- VTERM_KEY_INS, VTERM_KEY_DEL, VTERM_KEY_HOME, VTERM_KEY_END, VTERM_KEY_PAGEUP, VTERM_KEY_PAGEDOWN.
+- VTERM_KEY_LEFT_SHIFT, VTERM_KEY_RIGHT_SHIFT, VTERM_KEY_LEFT_CTRL, VTERM_KEY_RIGHT_CTRL, VTERM_KEY_LEFT_ALT, VTERM_KEY_RIGHT_ALT, VTERM_KEY_LEFT_SUPER, VTERM_KEY_RIGHT_SUPER.
+
+**Function Key Constants** (M4-B3)
+- VTERM_KEY_F1 through VTERM_KEY_F12: logical function key identifiers.
+- All function keys support modifier combinations via encodeKey(key, mod).
+
+**Printable Keys**
+- Any U+0020..U+10FFFF codepoint can be passed as Key to encodeKey(); encoding will output UTF-8 bytes.
+- Breakage: removing or renaming any constant.
+
 ## Behavioral Guarantees
 
 - `SelectionState.state()` returns `null` when inactive; otherwise current selection snapshot.

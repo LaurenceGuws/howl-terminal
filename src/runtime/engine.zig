@@ -321,6 +321,182 @@ pub const Engine = struct {
                     len = 4;
                 }
             },
+            model_mod.VTERM_KEY_F1 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'P';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'P';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_F2 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'Q';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'Q';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_F3 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'R';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'R';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_F4 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[2] = '1';
+                    self.encode_buf[3] = ';';
+                    self.encode_buf[4] = '0' + (1 + mod);
+                    self.encode_buf[5] = 'S';
+                    len = 6;
+                } else {
+                    self.encode_buf[2] = 'S';
+                    len = 3;
+                }
+            },
+            model_mod.VTERM_KEY_F5 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '1';
+                self.encode_buf[3] = '5';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F6 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '1';
+                self.encode_buf[3] = '7';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F7 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '1';
+                self.encode_buf[3] = '8';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F8 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '1';
+                self.encode_buf[3] = '9';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F9 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '2';
+                self.encode_buf[3] = '0';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F10 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '2';
+                self.encode_buf[3] = '1';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F11 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '2';
+                self.encode_buf[3] = '3';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
+            model_mod.VTERM_KEY_F12 => {
+                self.encode_buf[0] = '\x1b';
+                self.encode_buf[1] = '[';
+                self.encode_buf[2] = '2';
+                self.encode_buf[3] = '4';
+                if (mod != model_mod.VTERM_MOD_NONE) {
+                    self.encode_buf[4] = ';';
+                    self.encode_buf[5] = '0' + (1 + mod);
+                    self.encode_buf[6] = '~';
+                    len = 7;
+                } else {
+                    self.encode_buf[4] = '~';
+                    len = 5;
+                }
+            },
             else => {
                 if (key > 31 and key < 127) {
                     self.encode_buf[0] = @intCast(key);

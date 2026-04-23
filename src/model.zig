@@ -60,6 +60,18 @@ pub const VTERM_KEY_HOME = types.VTERM_KEY_HOME;
 pub const VTERM_KEY_END = types.VTERM_KEY_END;
 pub const VTERM_KEY_PAGEUP = types.VTERM_KEY_PAGEUP;
 pub const VTERM_KEY_PAGEDOWN = types.VTERM_KEY_PAGEDOWN;
+pub const VTERM_KEY_F1 = types.VTERM_KEY_F1;
+pub const VTERM_KEY_F2 = types.VTERM_KEY_F2;
+pub const VTERM_KEY_F3 = types.VTERM_KEY_F3;
+pub const VTERM_KEY_F4 = types.VTERM_KEY_F4;
+pub const VTERM_KEY_F5 = types.VTERM_KEY_F5;
+pub const VTERM_KEY_F6 = types.VTERM_KEY_F6;
+pub const VTERM_KEY_F7 = types.VTERM_KEY_F7;
+pub const VTERM_KEY_F8 = types.VTERM_KEY_F8;
+pub const VTERM_KEY_F9 = types.VTERM_KEY_F9;
+pub const VTERM_KEY_F10 = types.VTERM_KEY_F10;
+pub const VTERM_KEY_F11 = types.VTERM_KEY_F11;
+pub const VTERM_KEY_F12 = types.VTERM_KEY_F12;
 
 /// Selection state API re-export.
 pub const SelectionState = selection.SelectionState;

@@ -4797,6 +4797,92 @@ test "runtime: extended key encoding deterministic for repeated calls" {
     try std.testing.expectEqualSlices(u8, buf1[0..call1.len], call2);
 }
 
+test "runtime: encodeKey handles function keys F1-F4" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const f1_bytes = engine.encodeKey(model_mod.VTERM_KEY_F1, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 3), f1_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[P", f1_bytes);
+
+    const f2_bytes = engine.encodeKey(model_mod.VTERM_KEY_F2, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[Q", f2_bytes);
+
+    const f3_bytes = engine.encodeKey(model_mod.VTERM_KEY_F3, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[R", f3_bytes);
+
+    const f4_bytes = engine.encodeKey(model_mod.VTERM_KEY_F4, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[S", f4_bytes);
+}
+
+test "runtime: encodeKey handles function keys F5-F12" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const f5_bytes = engine.encodeKey(model_mod.VTERM_KEY_F5, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 5), f5_bytes.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[15~", f5_bytes);
+
+    const f9_bytes = engine.encodeKey(model_mod.VTERM_KEY_F9, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[20~", f9_bytes);
+
+    const f12_bytes = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[24~", f12_bytes);
+}
+
+test "runtime: function key encoding with modifiers" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const shift_f1 = engine.encodeKey(model_mod.VTERM_KEY_F1, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqual(@as(usize, 6), shift_f1.len);
+    try std.testing.expectEqual(@as(u8, '2'), shift_f1[4]);
+
+    const ctrl_f5 = engine.encodeKey(model_mod.VTERM_KEY_F5, model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqual(@as(usize, 7), ctrl_f5.len);
+    try std.testing.expectEqual(@as(u8, '5'), ctrl_f5[5]);
+
+    const alt_f12 = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_ALT);
+    try std.testing.expectEqual(@as(usize, 7), alt_f12.len);
+    try std.testing.expectEqual(@as(u8, '3'), alt_f12[5]);
+}
+
+test "runtime: function key encoding survives reset" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    const before_reset = engine.encodeKey(model_mod.VTERM_KEY_F6, model_mod.VTERM_MOD_NONE);
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..before_reset.len], before_reset);
+    const before_len = before_reset.len;
+
+    engine.reset();
+
+    const after_reset = engine.encodeKey(model_mod.VTERM_KEY_F6, model_mod.VTERM_MOD_NONE);
+
+    try std.testing.expectEqual(before_len, after_reset.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..before_len], after_reset);
+}
+
+test "runtime: function key encoding deterministic for repeated calls" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    const call1 = engine.encodeKey(model_mod.VTERM_KEY_F11, model_mod.VTERM_MOD_SHIFT);
+    var buf1: [64]u8 = undefined;
+    @memcpy(buf1[0..call1.len], call1);
+
+    const call2 = engine.encodeKey(model_mod.VTERM_KEY_F11, model_mod.VTERM_MOD_SHIFT);
+
+    try std.testing.expectEqual(call1.len, call2.len);
+    try std.testing.expectEqualSlices(u8, buf1[0..call1.len], call2);
+}
+
 test "runtime: input encoding is deterministic for repeated calls" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);

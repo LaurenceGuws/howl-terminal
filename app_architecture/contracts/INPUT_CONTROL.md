@@ -183,15 +183,18 @@ Required for any breaking change:
 - VTERM_KEY_PAGEUP: output `CSI 5 ~`; with modifiers output `CSI 5 ; (1+mod) ~`.
 - VTERM_KEY_PAGEDOWN: output `CSI 6 ~`; with modifiers output `CSI 6 ; (1+mod) ~`.
 
+**Function Keys** (M4-B3)
+- VTERM_KEY_F1-F4: output `CSI P`, `CSI Q`, `CSI R`, `CSI S` respectively; with modifiers output `CSI 1 ; (1+mod) letter`.
+- VTERM_KEY_F5-F12: output `CSI 15~`, `CSI 17~`, `CSI 18~`, `CSI 19~`, `CSI 20~`, `CSI 21~`, `CSI 23~`, `CSI 24~` respectively; with modifiers output `CSI N ; (1+mod) ~` where N is the function key number.
+
 **Determinism Guarantees**
 - encodeKey(key, mod) returns identical bytes for identical inputs.
 - encodeMouse currently returns empty slice (placeholder for future mouse reporting).
 - No context-dependent encoding; reset/resetScreen do not affect encoding output.
 - Input operations do not mutate parser, screen, history, or selection state.
 
-### Future Coverage (Post-M4-B2)
+### Future Coverage (Post-M4-B3)
 
-- Function keys (F1-F12) with modifiers (M4-B3).
 - Mouse event reporting (SGR 1006, X11 formats).
 - Mode-dependent behaviors (paste mode, application keypad).
 
