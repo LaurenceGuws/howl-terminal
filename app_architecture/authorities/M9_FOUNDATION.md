@@ -92,6 +92,10 @@ M9-C publication gates:
 - each ticket includes target files, non-goals, validation commands, and stop conditions.
 - ticket scope preserves frozen `M1-M8` behavior.
 
+M9-C closure status:
+
+- published in `docs/engineer/ACTIVE_QUEUE.md`.
+
 ### M9-D: Freeze and M10 Handoff (Architect)
 
 - freeze conformance authority and publish M10 handoff.

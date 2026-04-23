@@ -154,7 +154,7 @@ and bounded to frozen runtime/model contracts.
 
 - `[x]` M9-A: Cross-host conformance contract closure.
 - `[x]` M9-B: Evidence protocol and canonical fixture strategy publication.
-- `[ ]` M9-C: Bounded execution queue publication and acceptance gates.
+- `[x]` M9-C: Bounded execution queue publication and acceptance gates.
 - `[ ]` M9-D: Freeze evidence and M10 handoff publication.
 
 ### M9 Closeout Sequence
