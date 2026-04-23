@@ -10,11 +10,16 @@ No engineer execution queue is published.
 
 The repo is in quality-doctrine and evidence-protocol planning mode.
 
+- `M10-A` quality doctrine closure is complete.
+- `M10-B` evidence protocol publication is in progress.
+
 ## Read Before Any New Queue Exists
 
 - `app_architecture/authorities/M10_FOUNDATION.md`
+- `app_architecture/contracts/QUALITY_DOCTRINE.md`
 - `app_architecture/authorities/MILESTONE.md`
 - `docs/architect/MILESTONE_PROGRESS.md`
+- `docs/review/m10/M10_A_DOCTRINE_REVIEW.md`
 - `docs/review/m9/M9_FREEZE_REVIEW.md`
 
 ## Guardrail

@@ -27,6 +27,16 @@ Locked baseline:
 - expand operational rigor (stress, drift resistance, diagnosability) without semantic drift.
 - publish long-horizon quality gates that keep the engine predictable as scope grows.
 
+## M10-A Doctrine Authority (Closed)
+
+Quality doctrine authority is published in:
+
+- `app_architecture/contracts/QUALITY_DOCTRINE.md`
+
+M10-A closure condition:
+
+- quality-priority ordering and claim vocabulary are explicit.
+
 ## Non-Goals
 
 - no speculative feature expansion without bounded authority.

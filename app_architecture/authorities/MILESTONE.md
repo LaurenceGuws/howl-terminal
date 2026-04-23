@@ -168,7 +168,7 @@ and bounded to frozen runtime/model contracts.
 M10 is complete only when best-in-class quality is explicit, reproducible, and
 sustained without reopening frozen contracts.
 
-- `[ ]` M10-A: Quality doctrine closure.
+- `[x]` M10-A: Quality doctrine closure.
 - `[ ]` M10-B: Evidence expansion protocol publication.
 - `[ ]` M10-C: Bounded execution queue publication and gate closure.
 - `[ ]` M10-D: Continuous freeze cadence publication.
