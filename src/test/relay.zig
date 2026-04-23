@@ -1083,13 +1083,17 @@ test "replay: CSI J erases from cursor to end of screen" {
     defer pl.deinit();
     var screen = try screen_mod.ScreenState.initWithCells(gpa, 3, 5);
     defer screen.deinit(gpa);
-    screen.cursor_row = 0; screen.cursor_col = 0;
+    screen.cursor_row = 0;
+    screen.cursor_col = 0;
     feed(&pl, &screen, "AAAAA");
-    screen.cursor_row = 1; screen.cursor_col = 0;
+    screen.cursor_row = 1;
+    screen.cursor_col = 0;
     feed(&pl, &screen, "BBBBB");
-    screen.cursor_row = 2; screen.cursor_col = 0;
+    screen.cursor_row = 2;
+    screen.cursor_col = 0;
     feed(&pl, &screen, "CCCCC");
-    screen.cursor_row = 1; screen.cursor_col = 2;
+    screen.cursor_row = 1;
+    screen.cursor_col = 2;
     feed(&pl, &screen, "\x1b[J");
     try std.testing.expectEqual(@as(u21, 'A'), screen.cellAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'B'), screen.cellAt(1, 0));
@@ -3686,8 +3690,6 @@ test "parity-chunked: interrupted split private auto-wrap mode remains identical
     });
 }
 
-
-
 test "runtime: init and deinit lifecycle" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 24, 80);
@@ -4938,21 +4940,15 @@ test "runtime: input encoding output is not mutable from caller" {
     try std.testing.expectEqual(@as(u8, 'B'), bytes[0]);
 }
 
-
-
-
-
 test "M4 closeout: keyboard input comprehensive coverage" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
     const ascii = engine.encodeKey('A', model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqual(@as(usize, 1), ascii.len);
     try std.testing.expectEqual(@as(u8, 'A'), ascii[0]);
 
-    
     const enter = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\r", enter);
 
@@ -4962,18 +4958,15 @@ test "M4 closeout: keyboard input comprehensive coverage" {
     const backspace = engine.encodeKey(model_mod.VTERM_KEY_BACKSPACE, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\x7f", backspace);
 
-    
     const up = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\x1b[A", up);
 
-    
     const home = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\x1b[H", home);
 
     const del = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\x1b[3~", del);
 
-    
     const f1 = engine.encodeKey(model_mod.VTERM_KEY_F1, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, "\x1b[P", f1);
 
@@ -4989,10 +4982,9 @@ test "M4 closeout: modifier combinations are deterministic" {
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
     const shift_up = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
     try std.testing.expectEqual(@as(usize, 6), shift_up.len);
-    try std.testing.expectEqual(@as(u8, '2'), shift_up[4]); 
+    try std.testing.expectEqual(@as(u8, '2'), shift_up[4]);
 
     var buf_shift: [64]u8 = undefined;
     @memcpy(buf_shift[0..shift_up.len], shift_up);
@@ -5000,17 +4992,14 @@ test "M4 closeout: modifier combinations are deterministic" {
     const shift_up_2 = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
     try std.testing.expectEqualSlices(u8, buf_shift[0..shift_up.len], shift_up_2);
 
-    
     const alt_down = engine.encodeKey(model_mod.VTERM_KEY_DOWN, model_mod.VTERM_MOD_ALT);
-    try std.testing.expectEqual(@as(u8, '3'), alt_down[4]); 
+    try std.testing.expectEqual(@as(u8, '3'), alt_down[4]);
 
-    
     const ctrl_right = engine.encodeKey(model_mod.VTERM_KEY_RIGHT, model_mod.VTERM_MOD_CTRL);
-    try std.testing.expectEqual(@as(u8, '5'), ctrl_right[4]); 
+    try std.testing.expectEqual(@as(u8, '5'), ctrl_right[4]);
 
-    
     const shift_ctrl_left = engine.encodeKey(model_mod.VTERM_KEY_LEFT, model_mod.VTERM_MOD_SHIFT | model_mod.VTERM_MOD_CTRL);
-    try std.testing.expectEqual(@as(u8, '6'), shift_ctrl_left[4]); 
+    try std.testing.expectEqual(@as(u8, '6'), shift_ctrl_left[4]);
 }
 
 test "M4 closeout: encoding is reset-stable" {
@@ -5018,23 +5007,18 @@ test "M4 closeout: encoding is reset-stable" {
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedSlice("\x1b[2J");
     engine.apply();
 
-    
     const before = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
     var buf_before: [64]u8 = undefined;
     @memcpy(buf_before[0..before.len], before);
 
-    
     engine.reset();
 
-    
     const after = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, buf_before[0..before.len], after);
 
-    
     engine.resetScreen();
     const after_screen = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqualSlices(u8, buf_before[0..before.len], after_screen);
@@ -5045,18 +5029,15 @@ test "M4 closeout: encoding does not mutate state" {
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
 
-    
     engine.feedSlice("hello");
     engine.apply();
     const screen_before = engine.screen().*;
     const history_before = engine.historyCount();
 
-    
     _ = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
     _ = engine.encodeKey('X', model_mod.VTERM_MOD_CTRL);
     _ = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_ALT);
 
-    
     const screen_after = engine.screen().*;
     const history_after = engine.historyCount();
 
@@ -5070,17 +5051,14 @@ test "M4 closeout: encoding covers extended keys with modifiers" {
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
     const shift_home = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_SHIFT);
     try std.testing.expectEqual(@as(usize, 6), shift_home.len);
     try std.testing.expectEqualSlices(u8, "\x1b[1;2H", shift_home);
 
-    
     const ctrl_del = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_CTRL);
     try std.testing.expectEqual(@as(usize, 6), ctrl_del.len);
     try std.testing.expectEqualSlices(u8, "\x1b[3;5~", ctrl_del);
 
-    
     const alt_pageup = engine.encodeKey(model_mod.VTERM_KEY_PAGEUP, model_mod.VTERM_MOD_ALT);
     try std.testing.expectEqual(@as(usize, 6), alt_pageup.len);
     try std.testing.expectEqualSlices(u8, "\x1b[5;3~", alt_pageup);
@@ -5091,11 +5069,9 @@ test "M4 closeout: encoding covers function keys with modifiers" {
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
     const shift_f2 = engine.encodeKey(model_mod.VTERM_KEY_F2, model_mod.VTERM_MOD_SHIFT);
     try std.testing.expectEqualSlices(u8, "\x1b[1;2Q", shift_f2);
 
-    
     const ctrl_f8 = engine.encodeKey(model_mod.VTERM_KEY_F8, model_mod.VTERM_MOD_CTRL);
     try std.testing.expectEqualSlices(u8, "\x1b[19;5~", ctrl_f8);
 
@@ -5103,25 +5079,18 @@ test "M4 closeout: encoding covers function keys with modifiers" {
     try std.testing.expectEqualSlices(u8, "\x1b[23;3~", alt_f11);
 }
 
-
-
-
-
 test "M5-A2 conformance: clear() empties queue without mutating parser or screen" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedSlice("ABC\x1b[2J");
     try std.testing.expect(engine.queuedEventCount() > 0);
 
     const screen_before = engine.screen().*;
 
-    
     engine.clear();
 
-    
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
     try std.testing.expectEqual(screen_before.cursor_row, engine.screen().cursor_row);
     try std.testing.expectEqual(screen_before.cursor_col, engine.screen().cursor_col);
@@ -5132,21 +5101,17 @@ test "M5-A2 conformance: reset() clears parser+queue but preserves screen modes"
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedSlice("\x1b[?25l\x1b[?7h");
     engine.apply();
 
     const cursor_visible = engine.screen().cursor_visible;
     const auto_wrap = engine.screen().auto_wrap;
 
-    
     engine.feedSlice("test\x1b[");
     try std.testing.expect(engine.queuedEventCount() > 0);
 
-    
     engine.reset();
 
-    
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
     try std.testing.expectEqual(cursor_visible, engine.screen().cursor_visible);
     try std.testing.expectEqual(auto_wrap, engine.screen().auto_wrap);
@@ -5157,20 +5122,16 @@ test "M5-A2 conformance: resetScreen() clears screen but preserves parser+queue"
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedSlice("Hello");
     engine.apply();
     const screen_col = engine.screen().cursor_col;
     try std.testing.expect(screen_col > 0);
 
-    
     engine.feedSlice("\x1b[2J");
     const queued_before = engine.queuedEventCount();
 
-    
     engine.resetScreen();
 
-    
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
     try std.testing.expectEqual(queued_before, engine.queuedEventCount());
@@ -5181,12 +5142,10 @@ test "M5-A2 conformance: multiple apply() calls without feed are no-ops" {
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedSlice("X");
     engine.apply();
     const col_after_first = engine.screen().cursor_col;
 
-    
     engine.apply();
     engine.apply();
 
@@ -5199,22 +5158,19 @@ test "M5-A2 conformance: feed operations queue events without applying" {
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
 
-    
     engine.feedByte('A');
     engine.feedByte('B');
     engine.feedByte('C');
     try std.testing.expect(engine.queuedEventCount() > 0);
-    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col); 
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 
-    
     engine.feedSlice("\x1b[5;10H");
     try std.testing.expect(engine.queuedEventCount() > 0);
-    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col); 
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 
-    
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.queuedEventCount());
-    try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col); 
+    try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
 }
 
 test "M5-A2 conformance: encode operations have no observable state effects" {
@@ -5222,7 +5178,6 @@ test "M5-A2 conformance: encode operations have no observable state effects" {
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
 
-    
     engine.feedSlice("DATA");
     engine.apply();
     engine.selectionStart(0, 5);
@@ -5232,12 +5187,10 @@ test "M5-A2 conformance: encode operations have no observable state effects" {
     const history_count = engine.historyCount();
     const queued_count = engine.queuedEventCount();
 
-    
     _ = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
     _ = engine.encodeKey('X', model_mod.VTERM_MOD_NONE);
     _ = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_CTRL);
 
-    
     try std.testing.expectEqual(screen_state.cursor_row, engine.screen().cursor_row);
     try std.testing.expectEqual(screen_state.cursor_col, engine.screen().cursor_col);
     try std.testing.expectEqual(selection_state.start.row, engine.selectionState().?.start.row);
@@ -5253,12 +5206,10 @@ test "M5-A2 conformance: screen() returns const reference only" {
 
     const screen_ref = engine.screen();
 
-    
     _ = screen_ref.cursor_row;
     _ = screen_ref.cursor_col;
     _ = screen_ref.cursor_visible;
 
-    
     const screen_ref2 = engine.screen();
     try std.testing.expectEqual(screen_ref.cursor_row, screen_ref2.cursor_row);
 }
@@ -5268,46 +5219,37 @@ test "M5-A2 conformance: feed/apply/reset ordering" {
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
     engine.feedSlice("First");
     engine.apply();
     try std.testing.expect(engine.screen().cursor_col > 0);
 
-    engine.feedSlice("\x1b[H"); 
+    engine.feedSlice("\x1b[H");
     try std.testing.expect(engine.queuedEventCount() > 0);
 
-    engine.reset(); 
+    engine.reset();
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
-    try std.testing.expect(engine.screen().cursor_col > 0); 
+    try std.testing.expect(engine.screen().cursor_col > 0);
 
-    
     engine.apply();
     try std.testing.expect(engine.screen().cursor_col > 0);
 
-    
     engine.feedSlice("\x1b[H");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 }
-
-
-
-
 
 test "M5-B2 parity: split-feed at CSI boundary preserves queue semantics" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
 
-    
-    engine.feedSlice("\x1b[5;1");  
+    engine.feedSlice("\x1b[5;1");
     const queued_mid = engine.queuedEventCount();
     try std.testing.expectEqual(@as(usize, 0), queued_mid);
 
-    engine.feedSlice("0H");  
+    engine.feedSlice("0H");
     const queued_after = engine.queuedEventCount();
 
-    
     try std.testing.expect(queued_after > 0);
     engine.apply();
     try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
@@ -5318,22 +5260,18 @@ test "M5-B2 parity: feed/apply/reset/feed/apply preserves state isolation" {
     var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
     defer engine.deinit();
 
-    
     engine.feedSlice("HELLO");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_col);
 
-    
     engine.feedSlice("\x1b[");
     const queued = engine.queuedEventCount();
-    try std.testing.expectEqual(@as(usize, 0), queued); 
+    try std.testing.expectEqual(@as(usize, 0), queued);
 
-    
     engine.reset();
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
-    try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_col); 
+    try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_col);
 
-    
     engine.feedSlice("WORLD");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 10), engine.screen().cursor_col);
@@ -5344,20 +5282,16 @@ test "M5-B2 parity: selection + history interaction during apply" {
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
 
-    
     engine.feedSlice("LINE1\nLINE2\nLINE3");
     engine.apply();
 
-    
     engine.selectionStart(1, 0);
     const sel_before = engine.selectionState().?;
     try std.testing.expectEqual(true, sel_before.active);
 
-    
     engine.feedSlice("\x1b[2J");
     engine.apply();
 
-    
     const sel_after = engine.selectionState();
     try std.testing.expectEqual(true, sel_after.?.active);
     try std.testing.expectEqual(sel_before.start.row, sel_after.?.start.row);
@@ -5372,19 +5306,15 @@ test "M5-B2 parity: encode interleaved with feed/apply does not mutate state" {
     engine.apply();
     const col_after_abc = engine.screen().cursor_col;
 
-    
     _ = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
     _ = engine.encodeKey('X', model_mod.VTERM_MOD_NONE);
 
-    
     try std.testing.expectEqual(col_after_abc, engine.screen().cursor_col);
 
-    
     engine.feedSlice("DEF");
     engine.apply();
     try std.testing.expectEqual(col_after_abc + 3, engine.screen().cursor_col);
 
-    
     _ = engine.encodeKey(model_mod.VTERM_KEY_F5, model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqual(col_after_abc + 3, engine.screen().cursor_col);
 }
@@ -5394,33 +5324,25 @@ test "M5-B2 parity: complex state machine sequence" {
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 10);
     defer engine.deinit();
 
-    
-
-    
     engine.feedSlice("A");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
 
-    
     const encoded = engine.encodeKey('B', model_mod.VTERM_MOD_NONE);
     try std.testing.expectEqual(@as(u8, 'B'), encoded[0]);
     try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
 
-    
-    engine.feedSlice("B\x1b[5G");  
+    engine.feedSlice("B\x1b[5G");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_col);
 
-    
     engine.reset();
     try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_col);
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 
-    
     engine.feedSlice("C\x1b[H");
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 
-    
     try std.testing.expectEqual(@as(u16, 0), engine.historyCount());
 }

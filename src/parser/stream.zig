@@ -15,7 +15,6 @@ pub const Stream = struct {
     }
 
     pub fn feed(self: *Stream, byte: u8) ?StreamEvent {
-
         if (self.decoder.needed == 0 and (byte < 0x20 or byte == 0x7f)) {
             return .{ .control = byte };
         }

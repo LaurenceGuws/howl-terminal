@@ -67,7 +67,6 @@ pub const Modifier = u8;
 pub const PhysicalKey = u32;
 
 pub const KeyboardAlternateMetadata = struct {
-
     physical_key: ?PhysicalKey = null,
 
     produced_text_utf8: ?[]const u8 = null,

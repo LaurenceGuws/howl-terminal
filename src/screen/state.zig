@@ -619,13 +619,17 @@ test "screen: erase_display mode 0 clears from cursor to end of screen" {
     const gpa = std.testing.allocator;
     var s = try ScreenState.initWithCells(gpa, 3, 5);
     defer s.deinit(gpa);
-    s.cursor_row = 0; s.cursor_col = 0;
+    s.cursor_row = 0;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "AAAAA" });
-    s.cursor_row = 1; s.cursor_col = 0;
+    s.cursor_row = 1;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "BBBBB" });
-    s.cursor_row = 2; s.cursor_col = 0;
+    s.cursor_row = 2;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "CCCCC" });
-    s.cursor_row = 1; s.cursor_col = 2;
+    s.cursor_row = 1;
+    s.cursor_col = 2;
     s.apply(SemanticEvent{ .erase_display = 0 });
     try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(1, 0));
@@ -640,13 +644,17 @@ test "screen: erase_display mode 1 clears from start to cursor" {
     const gpa = std.testing.allocator;
     var s = try ScreenState.initWithCells(gpa, 3, 5);
     defer s.deinit(gpa);
-    s.cursor_row = 0; s.cursor_col = 0;
+    s.cursor_row = 0;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "AAAAA" });
-    s.cursor_row = 1; s.cursor_col = 0;
+    s.cursor_row = 1;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "BBBBB" });
-    s.cursor_row = 2; s.cursor_col = 0;
+    s.cursor_row = 2;
+    s.cursor_col = 0;
     s.apply(SemanticEvent{ .write_text = "CCCCC" });
-    s.cursor_row = 1; s.cursor_col = 2;
+    s.cursor_row = 1;
+    s.cursor_col = 2;
     s.apply(SemanticEvent{ .erase_display = 1 });
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 0));
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 2));
@@ -660,9 +668,11 @@ test "screen: erase_display mode 2 clears entire screen" {
     const gpa = std.testing.allocator;
     var s = try ScreenState.initWithCells(gpa, 3, 5);
     defer s.deinit(gpa);
-    s.cursor_row = 1; s.cursor_col = 2;
+    s.cursor_row = 1;
+    s.cursor_col = 2;
     s.apply(SemanticEvent{ .write_text = "AB" });
-    s.cursor_row = 1; s.cursor_col = 2;
+    s.cursor_row = 1;
+    s.cursor_col = 2;
     s.apply(SemanticEvent{ .erase_display = 2 });
     for (0..3) |r| {
         for (0..5) |c_| {

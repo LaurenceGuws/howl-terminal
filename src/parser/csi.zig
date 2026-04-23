@@ -32,7 +32,6 @@ pub const CsiParser = struct {
     }
 
     pub fn feed(self: *CsiParser, byte: u8) ?CsiAction {
-
         if (byte >= 0x40 and byte <= 0x7E) {
             var final_count = self.count;
             if (self.in_param) final_count += 1;

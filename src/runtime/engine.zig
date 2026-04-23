@@ -66,7 +66,8 @@ pub const Engine = struct {
         self.pipeline.applyToScreen(&self.state);
         if (self.selection.selection.active) {
             if (self.state.shouldInvalidateSelectionEndpoint(self.selection.selection.start.row) or
-                self.state.shouldInvalidateSelectionEndpoint(self.selection.selection.end.row)) {
+                self.state.shouldInvalidateSelectionEndpoint(self.selection.selection.end.row))
+            {
                 self.selection.clear();
             }
         }

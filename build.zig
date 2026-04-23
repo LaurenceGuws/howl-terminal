@@ -7,7 +7,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
