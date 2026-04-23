@@ -17,8 +17,9 @@ PRIMARY DIRECTION:
 
 - `howl-terminal`: portable terminal engine, VT core, runtime, tests, and clean
   public API.
-- `howl-hosts`: GUI hosts, Android host code, platform bridge code, JNI/export
-  surfaces, app lifecycle, surfaces, input, and packaging.
+- `sdl-term`: first Linux host shell (SDL window/input + host loop composition).
+- `howl-session`: shared session runtime (engine lifecycle + PTY/process loop).
+- `howl-render-gl`: shared OpenGL renderer module.
 - `howl-editor`: future editor engine; do not let it distract from terminal
   extraction.
 - `howl-shared`: independent reusable engines/dependencies only; not a dumping
@@ -30,4 +31,4 @@ preserve, inspect, or checkpoint the frozen Zide source.
 
 Next lane handoff:
 
-- `app_architecture/checkins/FIRST_HOST_HANDOFF.md`
+- `app_architecture/checkins/checkin2.txt`
