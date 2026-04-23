@@ -5314,3 +5314,137 @@ test "M5-A2 conformance: feed/apply/reset ordering" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 }
+
+// ============================================================================
+// M5-B2 Parity Matrix: Mixed Host-Loop Operation Sequences
+// ============================================================================
+
+test "M5-B2 parity: split-feed at CSI boundary preserves queue semantics" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    // Split a cursor-position CSI across feed calls: ESC [ split here 5 ; 1 0 H
+    engine.feedSlice("\x1b[5;1");  // incomplete CSI
+    const queued_mid = engine.queuedEventCount();
+
+    engine.feedSlice("0H");  // completes CSI
+    const queued_after = engine.queuedEventCount();
+
+    // Queue contains the complete cursor_position event, regardless of split
+    try std.testing.expect(queued_after > 0);
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
+}
+
+test "M5-B2 parity: feed/apply/reset/feed/apply preserves state isolation" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
+    defer engine.deinit();
+
+    // Scenario: write → apply → feed escape → reset → write again → apply
+    engine.feedSlice("HELLO");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_col);
+
+    // Feed incomplete escape
+    engine.feedSlice("\x1b[");
+    const queued = engine.queuedEventCount();
+    try std.testing.expect(queued > 0); // escape queued but not applied
+
+    // Reset clears parser and queue
+    engine.reset();
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+    try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_col); // screen unchanged
+
+    // New feed from clean state
+    engine.feedSlice("WORLD");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 10), engine.screen().cursor_col);
+}
+
+test "M5-B2 parity: selection + history interaction during apply" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
+    defer engine.deinit();
+
+    // Establish initial content and selection
+    engine.feedSlice("LINE1\nLINE2\nLINE3");
+    engine.apply();
+
+    // Create selection at row 1
+    engine.selectionStart(1, 0);
+    const sel_before = engine.selectionState().?;
+    try std.testing.expectEqual(true, sel_before.active);
+
+    // Feed screen clear (does not affect selection)
+    engine.feedSlice("\x1b[2J");
+    engine.apply();
+
+    // Selection should be preserved after non-evicting apply
+    const sel_after = engine.selectionState();
+    try std.testing.expectEqual(true, sel_after.?.active);
+    try std.testing.expectEqual(sel_before.start.row, sel_after.?.start.row);
+}
+
+test "M5-B2 parity: encode interleaved with feed/apply does not mutate state" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("ABC");
+    engine.apply();
+    const col_after_abc = engine.screen().cursor_col;
+
+    // Encode while maintaining state
+    _ = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
+    _ = engine.encodeKey('X', model_mod.VTERM_MOD_NONE);
+
+    // State unchanged by encoding
+    try std.testing.expectEqual(col_after_abc, engine.screen().cursor_col);
+
+    // Feed and apply more content
+    engine.feedSlice("DEF");
+    engine.apply();
+    try std.testing.expectEqual(col_after_abc + 3, engine.screen().cursor_col);
+
+    // More encoding, state still unchanged
+    _ = engine.encodeKey(model_mod.VTERM_KEY_F5, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(col_after_abc + 3, engine.screen().cursor_col);
+}
+
+test "M5-B2 parity: complex state machine sequence" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 10);
+    defer engine.deinit();
+
+    // Complex sequence: feed → apply → encode → feed → apply → reset → feed → apply
+
+    // Phase 1: write "A"
+    engine.feedSlice("A");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
+
+    // Phase 2: encode (side-effect free)
+    const encoded = engine.encodeKey('B', model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(u8, 'B'), encoded[0]);
+    try std.testing.expectEqual(@as(u16, 1), engine.screen().cursor_col);
+
+    // Phase 3: feed "B" and move cursor
+    engine.feedSlice("B\x1b[5G");  // write B, move to col 5
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_col);
+
+    // Phase 4: reset parser but keep screen
+    engine.reset();
+    try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_col);
+    try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
+
+    // Phase 5: feed "C" and clear to origin
+    engine.feedSlice("C\x1b[H");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+
+    // Phase 6: history count should be 0 (no scrollback occurred)
+    try std.testing.expectEqual(@as(u16, 0), engine.historyCount());
+}
