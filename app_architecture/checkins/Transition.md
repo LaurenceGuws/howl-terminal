@@ -27,3 +27,7 @@ PRIMARY DIRECTION:
 Before making any change in this repo, ask whether the work should happen in
 Howl instead. The default answer is yes unless the user explicitly asks to
 preserve, inspect, or checkpoint the frozen Zide source.
+
+Next lane handoff:
+
+- `app_architecture/checkins/FIRST_HOST_HANDOFF.md`
