@@ -1,12 +1,7 @@
-//! Responsibility: parse terminal byte streams into parser-layer events.
-//! Ownership: terminal parser module;
-//! Reason: keep escape-sequence parsing isolated behind callback dispatch.
-
 const std = @import("std");
 const stream_mod = @import("stream.zig");
 const csi_mod = @import("csi.zig");
 
-/// Top-level parser control states outside OSC/APC/DCS substates.
 pub const EscState = enum {
     ground,
     esc,
@@ -14,46 +9,39 @@ pub const EscState = enum {
     charset,
 };
 
-/// OSC parser substate used while accumulating OSC payload bytes.
 pub const OscState = enum {
     idle,
     osc,
     osc_esc,
 };
 
-/// APC parser substate used while accumulating APC payload bytes.
 pub const ApcState = enum {
     idle,
     apc,
     apc_esc,
 };
 
-/// DCS parser substate used while accumulating DCS payload bytes.
 pub const DcsState = enum {
     idle,
     dcs,
     dcs_esc,
 };
 
-/// Terminator variant used when emitting completed OSC payloads.
 pub const OscTerminator = enum {
     bel,
     st,
 };
 
-/// Supported designated character set identity for GL mapping.
 pub const Charset = enum {
     ascii,
     dec_special,
 };
 
-/// Active charset designation target used by ESC '(' and ')'.
 pub const CharsetTarget = enum {
     g0,
     g1,
 };
 
-/// Callback sink interface receiving parser-decoded events.
 pub const Sink = struct {
     ptr: *anyopaque,
     onStreamEventFn: *const fn (*anyopaque, stream_mod.StreamEvent) void,
@@ -64,43 +52,35 @@ pub const Sink = struct {
     onDcsFn: *const fn (*anyopaque, []const u8) void,
     onEscFinalFn: *const fn (*anyopaque, u8) void,
 
-    /// Forward a decoded stream event to sink implementation.
     pub fn onStreamEvent(self: Sink, event: stream_mod.StreamEvent) void {
         self.onStreamEventFn(self.ptr, event);
     }
 
-    /// Forward an ASCII slice event to sink implementation.
     pub fn onAsciiSlice(self: Sink, bytes: []const u8) void {
         self.onAsciiSliceFn(self.ptr, bytes);
     }
 
-    /// Forward a completed CSI action to sink implementation.
     pub fn onCsi(self: Sink, action: csi_mod.CsiAction) void {
         self.onCsiFn(self.ptr, action);
     }
 
-    /// Forward a completed OSC payload and terminator to sink implementation.
     pub fn onOsc(self: Sink, data: []const u8, terminator: OscTerminator) void {
         self.onOscFn(self.ptr, data, terminator);
     }
 
-    /// Forward a completed APC payload to sink implementation.
     pub fn onApc(self: Sink, data: []const u8) void {
         self.onApcFn(self.ptr, data);
     }
 
-    /// Forward a completed DCS payload to sink implementation.
     pub fn onDcs(self: Sink, data: []const u8) void {
         self.onDcsFn(self.ptr, data);
     }
 
-    /// Forward a non-CSI ESC final byte to sink implementation.
     pub fn onEscFinal(self: Sink, byte: u8) void {
         self.onEscFinalFn(self.ptr, byte);
     }
 };
 
-/// Stateful terminal parser handling ESC/CSI/OSC/APC/DCS byte streams.
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     sink: Sink,
@@ -119,8 +99,6 @@ pub const Parser = struct {
     gl_charset: Charset,
     charset_target: CharsetTarget,
 
-    /// Initialize parser state and payload buffers for OSC/APC/DCS handling.
-    /// Caller owns the returned parser and must call `deinit`.
     pub fn init(allocator: std.mem.Allocator, sink: Sink) !Parser {
         var osc_buffer = try std.ArrayList(u8).initCapacity(allocator, 256);
         errdefer osc_buffer.deinit(allocator);
@@ -151,14 +129,12 @@ pub const Parser = struct {
         };
     }
 
-    /// Release parser-owned buffers allocated during `init`.
     pub fn deinit(self: *Parser) void {
         self.osc_buffer.deinit(self.allocator);
         self.apc_buffer.deinit(self.allocator);
         self.dcs_buffer.deinit(self.allocator);
     }
 
-    /// Reset parser runtime state while retaining allocated buffer capacity.
     pub fn reset(self: *Parser) void {
         self.stream.reset();
         self.csi.reset();
@@ -176,7 +152,6 @@ pub const Parser = struct {
         self.dcs_buffer.clearRetainingCapacity();
     }
 
-    /// Parse a single byte and dispatch any resulting parser event to `sink`.
     pub fn handleByte(self: *Parser, byte: u8) void {
         if (self.osc_state != .idle) {
             self.handleOscByte(byte);
@@ -257,7 +232,6 @@ pub const Parser = struct {
         }
     }
 
-    /// Parse a byte slice, using ASCII fast-path dispatch when applicable.
     pub fn handleSlice(self: *Parser, bytes: []const u8) void {
         var i: usize = 0;
         while (i < bytes.len) {
@@ -355,7 +329,7 @@ pub const Parser = struct {
                     self.finishApc();
                     return;
                 }
-                // Stray ESC marker is dropped; keep the following byte as payload data.
+
                 self.apc_state = .apc;
                 if (self.apc_buffer.items.len < apc_max_len) {
                     self.apc_buffer.append(self.allocator, byte) catch {};

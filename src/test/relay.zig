@@ -1,7 +1,3 @@
-//! Responsibility: run integration relay tests across parser, event, and screen modules.
-//! Ownership: terminal test integration module.
-//! Reason: verify cross-module behavior beyond isolated inline unit tests.
-
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");
@@ -11,8 +7,6 @@ const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");
 const runtime_mod = @import("../runtime/engine.zig");
 const model_mod = @import("../model.zig");
-
-// --- Dispatch harness ---
 
 const Event = union(enum) {
     stream_codepoint: u21,
@@ -111,8 +105,6 @@ const Harness = struct {
         self.events.append(self.allocator, Event{ .esc_final = byte }) catch {};
     }
 };
-
-// --- Parser dispatch tests ---
 
 test "parser: mixed stream exact sequence (ASCII+CSI+ASCII)" {
     const gpa = std.testing.allocator;
@@ -249,8 +241,6 @@ test "parser: CSI with multiple parameters exact order" {
     try std.testing.expectEqual(@as(u8, 3), harness.events.items[0].csi.count);
 }
 
-// --- Bridge integration tests ---
-
 test "bridge: maps ASCII text to text event" {
     const gpa = std.testing.allocator;
     var bridge = bridge_mod.Bridge.init(gpa);
@@ -329,8 +319,6 @@ test "bridge: maps OSC to title_set event" {
     try std.testing.expect(bridge.events.items[0] == .title_set);
     try std.testing.expectEqualSlices(u8, "My Window", bridge.events.items[0].title_set);
 }
-
-// --- Pipeline integration tests ---
 
 test "pipeline: mixed text and CSI and text" {
     const gpa = std.testing.allocator;
@@ -503,8 +491,6 @@ test "replay: applyToScreen drains bridge once repeat apply is no-op" {
     try std.testing.expectEqual(@as(u21, 'z'), screen.cellAt(0, 4));
     try std.testing.expectEqual(@as(u16, 5), screen.cursor_col);
 }
-
-// --- End-to-end replay tests (Pipeline + ScreenState) ---
 
 fn feed(pl: *pipeline_mod.Pipeline, screen: *screen_mod.ScreenState, bytes: []const u8) void {
     pl.feedSlice(bytes);
@@ -862,7 +848,6 @@ test "replay: split CHA after DECSTR applies from reset origin" {
     try std.testing.expectEqual(@as(u16, 7), screen.cursor_col);
     try std.testing.expectEqual(@as(u21, 'x'), screen.cellAt(0, 6));
 }
-
 
 test "replay: CUP absolute move" {
     const gpa = std.testing.allocator;
@@ -1431,8 +1416,6 @@ test "replay: control BEL does not move cursor or alter cells" {
     try std.testing.expectEqual(@as(u21, 'c'), screen.cellAt(0, 2));
 }
 
-// --- Edge determinism tests: cursor/control saturation at boundaries ---
-
 test "edge: CUU repeated moves from top clamps at row 0" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1518,8 +1501,6 @@ test "edge: mixed cursor moves (up/down/left/right) maintain saturation at edges
     feed(&pl, &screen, "\x1b[1A");
     try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
 }
-
-// --- Edge determinism tests: CR/LF/BS interaction on edges ---
 
 test "edge: CR at column 0 leaves cursor unchanged" {
     const gpa = std.testing.allocator;
@@ -1621,8 +1602,6 @@ test "edge: CR does not move row; LF only moves row; BS only moves column" {
     try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
 }
 
-// --- Edge determinism tests: zero-dimension screens remain safe ---
-
 test "edge: zero-dimension pipeline clear and reset are safe" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1637,8 +1616,6 @@ test "edge: zero-dimension pipeline clear and reset are safe" {
     try std.testing.expect(pl.isEmpty());
     pl.applyToScreen(&screen);
 }
-
-// --- Zero-dimension variant tests (rows=0, cols>0 | rows>0, cols=0 | rows=0, cols=0) ---
 
 test "zero-dim: rows=0, cols=8: cursor moves saturate, text/erase are safe no-ops" {
     const gpa = std.testing.allocator;
@@ -1818,8 +1795,6 @@ test "zero-dim: tab commands remain safe across all zero-dimension variants" {
     try std.testing.expectEqual(@as(u16, 0), screen_zero.cursor_row);
     try std.testing.expectEqual(@as(u16, 0), screen_zero.cursor_col);
 }
-
-// --- Runtime engine facade parity matrix ---
 
 const CellCheck = struct {
     row: u16,

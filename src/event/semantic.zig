@@ -1,14 +1,8 @@
-//! Responsibility: map parser-level events into semantic screen operations.
-//! Ownership: event semantic module.
-//! Reason: keep CSI/control interpretation separate from parser tokenization.
-
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 
-/// Event type alias consumed by semantic mapping.
 pub const Event = bridge_mod.Event;
 
-/// Screen-oriented semantic operations derived from parser events.
 pub const SemanticEvent = union(enum) {
     cursor_up: u16,
     cursor_down: u16,
@@ -34,7 +28,6 @@ pub const SemanticEvent = union(enum) {
     erase_line: u2,
 };
 
-/// Convert a parser event into a semantic screen operation when supported.
 pub fn process(event: Event) ?SemanticEvent {
     switch (event) {
         .style_change => |sc| return processCsi(sc.final, sc.params, sc.param_count, sc.leader, sc.private, sc.intermediates, sc.intermediates_len),

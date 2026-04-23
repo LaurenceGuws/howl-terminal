@@ -1,10 +1,5 @@
-//! Responsibility: track lightweight frame/draw/input timing metrics.
-//! Ownership: terminal model metrics primitive.
-//! Reason: provide shared runtime metric accumulation independent of renderer host.
-
 const std = @import("std");
 
-/// Lightweight runtime metrics with EMA tracking for frame/draw/input timings.
 pub const Metrics = struct {
     frames: u64,
     redraws: u64,
@@ -16,7 +11,6 @@ pub const Metrics = struct {
     last_input_time: ?f64,
     alpha: f64,
 
-    /// Initialize metrics with zeroed counters and default EMA smoothing.
     pub fn init() Metrics {
         return .{
             .frames = 0,
@@ -31,7 +25,6 @@ pub const Metrics = struct {
         };
     }
 
-    /// Record the start of a frame at `now` seconds.
     pub fn beginFrame(self: *Metrics, now: f64) void {
         if (self.last_frame_time > 0) {
             const dt_ms = (now - self.last_frame_time) * 1000.0;
@@ -41,12 +34,10 @@ pub const Metrics = struct {
         self.frames += 1;
     }
 
-    /// Mark input arrival time for end-to-end latency tracking.
     pub fn noteInput(self: *Metrics, now: f64) void {
         self.last_input_time = now;
     }
 
-    /// Record draw completion and update draw/latency moving averages.
     pub fn recordDraw(self: *Metrics, start: f64, end: f64) void {
         self.redraws += 1;
         const draw_ms = (end - start) * 1000.0;

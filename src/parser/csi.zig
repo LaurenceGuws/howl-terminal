@@ -1,13 +1,7 @@
-//! Responsibility: parse CSI parameter/intermediate/final byte sequences.
-//! Ownership: parser CSI primitive.
-//! Reason: keep CSI tokenization stable and reusable across parser states.
-
-/// Maximum CSI parameter slots retained by `CsiParser`.
 pub const max_params: usize = 16;
-/// Maximum CSI intermediate bytes retained by `CsiParser`.
+
 pub const max_intermediates: usize = 4;
 
-/// Completed CSI action payload emitted on final-byte receipt.
 pub const CsiAction = struct {
     final: u8,
     params: [max_params]i32,
@@ -18,7 +12,6 @@ pub const CsiAction = struct {
     intermediates_len: u8,
 };
 
-/// Stateful CSI parser for params/intermediates/final-byte extraction.
 pub const CsiParser = struct {
     params: [max_params]i32 = [_]i32{0} ** max_params,
     count: u8 = 0,
@@ -28,7 +21,6 @@ pub const CsiParser = struct {
     intermediates_len: u8 = 0,
     in_param: bool = false,
 
-    /// Reset CSI parser state for a new sequence.
     pub fn reset(self: *CsiParser) void {
         self.params = [_]i32{0} ** max_params;
         self.count = 0;
@@ -39,10 +31,8 @@ pub const CsiParser = struct {
         self.in_param = false;
     }
 
-    /// Feed one CSI payload byte and emit action when final byte is received.
-    /// Returns `null` while the sequence is still incomplete.
     pub fn feed(self: *CsiParser, byte: u8) ?CsiAction {
-        // Final byte in 0x40..0x7E
+
         if (byte >= 0x40 and byte <= 0x7E) {
             var final_count = self.count;
             if (self.in_param) final_count += 1;
@@ -87,7 +77,6 @@ pub const CsiParser = struct {
             return null;
         }
 
-        // Intermediate bytes in 0x20..0x2F (e.g. '$', '!').
         if (byte >= 0x20 and byte <= 0x2F) {
             if (self.intermediates_len < self.intermediates.len) {
                 self.intermediates[self.intermediates_len] = byte;
@@ -96,7 +85,6 @@ pub const CsiParser = struct {
             return null;
         }
 
-        // Ignore other bytes in CSI sequence.
         return null;
     }
 };

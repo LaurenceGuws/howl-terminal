@@ -1,13 +1,8 @@
-//! Responsibility: translate parser sink callbacks into owned event records.
-//! Ownership: event bridge module.
-//! Reason: isolate parser callback handling from semantic and screen layers.
-
 const std = @import("std");
 const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");
 const csi_mod = @import("../parser/csi.zig");
 
-/// Parser-facing event record emitted by the bridge queue.
 pub const Event = union(enum) {
     text: []const u8,
     codepoint: u21,
@@ -25,12 +20,10 @@ pub const Event = union(enum) {
     invalid_sequence,
 };
 
-/// Owns queued parser events and exposes a parser `Sink` implementation.
 pub const Bridge = struct {
     allocator: std.mem.Allocator,
     events: std.ArrayList(Event),
 
-    /// Initialize an empty bridge queue with default event capacity.
     pub fn init(allocator: std.mem.Allocator) Bridge {
         return .{
             .allocator = allocator,
@@ -38,23 +31,19 @@ pub const Bridge = struct {
         };
     }
 
-    /// Free all owned event payloads and release queue storage.
     pub fn deinit(self: *Bridge) void {
         self.clear();
         self.events.deinit(self.allocator);
     }
 
-    /// Return the number of queued events.
     pub fn len(self: *const Bridge) usize {
         return self.events.items.len;
     }
 
-    /// Return true when no events are queued.
     pub fn isEmpty(self: *const Bridge) bool {
         return self.events.items.len == 0;
     }
 
-    /// Free owned payloads for queued events and clear the queue.
     pub fn clear(self: *Bridge) void {
         for (self.events.items) |event| {
             switch (event) {
@@ -65,13 +54,11 @@ pub const Bridge = struct {
         self.events.clearRetainingCapacity();
     }
 
-    /// Move queued events into `dest`, leaving this queue empty.
     pub fn drainInto(self: *Bridge, dest: *std.ArrayList(Event), dest_allocator: std.mem.Allocator) !void {
         try dest.appendSlice(dest_allocator, self.events.items);
         self.events.clearRetainingCapacity();
     }
 
-    /// Return a parser sink that appends callbacks into this bridge queue.
     pub fn toSink(self: *Bridge) parser_mod.Sink {
         return .{
             .ptr = self,
