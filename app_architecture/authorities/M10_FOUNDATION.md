@@ -37,6 +37,19 @@ M10-A closure condition:
 
 - quality-priority ordering and claim vocabulary are explicit.
 
+## M10-B Evidence Protocol Authority (Closed)
+
+Evidence protocol and stress fixture catalog are published in:
+
+- `docs/review/m10/M10_B_EVIDENCE_PROTOCOL.md`
+- `docs/review/m10/M10_STRESS_FIXTURES.md`
+
+M10-B closure conditions:
+
+- stress/soak/drift evidence classes and procedure are explicit.
+- fixture ownership and mutation rules are explicit.
+- reproducibility/report format and stop conditions are explicit.
+
 ## Non-Goals
 
 - no speculative feature expansion without bounded authority.
