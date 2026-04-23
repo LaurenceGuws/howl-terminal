@@ -4962,3 +4962,168 @@ test "runtime: input encoding output is not mutable from caller" {
     try std.testing.expectEqual(@as(usize, 1), bytes.len);
     try std.testing.expectEqual(@as(u8, 'B'), bytes[0]);
 }
+
+// ============================================================================
+// M4 Closeout Tests: Representative Coverage Evidence
+// ============================================================================
+
+test "M4 closeout: keyboard input comprehensive coverage" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    // Printable ASCII: single byte output
+    const ascii = engine.encodeKey('A', model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqual(@as(usize, 1), ascii.len);
+    try std.testing.expectEqual(@as(u8, 'A'), ascii[0]);
+
+    // Special keys: ENTER, ESCAPE, BACKSPACE
+    const enter = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\r", enter);
+
+    const escape = engine.encodeKey(model_mod.VTERM_KEY_ESCAPE, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b", escape);
+
+    const backspace = engine.encodeKey(model_mod.VTERM_KEY_BACKSPACE, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x7f", backspace);
+
+    // Cursor keys: UP/DOWN/LEFT/RIGHT
+    const up = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[A", up);
+
+    // Extended keys: HOME, DEL, PAGEDOWN
+    const home = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[H", home);
+
+    const del = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[3~", del);
+
+    // Function keys: F1, F5, F12
+    const f1 = engine.encodeKey(model_mod.VTERM_KEY_F1, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[P", f1);
+
+    const f5 = engine.encodeKey(model_mod.VTERM_KEY_F5, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[15~", f5);
+
+    const f12 = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, "\x1b[24~", f12);
+}
+
+test "M4 closeout: modifier combinations are deterministic" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    // Test all three modifier flags across different key types
+    const shift_up = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqual(@as(usize, 6), shift_up.len);
+    try std.testing.expectEqual(@as(u8, '2'), shift_up[4]); // modifier parameter: 1+1=2
+
+    var buf_shift: [64]u8 = undefined;
+    @memcpy(buf_shift[0..shift_up.len], shift_up);
+
+    const shift_up_2 = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqualSlices(u8, buf_shift[0..shift_up.len], shift_up_2);
+
+    // Alt modifier
+    const alt_down = engine.encodeKey(model_mod.VTERM_KEY_DOWN, model_mod.VTERM_MOD_ALT);
+    try std.testing.expectEqual(@as(u8, '3'), alt_down[4]); // modifier parameter: 1+2=3
+
+    // Ctrl modifier
+    const ctrl_right = engine.encodeKey(model_mod.VTERM_KEY_RIGHT, model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqual(@as(u8, '5'), ctrl_right[4]); // modifier parameter: 1+4=5
+
+    // Shift + Ctrl combined
+    const shift_ctrl_left = engine.encodeKey(model_mod.VTERM_KEY_LEFT, model_mod.VTERM_MOD_SHIFT | model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqual(@as(u8, '6'), shift_ctrl_left[4]); // modifier parameter: 1+1+4=6
+}
+
+test "M4 closeout: encoding is reset-stable" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
+    defer engine.deinit();
+
+    // Feed and apply some content
+    engine.feedSlice("\x1b[2J");
+    engine.apply();
+
+    // Encode special key
+    const before = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
+    var buf_before: [64]u8 = undefined;
+    @memcpy(buf_before[0..before.len], before);
+
+    // Reset parser but keep screen
+    engine.reset();
+
+    // Encode should still be identical
+    const after = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, buf_before[0..before.len], after);
+
+    // Also test resetScreen
+    engine.resetScreen();
+    const after_screen = engine.encodeKey(model_mod.VTERM_KEY_ENTER, model_mod.VTERM_MOD_NONE);
+    try std.testing.expectEqualSlices(u8, buf_before[0..before.len], after_screen);
+}
+
+test "M4 closeout: encoding does not mutate state" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
+    defer engine.deinit();
+
+    // Feed content and establish state
+    engine.feedSlice("hello");
+    engine.apply();
+    const screen_before = engine.screen().*;
+    const history_before = engine.historyCount();
+
+    // Encode various keys
+    _ = engine.encodeKey(model_mod.VTERM_KEY_UP, model_mod.VTERM_MOD_SHIFT);
+    _ = engine.encodeKey('X', model_mod.VTERM_MOD_CTRL);
+    _ = engine.encodeKey(model_mod.VTERM_KEY_F12, model_mod.VTERM_MOD_ALT);
+
+    // Screen and history should be unchanged
+    const screen_after = engine.screen().*;
+    const history_after = engine.historyCount();
+
+    try std.testing.expectEqual(screen_before.cursor_row, screen_after.cursor_row);
+    try std.testing.expectEqual(screen_before.cursor_col, screen_after.cursor_col);
+    try std.testing.expectEqual(history_before, history_after);
+}
+
+test "M4 closeout: encoding covers extended keys with modifiers" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    // Extended key with modifier: HOME + Shift
+    const shift_home = engine.encodeKey(model_mod.VTERM_KEY_HOME, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqual(@as(usize, 6), shift_home.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[1;2H", shift_home);
+
+    // Extended key with modifier: DELETE + Ctrl
+    const ctrl_del = engine.encodeKey(model_mod.VTERM_KEY_DEL, model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqual(@as(usize, 6), ctrl_del.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[3;5~", ctrl_del);
+
+    // Extended key with modifier: PAGEUP + Alt
+    const alt_pageup = engine.encodeKey(model_mod.VTERM_KEY_PAGEUP, model_mod.VTERM_MOD_ALT);
+    try std.testing.expectEqual(@as(usize, 6), alt_pageup.len);
+    try std.testing.expectEqualSlices(u8, "\x1b[5;3~", alt_pageup);
+}
+
+test "M4 closeout: encoding covers function keys with modifiers" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 10, 20);
+    defer engine.deinit();
+
+    // F1-F4 with modifiers
+    const shift_f2 = engine.encodeKey(model_mod.VTERM_KEY_F2, model_mod.VTERM_MOD_SHIFT);
+    try std.testing.expectEqualSlices(u8, "\x1b[1;2Q", shift_f2);
+
+    // F5-F12 with modifiers
+    const ctrl_f8 = engine.encodeKey(model_mod.VTERM_KEY_F8, model_mod.VTERM_MOD_CTRL);
+    try std.testing.expectEqualSlices(u8, "\x1b[19;5~", ctrl_f8);
+
+    const alt_f11 = engine.encodeKey(model_mod.VTERM_KEY_F11, model_mod.VTERM_MOD_ALT);
+    try std.testing.expectEqualSlices(u8, "\x1b[23;3~", alt_f11);
+}

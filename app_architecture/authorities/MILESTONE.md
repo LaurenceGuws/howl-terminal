@@ -68,8 +68,10 @@ and replay-tested through runtime surfaces.
 - `[x]` M4-A1: Input contract: supported key/modifier/mouse/control event model is explicit and separate from host/platform event types.
 - `[x]` M4-A2: Encoding contract: deterministic input-to-byte encoding rules are documented and test-backed for supported modes.
 - `[x]` M4-A3: Runtime input surface: engine exposes host-neutral input encode/feed entry points without parser/pipeline leakage.
-- `[ ]` Mode interactions: input behavior with active modes is explicit and deterministic.
-- `[ ]` Replay evidence: direct and runtime parity tests cover control output for representative key/control sequences.
+- `[x]` M4-B1: Mode interactions: input behavior with active modes is explicit (keyboard encoding mode-agnostic, mouse encoding mode-aware; INPUT_CONTROL.md documents both).
+- `[x]` M4-B2: Extended key coverage: deterministic encoding for INS, DEL, HOME, END, PAGEUP, PAGEDOWN with full modifier support.
+- `[x]` M4-B3: Function-key baseline: F1-F12 constants and deterministic encoding with modifier support.
+- `[x]` Replay evidence: direct and runtime parity tests cover control output for representative key/control sequences (keyboard input comprehensive coverage, modifier combinations, reset stability, extended/function keys).
 
 ### M4 Closeout Sequence
 

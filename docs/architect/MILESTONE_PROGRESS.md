@@ -8,7 +8,7 @@ This board tracks milestone state only. It does not track implementation steps.
 | `M1` Parser-Screen Foundation | `done` | `app_architecture/authorities/M1_FOUNDATION.md` | Parser/event/screen/runtime foundation frozen with contracts and replay coverage. |
 | `M2` Terminal State Breadth | `done` | `app_architecture/authorities/MILESTONE.md` | Wrap/tabs/modes/reset-state/cursor-alias semantics are complete and parity-tested. M2 frozen with contracts. |
 | `M3` History and Selection | `done` | `app_architecture/authorities/MILESTONE.md` | Contracts frozen and implementation complete (history FIFO storage, runtime history read surface, signed selection coordinates, deterministic eviction invalidation, parity/runtime coverage). |
-| `M4` Input and Control Surface | `active` | `app_architecture/authorities/MILESTONE.md` | Opened after M3 freeze. First slice defines host-neutral input/control contracts and execution boundaries before behavior expansion. |
+| `M4` Input and Control Surface | `done` | `app_architecture/authorities/MILESTONE.md` | Input/control contracts frozen (INPUT_CONTROL.md, MODEL_API.md, RUNTIME_API.md). Keyboard encoding implemented and tested for: printable ASCII, special keys (ENTER/ESCAPE/TAB/BACKSPACE), cursor keys (UP/DOWN/LEFT/RIGHT), extended keys (HOME/END/INS/DEL/PAGEUP/PAGEDOWN), function keys (F1-F12). All with full modifier support (Shift/Alt/Ctrl). Determinism and reset/screen-state independence verified. |
 | `M5` Runtime Interface | `planned` | `app_architecture/authorities/MILESTONE.md` | Deferred. |
 | `M6` Snapshot and Replay Contracts | `planned` | `app_architecture/authorities/MILESTONE.md` | Deferred. |
 | `M7` Performance and Memory Discipline | `planned` | `app_architecture/authorities/MILESTONE.md` | Deferred. |
