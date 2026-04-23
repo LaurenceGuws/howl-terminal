@@ -66,7 +66,7 @@ History and selection are added in M3 as transparent extensions:
 - Selection is never cleared or invalidated by semantic screen events (`reset()`, DECSTR, `clear()`).
 - History storage is optional and allocator-owned; does not affect M1-M2 visible-screen guarantees.
 - Selection endpoints use signed coordinates to reference both viewport and history rows.
-- History is truncated explicitly only when capacity is reduced, not by any semantic screen operation.
+- History is bounded and may evict oldest rows during capture when capacity is full; semantic screen reset operations do not truncate history.
 - Zero-cell or zero-dimension screens do not allocate history regardless of M3 configuration.
 
 Detailed history and selection semantics are in `app_architecture/contracts/HISTORY_SELECTION.md`.

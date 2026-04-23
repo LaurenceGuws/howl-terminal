@@ -13,7 +13,7 @@ Defines the shared coordinate space, history capacity policy, and selection life
 
 ### History Coordinates
 - Rows scrolled off the top during bottom-row scroll, captured in bounded allocator-owned storage.
-- History row numbering: row `-1` is the most recent off-screen row (first to scroll off), row `-H` is the oldest retained row.
+- History row numbering: row `-1` is the most recently scrolled-off row, row `-H` is the oldest retained row.
 - History is optional and created only when cell storage exists and history capacity is configured.
 - Zero-capacity or no-cell screens do not allocate history.
 
@@ -26,7 +26,7 @@ Defines the shared coordinate space, history capacity policy, and selection life
 
 ### Ownership and Lifecycle
 - History buffer is allocator-owned when created with cell storage.
-- History capacity is explicit and immutable per `ScreenState` lifetime; passed at init time.
+- History capacity is explicit, bounded, and fixed for the `ScreenState` lifetime in M3-A.
 - Zero capacity means no history is retained; line feed at bottom row scrolls the visible buffer but does not preserve scrolled rows.
 - No-cell screens (created with `ScreenState.init`, not `initWithCells`) do not allocate history regardless of configured capacity.
 
@@ -46,11 +46,11 @@ Defines the shared coordinate space, history capacity policy, and selection life
 - Inactive (`null`): initial state or after `clear()`.
 - Active: after `start(row, col)`.
 - Selecting: during `update(row, col)` calls while active.
-- Finished: after `finish(row, col)` completes the selection; remains accessible until `clear()`.
+- Finished: after `finish()` completes the selection; remains accessible until `clear()`.
 
 ### Coordinate Scope
 - `start(row, col)` can reference viewport or history rows; col is always in viewport range.
-- `update(row, col)` and `finish(row, col)` follow same scoping rules.
+- `update(row, col)` follows same scoping rules.
 - Selection endpoints are stored exactly as provided; no clamping or normalization.
 
 ## Reset, Clear, and DECSTR Effects
@@ -88,11 +88,10 @@ Defines the shared coordinate space, history capacity policy, and selection life
 - Selection is **not** cleared by `reset()`, `resetScreen()`, DECSTR, or `clear()`.
 - Selection is **not** invalidated by visible-screen scroll (line feed at bottom, pending wrap).
 
-### History Truncation
-- If history capacity is reduced, oldest rows are discarded.
-- If both selection endpoints fall entirely within discarded rows, selection is invalidated (`state()` returns `null`).
-- If one endpoint falls in discarded history and the other is in retained history or viewport, selection remains valid and spans the retained range.
-- Selection invalidation is explicit and deterministic based on configured capacity change.
+### History Eviction (Bounded Capacity)
+- When history is full, each newly captured row evicts exactly one oldest retained row.
+- If either selection endpoint references an evicted row, selection is invalidated (`state()` returns `null`).
+- Selection is not auto-normalized or remapped after eviction.
 
 ### Explicit Invalidation
 - Selection is cleared by calling `clear()` on `SelectionState`.
@@ -125,7 +124,7 @@ A change is breaking if:
 2. Selection is cleared by `reset()`, DECSTR, or `clear()`.
 3. History is truncated by `reset()` or DECSTR.
 4. Selection is invalidated by visible-screen scroll.
-5. History capacity becomes mutable or unbounded.
+5. History capacity becomes unbounded.
 6. History becomes accessible through mutable facade.
 
 ## Breaking Change Approval
