@@ -86,6 +86,16 @@ Every `M10` slice must pass:
 
 - publish execution-only tickets after M10-A/B closure.
 
+M10-C publication gates:
+
+- queue is execution-only and excludes planning/scoping tasks.
+- each ticket declares target files, non-goals, validation commands, and stop conditions.
+- ticket scope preserves frozen `M1-M9` behavior and public signatures.
+
+M10-C closure status:
+
+- published in `docs/engineer/ACTIVE_QUEUE.md`.
+
 ### M10-D: Continuous Freeze Cadence (Architect)
 
 - establish rolling freeze criteria and publish next strategic handoff.

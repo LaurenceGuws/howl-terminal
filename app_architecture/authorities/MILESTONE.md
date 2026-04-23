@@ -170,7 +170,7 @@ sustained without reopening frozen contracts.
 
 - `[x]` M10-A: Quality doctrine closure.
 - `[x]` M10-B: Evidence expansion protocol publication.
-- `[ ]` M10-C: Bounded execution queue publication and gate closure.
+- `[x]` M10-C: Bounded execution queue publication and gate closure.
 - `[ ]` M10-D: Continuous freeze cadence publication.
 
 ### M10 Closeout Sequence
