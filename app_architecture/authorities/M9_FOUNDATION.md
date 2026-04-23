@@ -37,6 +37,19 @@ M9-A closure condition:
 
 - host-equivalence claim vocabulary and required observable surfaces are explicit.
 
+## M9-B Evidence Protocol Authority (Closed)
+
+Evidence protocol and canonical fixture classes are published in:
+
+- `docs/review/m9/M9_B_EVIDENCE_PROTOCOL.md`
+- `docs/review/m9/M9_FIXTURES.md`
+
+M9-B closure conditions:
+
+- reproducible host-to-host comparison procedure is explicit.
+- fixture ownership and change rules are explicit.
+- mismatch classification vocabulary is explicit and bounded.
+
 ## Non-Goals
 
 - no host implementation in this repository.
@@ -72,6 +85,12 @@ Every `M9` slice must pass:
 ### M9-C: Execution Queue Publication (Architect)
 
 - publish bounded engineer tickets only after M9-A/B closure.
+
+M9-C publication gates:
+
+- queue tickets are execution-only (no planning/scoping tasks).
+- each ticket includes target files, non-goals, validation commands, and stop conditions.
+- ticket scope preserves frozen `M1-M8` behavior.
 
 ### M9-D: Freeze and M10 Handoff (Architect)
 

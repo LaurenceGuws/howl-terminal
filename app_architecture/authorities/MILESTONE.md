@@ -147,6 +147,22 @@ stable enough to support first-host work without API churn.
 2. Publish bounded implementation gates only after readiness contract closure.
 3. Mark `M8` done only when first-host integration can start without expected API churn.
 
+## M9 Checklist
+
+M9 is complete only when cross-host conformance claims are explicit, reproducible,
+and bounded to frozen runtime/model contracts.
+
+- `[x]` M9-A: Cross-host conformance contract closure.
+- `[x]` M9-B: Evidence protocol and canonical fixture strategy publication.
+- `[ ]` M9-C: Bounded execution queue publication and acceptance gates.
+- `[ ]` M9-D: Freeze evidence and M10 handoff publication.
+
+### M9 Closeout Sequence
+
+1. Complete architect-owned conformance and evidence authority before opening execution queue.
+2. Publish bounded execution queue only after M9-A/B closure.
+3. Mark `M9` done only when cross-host reproducibility evidence is accepted and frozen.
+
 ## Authority Rules
 
 - Milestone docs define intent and acceptance, not ticket logs.

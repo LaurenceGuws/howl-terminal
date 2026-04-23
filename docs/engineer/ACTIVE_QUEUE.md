@@ -8,15 +8,18 @@ No engineer execution queue is published.
 
 `M9` is active, but it is currently architect-owned.
 
-The repo is in cross-host evidence-protocol planning mode.
+The repo is in M9 execution-queue publication mode.
 
 - `M9-A` conformance contract closure is complete.
-- `M9-B` evidence protocol publication is in progress.
+- `M9-B` evidence protocol publication is complete.
+- `M9-C` bounded execution queue publication is next.
 
 ## Read Before Any New Queue Exists
 
 - `app_architecture/authorities/M9_FOUNDATION.md`
 - `app_architecture/contracts/HOST_CONFORMANCE.md`
+- `docs/review/m9/M9_B_EVIDENCE_PROTOCOL.md`
+- `docs/review/m9/M9_FIXTURES.md`
 - `app_architecture/authorities/MILESTONE.md`
 - `docs/architect/MILESTONE_PROGRESS.md`
 - `docs/review/m9/M9_A_CONTRACT_REVIEW.md`
@@ -26,5 +29,4 @@ The repo is in cross-host evidence-protocol planning mode.
 
 Do not start `M9` implementation work from this file.
 
-An engineer queue may be published only after M9 evidence protocol publication
-and explicit queue-gate closure.
+An engineer queue may be published only after explicit M9-C queue-gate closure.
