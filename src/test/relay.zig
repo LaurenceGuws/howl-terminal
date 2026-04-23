@@ -11,7 +11,6 @@ const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");
 const runtime_mod = @import("../runtime/engine.zig");
 const model_mod = @import("../model.zig");
-const model = @import("../model.zig");
 
 const Event = union(enum) {
     stream_codepoint: u21,
@@ -5888,7 +5887,7 @@ test "M8-E2: encodeMouse interleaved with mutations shows zero side effects" {
     var snap1 = try engine.snapshot();
     defer snap1.deinit();
 
-    const mouse_move = model.MouseEvent{
+    const mouse_move = model_mod.MouseEvent{
         .kind = .move,
         .button = .none,
         .row = 2,
@@ -5905,7 +5904,7 @@ test "M8-E2: encodeMouse interleaved with mutations shows zero side effects" {
     var snap2 = try engine.snapshot();
     defer snap2.deinit();
 
-    const mouse_click = model.MouseEvent{
+    const mouse_click = model_mod.MouseEvent{
         .kind = .press,
         .button = .left,
         .row = 2,
@@ -5916,6 +5915,11 @@ test "M8-E2: encodeMouse interleaved with mutations shows zero side effects" {
         .buttons_down = 1,
     };
     _ = engine.encodeMouse(mouse_click);
+    var snap_after_encode = try engine.snapshot();
+    defer snap_after_encode.deinit();
+    try std.testing.expectEqual(snap2.cursor_row, snap_after_encode.cursor_row);
+    try std.testing.expectEqual(snap2.cursor_col, snap_after_encode.cursor_col);
+    try std.testing.expectEqual(snap2.history_count, snap_after_encode.history_count);
 
     engine.selectionStart(0, 1);
     engine.selectionUpdate(0, 5);
@@ -5944,7 +5948,7 @@ test "M8-E2: queuedEventCount reflects only feed phase, not encode calls" {
     const queue_count_2 = engine.queuedEventCount();
     try std.testing.expectEqual(queue_count_1, queue_count_2);
 
-    const mouse_event = model.MouseEvent{
+    const mouse_event = model_mod.MouseEvent{
         .kind = .move,
         .button = .none,
         .row = 0,
@@ -5996,7 +6000,7 @@ test "M8-E2: snapshot stable across mixed feed/encode/selection operations" {
     engine.feedSlice("LINE1\r\nLINE2");
     engine.apply();
 
-    var snap_seq: [5]model.EngineSnapshot = undefined;
+    var snap_seq: [5]model_mod.EngineSnapshot = undefined;
     snap_seq[0] = try engine.snapshot();
 
     _ = engine.encodeKey('A', 0);
@@ -6005,7 +6009,7 @@ test "M8-E2: snapshot stable across mixed feed/encode/selection operations" {
     engine.selectionStart(0, 0);
     snap_seq[2] = try engine.snapshot();
 
-    const mouse = model.MouseEvent{
+    const mouse = model_mod.MouseEvent{
         .kind = .move,
         .button = .none,
         .row = 1,
@@ -6025,6 +6029,7 @@ test "M8-E2: snapshot stable across mixed feed/encode/selection operations" {
         try std.testing.expectEqual(snap_seq[i].rows, snap_seq[i + 1].rows);
         try std.testing.expectEqual(snap_seq[i].cols, snap_seq[i + 1].cols);
         try std.testing.expectEqual(snap_seq[i].cursor_row, snap_seq[i + 1].cursor_row);
+        try std.testing.expectEqual(snap_seq[i].history_count, snap_seq[i + 1].history_count);
     }
 
     for (&snap_seq) |*snap| {

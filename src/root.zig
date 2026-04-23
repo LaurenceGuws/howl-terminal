@@ -121,15 +121,19 @@ test "M8-E1: encodeKey and encodeMouse methods present and callable" {
     engine.feedSlice("TEST");
     engine.apply();
 
-    const encoded_before = engine.encodeKey('A', 0);
-    _ = encoded_before;
-    const screen_before = engine.screen();
-    const cursor_row_before = screen_before.cursor_row;
+    var snap_before = try engine.snapshot();
+    defer snap_before.deinit();
 
+    _ = engine.encodeKey('A', 0);
     _ = engine.encodeKey('B', 0);
-    const screen_after = engine.screen();
 
-    try std.testing.expectEqual(cursor_row_before, screen_after.cursor_row);
+    var snap_after = try engine.snapshot();
+    defer snap_after.deinit();
+
+    try std.testing.expectEqual(snap_before.cursor_row, snap_after.cursor_row);
+    try std.testing.expectEqual(snap_before.cursor_col, snap_after.cursor_col);
+    try std.testing.expectEqual(snap_before.history_count, snap_after.history_count);
+    try std.testing.expectEqual(snap_before.selection, snap_after.selection);
 }
 
 test "M8-E1: encodeMouse placeholder returns empty output" {
