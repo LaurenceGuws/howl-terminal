@@ -5698,8 +5698,13 @@ test "M6-C replay evidence: snapshot parity across direct pipeline vs runtime" {
     try std.testing.expectEqual(screen.cursor_row, snap.cursor_row);
     try std.testing.expectEqual(screen.cursor_col, snap.cursor_col);
     if (snap.cells != null and screen.cells != null) {
-        const size = @as(usize, screen.rows) * @as(usize, screen.cols);
-        try std.testing.expectEqualSlices(u21, screen.cells.?[0..size], snap.cells.?[0..size]);
+        var row: u16 = 0;
+        while (row < screen.rows) : (row += 1) {
+            var col: u16 = 0;
+            while (col < screen.cols) : (col += 1) {
+                try std.testing.expectEqual(screen.cellAt(row, col), snap.cellAt(row, col));
+            }
+        }
     }
 }
 

@@ -17,6 +17,7 @@ pub const ScreenState = struct {
     wrap_pending: bool,
     cursor_visible: bool,
     auto_wrap: bool,
+    row_origin: u16,
     cells: ?[]u21,
     history: ?[]u21,
     history_capacity: u16,
@@ -33,6 +34,7 @@ pub const ScreenState = struct {
             .wrap_pending = false,
             .cursor_visible = true,
             .auto_wrap = true,
+            .row_origin = 0,
             .cells = null,
             .history = null,
             .history_capacity = 0,
@@ -57,6 +59,7 @@ pub const ScreenState = struct {
             .wrap_pending = false,
             .cursor_visible = true,
             .auto_wrap = true,
+            .row_origin = 0,
             .cells = cells,
             .history = null,
             .history_capacity = 0,
@@ -88,6 +91,7 @@ pub const ScreenState = struct {
             .wrap_pending = false,
             .cursor_visible = true,
             .auto_wrap = true,
+            .row_origin = 0,
             .cells = cells,
             .history = history,
             .history_capacity = if (cells != null) history_capacity else 0,
@@ -111,6 +115,7 @@ pub const ScreenState = struct {
         self.wrap_pending = false;
         self.cursor_visible = true;
         self.auto_wrap = true;
+        self.row_origin = 0;
         if (self.cells) |c| @memset(c, 0);
     }
 
@@ -118,7 +123,8 @@ pub const ScreenState = struct {
     pub fn cellAt(self: *const ScreenState, row: u16, col: u16) u21 {
         const c = self.cells orelse return 0;
         if (row >= self.rows or col >= self.cols) return 0;
-        return c[@as(usize, row) * self.cols + col];
+        const start = self.rowStart(row);
+        return c[start + @as(usize, col)];
     }
 
     /// Read history cell by recency index and column.
@@ -244,23 +250,35 @@ pub const ScreenState = struct {
     fn eraseDisplay(self: *ScreenState, mode: u2) void {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
-        const cursor_pos = @as(usize, self.cursor_row) * self.cols + self.cursor_col;
         switch (mode) {
-            0 => @memset(c[cursor_pos..], 0),
-            1 => @memset(c[0 .. cursor_pos + 1], 0),
+            0 => {
+                self.clearRowRange(self.cursor_row, self.cursor_col, self.cols);
+                var r = self.cursor_row + 1;
+                while (r < self.rows) : (r += 1) {
+                    const start = self.rowStart(r);
+                    @memset(c[start .. start + @as(usize, self.cols)], 0);
+                }
+            },
+            1 => {
+                var r: u16 = 0;
+                while (r < self.cursor_row) : (r += 1) {
+                    const start = self.rowStart(r);
+                    @memset(c[start .. start + @as(usize, self.cols)], 0);
+                }
+                self.clearRowRange(self.cursor_row, 0, self.cursor_col + 1);
+            },
             2 => @memset(c, 0),
             3 => {},
         }
     }
 
     fn eraseLine(self: *ScreenState, mode: u2) void {
-        const c = self.cells orelse return;
+        _ = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
-        const row_start = @as(usize, self.cursor_row) * self.cols;
         switch (mode) {
-            0 => @memset(c[row_start + self.cursor_col .. row_start + self.cols], 0),
-            1 => @memset(c[row_start .. row_start + self.cursor_col + 1], 0),
-            2 => @memset(c[row_start .. row_start + self.cols], 0),
+            0 => self.clearRowRange(self.cursor_row, self.cursor_col, self.cols),
+            1 => self.clearRowRange(self.cursor_row, 0, self.cursor_col + 1),
+            2 => self.clearRowRange(self.cursor_row, 0, self.cols),
             3 => {},
         }
     }
@@ -275,7 +293,8 @@ pub const ScreenState = struct {
             }
         }
         if (self.cells) |c| {
-            c[@as(usize, self.cursor_row) * self.cols + self.cursor_col] = cp;
+            const start = self.rowStart(self.cursor_row);
+            c[start + @as(usize, self.cursor_col)] = cp;
         }
         if (self.cursor_col < self.cols - 1) {
             self.cursor_col += 1;
@@ -312,20 +331,30 @@ pub const ScreenState = struct {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
         const row_len = @as(usize, self.cols);
+        const top_start = self.rowStart(0);
+        const top_end = top_start + row_len;
         if (self.history) |h| {
             const hist_row_start = @as(usize, self.history_write_idx) * row_len;
-            @memcpy(h[hist_row_start .. hist_row_start + row_len], c[0..row_len]);
+            @memcpy(h[hist_row_start .. hist_row_start + row_len], c[top_start..top_end]);
             self.history_write_idx = (self.history_write_idx + 1) % self.history_capacity;
             if (self.history_count < self.history_capacity) {
                 self.history_count += 1;
             }
         }
-        if (self.rows > 1) {
-            const total = (@as(usize, self.rows)) * row_len;
-            std.mem.copyForwards(u21, c[0 .. total - row_len], c[row_len..total]);
-        }
-        const last_start = (@as(usize, self.rows) - 1) * row_len;
-        @memset(c[last_start .. last_start + self.cols], 0);
+        self.row_origin = @intCast((@as(usize, self.row_origin) + 1) % @as(usize, self.rows));
+        const bottom_start = self.rowStart(self.rows - 1);
+        @memset(c[bottom_start .. bottom_start + row_len], 0);
+    }
+
+    fn rowStart(self: *const ScreenState, logical_row: u16) usize {
+        const physical_row = (@as(usize, self.row_origin) + @as(usize, logical_row)) % @as(usize, self.rows);
+        return physical_row * @as(usize, self.cols);
+    }
+
+    fn clearRowRange(self: *ScreenState, row: u16, start_col: u16, end_col_exclusive: u16) void {
+        const c = self.cells orelse return;
+        const start = self.rowStart(row);
+        @memset(c[start + @as(usize, start_col) .. start + @as(usize, end_col_exclusive)], 0);
     }
 };
 

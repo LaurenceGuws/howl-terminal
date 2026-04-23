@@ -96,10 +96,16 @@ pub const EngineSnapshot = struct {
         }
 
         // Copy visible screen cells if present.
-        if (screen.cells) |cells| {
+        if (screen.cells != null) {
             const size = @as(usize, screen.rows) * @as(usize, screen.cols);
             const owned_cells = try allocator.alloc(u21, size);
-            @memcpy(owned_cells, cells);
+            var row: u16 = 0;
+            while (row < screen.rows) : (row += 1) {
+                var col: u16 = 0;
+                while (col < screen.cols) : (col += 1) {
+                    owned_cells[@as(usize, row) * @as(usize, screen.cols) + @as(usize, col)] = screen.cellAt(row, col);
+                }
+            }
             snapshot.cells = owned_cells;
         }
 

@@ -174,3 +174,46 @@ Architect note:
   lower queue depth, lower alloc count, and lower peak live bytes.
 - Scroll chunked workload queue depth remains unchanged, indicating next queue
   envelope wins (if pursued) should target control-heavy/event-heavy paths.
+
+---
+
+## M7-BL-005 (F3 Post-Implementation)
+
+Baseline ID: `M7-BL-005`
+
+Timestamp (UTC): `2026-04-23 20:00:26Z`
+
+Command:
+
+- `zig build m7-baseline`
+
+### Results
+
+| Workload | Median (ms) | P95 (ms) | Throughput (MiB/s) | Median alloc count | Median alloc bytes | Median peak live bytes | Median max queue depth |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ascii_heavy` | 33.312 | 33.995 | 18.89 | 1 | 3294176 | 3294176 | 30000 |
+| `csi_heavy` | 24.792 | 25.936 | 2.69 | 1 | 1778576 | 1778576 | 16000 |
+| `scroll_heavy_history0` | 22.880 | 25.603 | 2.50 | 4 | 6024374 | 6003867 | 60000 |
+| `scroll_heavy_history1000` | 23.484 | 23.576 | 2.44 | 4 | 6024374 | 6003867 | 60000 |
+| `mixed_interactive` | 6.887 | 7.043 | 6.92 | 1 | 54 | 54 | 4 |
+| `snapshot_opt_in` | 58.129 | 58.351 | n/a | 400 | 99840000 | 499200 | 0 |
+| `queue_growth_ascii_chunked_64` | 38.715 | 40.119 | 16.26 | 1 | 3604400 | 3604400 | 30000 |
+| `queue_growth_scroll_chunked_16` | 26.306 | 26.445 | 2.18 | 1 | 5995216 | 5995216 | 60000 |
+
+### Delta vs M7-BL-004 (F3 Target Workloads)
+
+| Workload | Median latency delta | Throughput delta |
+| --- | ---: | ---: |
+| `scroll_heavy_history0` | -78.14% | +354.55% |
+| `scroll_heavy_history1000` | -77.61% | +343.64% |
+| `queue_growth_scroll_chunked_16` | -75.42% | +311.32% |
+
+### F3 Gate Preview (`M7-F3-SPEC-001`)
+
+1. `scroll_heavy_history0` median latency improvement >=10%: `PASS`
+2. `scroll_heavy_history1000` median latency improvement >=10%: `PASS`
+3. `queue_growth_scroll_chunked_16` median latency improvement >=8%: `PASS`
+4. Regression gates:
+   - `ascii_heavy` throughput regression <=3%: `PASS` (improved)
+   - `mixed_interactive` median latency regression <=5%: `PASS` (+4.36%)
+5. `zig build test` correctness gate: `PASS`
