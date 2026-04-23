@@ -5453,6 +5453,30 @@ test "M6-A snapshot: history capture when history enabled" {
     }
 }
 
+test "M6-A snapshot: historyRowAt matches engine after wraparound" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 2, 3, 2);
+    defer engine.deinit();
+
+    // Force history ring-buffer wraparound (capacity 2, scroll more than 2 rows).
+    engine.feedSlice("111\n222\n333\n444\n555");
+    engine.apply();
+
+    var snap = try engine.snapshot();
+    defer snap.deinit();
+
+    try std.testing.expectEqual(engine.historyCount(), snap.history_count);
+    try std.testing.expectEqual(engine.historyCapacity(), snap.history_capacity);
+
+    var idx: u16 = 0;
+    while (idx < engine.historyCount()) : (idx += 1) {
+        var col: u16 = 0;
+        while (col < engine.screen().cols) : (col += 1) {
+            try std.testing.expectEqual(engine.historyRowAt(idx, col), snap.historyRowAt(idx, col));
+        }
+    }
+}
+
 test "M6-A snapshot: selection state included in snapshot" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);

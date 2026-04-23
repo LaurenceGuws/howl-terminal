@@ -19,6 +19,7 @@ pub const EngineSnapshot = struct {
     history: ?[]u21,
     history_count: u16,
     history_capacity: u16,
+    history_write_idx: u16,
     selection: ?model_mod.TerminalSelection,
 
     /// Capture snapshot from engine observable state; allocates owned buffers.
@@ -35,6 +36,7 @@ pub const EngineSnapshot = struct {
             .history = null,
             .history_count = screen.history_count,
             .history_capacity = screen.history_capacity,
+            .history_write_idx = screen.history_write_idx,
             .selection = selection,
         };
 
@@ -77,7 +79,7 @@ pub const EngineSnapshot = struct {
         const h = self.history orelse return 0;
         if (history_idx >= self.history_count or col >= self.cols) return 0;
         const cap = @as(usize, self.history_capacity);
-        const newest_slot = (@as(usize, (self.history_capacity - self.history_count + 0)) + cap - 1) % cap;
+        const newest_slot = (@as(usize, self.history_write_idx) + cap - 1) % cap;
         const logical_slot = (newest_slot + cap - @as(usize, history_idx)) % cap;
         return h[logical_slot * @as(usize, self.cols) + @as(usize, col)];
     }
