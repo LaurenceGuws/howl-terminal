@@ -550,6 +550,94 @@ test "replay: CUB moves cursor back" {
     try std.testing.expectEqual(@as(u16, 14), screen.cursor_col);
 }
 
+test "replay: CUD alias 'e' moves cursor down" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 5;
+    feed(&pl, &screen, "\x1b[4e");
+    try std.testing.expectEqual(@as(u16, 9), screen.cursor_row);
+}
+
+test "replay: CUD alias 'e' zero param defaults to 1" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_row = 5;
+    feed(&pl, &screen, "\x1b[e");
+    try std.testing.expectEqual(@as(u16, 6), screen.cursor_row);
+}
+
+test "replay: CUF alias 'a' moves cursor forward" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x1b[5a");
+    try std.testing.expectEqual(@as(u16, 15), screen.cursor_col);
+}
+
+test "replay: CUF alias 'a' zero param defaults to 1" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x1b[a");
+    try std.testing.expectEqual(@as(u16, 11), screen.cursor_col);
+}
+
+test "replay: CHA alias backtick moves cursor to absolute column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x1b[7`");
+    try std.testing.expectEqual(@as(u16, 6), screen.cursor_col);
+}
+
+test "replay: CHA alias backtick zero param defaults to column 0" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(24, 80);
+    screen.cursor_col = 10;
+    feed(&pl, &screen, "\x1b[`");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "replay: CUD alias 'e' clamps at last row" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(5, 20);
+    screen.cursor_row = 2;
+    feed(&pl, &screen, "\x1b[999e");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_row);
+}
+
+test "replay: CUF alias 'a' clamps at last column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(10, 5);
+    feed(&pl, &screen, "\x1b[999a");
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
+}
+
+test "replay: CHA alias backtick clamps at last column" {
+    const gpa = std.testing.allocator;
+    var pl = try pipeline_mod.Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = screen_mod.ScreenState.init(5, 20);
+    feed(&pl, &screen, "\x1b[999`");
+    try std.testing.expectEqual(@as(u16, 19), screen.cursor_col);
+}
+
 test "replay: CNL moves cursor down and resets column" {
     const gpa = std.testing.allocator;
     var pl = try pipeline_mod.Pipeline.init(gpa);
@@ -1916,6 +2004,48 @@ test "parity: CUB moves cursor back identically" {
         .input = "\x1b[20C\x1b[5D",
         .expected_row = 0,
         .expected_col = 15,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: CUD alias 'e' moves cursor down identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CUD alias e baseline",
+        .rows = 10,
+        .cols = 80,
+        .with_cells = false,
+        .input = "\x1b[3e",
+        .expected_row = 3,
+        .expected_col = 0,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: CUF alias 'a' moves cursor forward identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CUF alias a baseline",
+        .rows = 24,
+        .cols = 80,
+        .with_cells = false,
+        .input = "\x1b[10a",
+        .expected_row = 0,
+        .expected_col = 10,
+        .expected_queue_depth = 0,
+    });
+}
+
+test "parity: CHA alias backtick moves cursor to absolute column identically" {
+    const gpa = std.testing.allocator;
+    try runParityScenario(gpa, .{
+        .name = "CHA alias backtick baseline",
+        .rows = 24,
+        .cols = 80,
+        .with_cells = false,
+        .input = "\x1b[20C\x1b[15`",
+        .expected_row = 0,
+        .expected_col = 14,
         .expected_queue_depth = 0,
     });
 }
@@ -3928,6 +4058,36 @@ test "runtime: VPA clamp via apply matches direct pipeline" {
     engine.apply();
     try std.testing.expectEqual(@as(u16, 4), engine.screen().cursor_row);
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+}
+
+test "runtime: CUD alias 'e' move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[5e");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 5), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
+}
+
+test "runtime: CUF alias 'a' move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[9a");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
+}
+
+test "runtime: CHA alias backtick move via apply matches direct pipeline" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.init(gpa, 24, 80);
+    defer engine.deinit();
+    engine.feedSlice("\x1b[9`");
+    engine.apply();
+    try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 8), engine.screen().cursor_col);
 }
 
 test "runtime: split VPA interrupted by DECSTR bytes remains deterministic" {

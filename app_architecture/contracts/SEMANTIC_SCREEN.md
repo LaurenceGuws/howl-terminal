@@ -51,18 +51,21 @@ M1 deterministic host feeding uses `event.Pipeline` over the parser and bridge. 
 - This interruption rule applies equally to DEC private mode CSI streams (for example `?25` / `?7`), tabulation CSI streams (`I` / `Z`), absolute-position CSI streams (`G` / `d`), and line-position CSI streams (`E` / `F`).
 
 Interruption coverage index (`src/test/relay.zig`):
-- Direct replay: split-tab (`I`/`Z`), split-private-mode (`?25`/`?7`), split-absolute-position (`G`/`d`), and split-line-position (`E`/`F`) interruption scenarios around DECSTR bytes.
-- Parity (non-chunked): interrupted split-tab, split-private-mode, split-absolute-position, and split-line-position streams produce identical direct/runtime end state.
-- Parity (chunked): interrupted split-tab, split-private-mode, split-absolute-position, and split-line-position streams remain identical under chunk boundaries.
-- Runtime integration: interrupted split-tab, split-private-mode, split-absolute-position, and split-line-position streams match deterministic cursor/cell/mode outcomes.
+- Direct replay: split-tab (`I`/`Z`), split-private-mode (`?25`/`?7`), split-absolute-position (`G`/`d`/`` ` ``), split-line-position (`E`/`F`), split-relative-vertical (`B`/`e`), and split-relative-horizontal (`C`/`a`) interruption scenarios around DECSTR bytes.
+- Parity (non-chunked): interrupted split-tab, split-private-mode, split-absolute-position (including aliases), split-line-position, split-relative-vertical (including aliases), and split-relative-horizontal (including aliases) streams produce identical direct/runtime end state.
+- Parity (chunked): interrupted split-tab, split-private-mode, split-absolute-position (including aliases), split-line-position, split-relative-vertical (including aliases), and split-relative-horizontal (including aliases) streams remain identical under chunk boundaries.
+- Runtime integration: interrupted split-tab, split-private-mode, split-absolute-position (including aliases), split-line-position, split-relative-vertical (including aliases), and split-relative-horizontal (including aliases) streams match deterministic cursor/cell/mode outcomes.
 
 ## Process Mapping Policy
 
 | Event variant | SemanticEvent emitted | Notes |
 | --- | --- | --- |
-| `style_change` with final A/B/C/D | `cursor_up/down/forward/back` | Param default 1 |
+| `style_change` with final A | `cursor_up` | Param default 1 |
+| `style_change` with final B/e | `cursor_down` | Param default 1; e is alias for B (CUD) |
+| `style_change` with final C/a | `cursor_forward` | Param default 1; a is alias for C (CUF) |
+| `style_change` with final D | `cursor_back` | Param default 1 |
 | `style_change` with final E/F | `cursor_next_line` / `cursor_prev_line` | Param default 1; column reset to 0 |
-| `style_change` with final G | `cursor_horizontal_absolute` | 1-based VT param converted to 0-based |
+| `style_change` with final G/\` | `cursor_horizontal_absolute` | 1-based VT param converted to 0-based; \` (backtick) is alias for G (CHA) |
 | `style_change` with final d | `cursor_vertical_absolute` | 1-based VT param converted to 0-based |
 | `style_change` with final I | `horizontal_tab_forward` | Param default 1 |
 | `style_change` with final Z | `horizontal_tab_back` | Param default 1 |

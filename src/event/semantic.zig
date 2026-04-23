@@ -67,12 +67,12 @@ fn processCsi(final: u8, params: [16]i32, count: u8, leader: u8, private: bool, 
     if (leader != 0) return null;
     switch (final) {
         'A' => return SemanticEvent{ .cursor_up = paramOrDefault1(params[0]) },
-        'B' => return SemanticEvent{ .cursor_down = paramOrDefault1(params[0]) },
-        'C' => return SemanticEvent{ .cursor_forward = paramOrDefault1(params[0]) },
+        'B', 'e' => return SemanticEvent{ .cursor_down = paramOrDefault1(params[0]) },
+        'C', 'a' => return SemanticEvent{ .cursor_forward = paramOrDefault1(params[0]) },
         'D' => return SemanticEvent{ .cursor_back = paramOrDefault1(params[0]) },
         'E' => return SemanticEvent{ .cursor_next_line = paramOrDefault1(params[0]) },
         'F' => return SemanticEvent{ .cursor_prev_line = paramOrDefault1(params[0]) },
-        'G' => return SemanticEvent{ .cursor_horizontal_absolute = paramOrDefault1(params[0]) - 1 },
+        'G', '`' => return SemanticEvent{ .cursor_horizontal_absolute = paramOrDefault1(params[0]) - 1 },
         'd' => return SemanticEvent{ .cursor_vertical_absolute = paramOrDefault1(params[0]) - 1 },
         'I' => return SemanticEvent{ .horizontal_tab_forward = paramOrDefault1(params[0]) },
         'Z' => return SemanticEvent{ .horizontal_tab_back = paramOrDefault1(params[0]) },
@@ -162,9 +162,29 @@ test "semantic: CUD" {
     try std.testing.expectEqual(@as(u16, 5), sem.cursor_down);
 }
 
+test "semantic: CUD alias 'e'" {
+    const sem = process(makeStyleChange('e', 5, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 5), sem.cursor_down);
+}
+
+test "semantic: CUD alias 'e' zero param defaults to 1" {
+    const sem = process(makeStyleChange('e', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.cursor_down);
+}
+
 test "semantic: CUF" {
     const sem = process(makeStyleChange('C', 2, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 2), sem.cursor_forward);
+}
+
+test "semantic: CUF alias 'a'" {
+    const sem = process(makeStyleChange('a', 2, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.cursor_forward);
+}
+
+test "semantic: CUF alias 'a' zero param defaults to 1" {
+    const sem = process(makeStyleChange('a', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.cursor_forward);
 }
 
 test "semantic: CUB" {
@@ -199,6 +219,16 @@ test "semantic: CHA explicit column" {
 
 test "semantic: CHA zero param defaults to column 0" {
     const sem = process(makeStyleChange('G', 0, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 0), sem.cursor_horizontal_absolute);
+}
+
+test "semantic: CHA alias backtick explicit column" {
+    const sem = process(makeStyleChange('`', 7, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 6), sem.cursor_horizontal_absolute);
+}
+
+test "semantic: CHA alias backtick zero param defaults to column 0" {
+    const sem = process(makeStyleChange('`', 0, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 0), sem.cursor_horizontal_absolute);
 }
 
