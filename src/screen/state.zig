@@ -18,9 +18,26 @@ pub const ScreenState = struct {
     cursor_visible: bool,
     auto_wrap: bool,
     cells: ?[]u21,
+    history: ?[]u21,
+    history_capacity: u16,
+    history_count: u16,
+    history_write_idx: u16,
 
     pub fn init(rows: u16, cols: u16) ScreenState {
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .auto_wrap = true, .cells = null };
+        return .{
+            .rows = rows,
+            .cols = cols,
+            .cursor_row = 0,
+            .cursor_col = 0,
+            .wrap_pending = false,
+            .cursor_visible = true,
+            .auto_wrap = true,
+            .cells = null,
+            .history = null,
+            .history_capacity = 0,
+            .history_count = 0,
+            .history_write_idx = 0,
+        };
     }
 
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !ScreenState {
@@ -30,12 +47,56 @@ pub const ScreenState = struct {
             @memset(buf, 0);
             break :blk buf;
         } else null;
-        return .{ .rows = rows, .cols = cols, .cursor_row = 0, .cursor_col = 0, .wrap_pending = false, .cursor_visible = true, .auto_wrap = true, .cells = cells };
+        return .{
+            .rows = rows,
+            .cols = cols,
+            .cursor_row = 0,
+            .cursor_col = 0,
+            .wrap_pending = false,
+            .cursor_visible = true,
+            .auto_wrap = true,
+            .cells = cells,
+            .history = null,
+            .history_capacity = 0,
+            .history_count = 0,
+            .history_write_idx = 0,
+        };
+    }
+
+    pub fn initWithCellsAndHistory(allocator: std.mem.Allocator, rows: u16, cols: u16, history_capacity: u16) !ScreenState {
+        const size = @as(usize, rows) * @as(usize, cols);
+        const cells: ?[]u21 = if (size > 0) blk: {
+            const buf = try allocator.alloc(u21, size);
+            @memset(buf, 0);
+            break :blk buf;
+        } else null;
+        const history: ?[]u21 = if (cells != null and history_capacity > 0) blk: {
+            const hist_size = @as(usize, history_capacity) * @as(usize, cols);
+            const buf = try allocator.alloc(u21, hist_size);
+            @memset(buf, 0);
+            break :blk buf;
+        } else null;
+        return .{
+            .rows = rows,
+            .cols = cols,
+            .cursor_row = 0,
+            .cursor_col = 0,
+            .wrap_pending = false,
+            .cursor_visible = true,
+            .auto_wrap = true,
+            .cells = cells,
+            .history = history,
+            .history_capacity = if (cells != null) history_capacity else 0,
+            .history_count = 0,
+            .history_write_idx = 0,
+        };
     }
 
     pub fn deinit(self: *ScreenState, allocator: std.mem.Allocator) void {
         if (self.cells) |c| allocator.free(c);
         self.cells = null;
+        if (self.history) |h| allocator.free(h);
+        self.history = null;
     }
 
     pub fn reset(self: *ScreenState) void {
@@ -211,12 +272,20 @@ pub const ScreenState = struct {
     fn scrollUp(self: *ScreenState) void {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
+        const row_len = @as(usize, self.cols);
+        if (self.history) |h| {
+            const hist_row_start = @as(usize, self.history_write_idx) * row_len;
+            @memcpy(h[hist_row_start .. hist_row_start + row_len], c[0..row_len]);
+            self.history_write_idx = (self.history_write_idx + 1) % self.history_capacity;
+            if (self.history_count < self.history_capacity) {
+                self.history_count += 1;
+            }
+        }
         if (self.rows > 1) {
-            const row_len = @as(usize, self.cols);
-            const total = @as(usize, self.rows) * row_len;
+            const total = (@as(usize, self.rows)) * row_len;
             std.mem.copyForwards(u21, c[0 .. total - row_len], c[row_len..total]);
         }
-        const last_start = (@as(usize, self.rows) - 1) * self.cols;
+        const last_start = (@as(usize, self.rows) - 1) * row_len;
         @memset(c[last_start .. last_start + self.cols], 0);
     }
 };
@@ -588,4 +657,79 @@ test "screen: erase ops no-op without cell buffer" {
     s.apply(SemanticEvent{ .erase_line = 2 });
     s.apply(SemanticEvent{ .erase_display = 2 });
     try std.testing.expectEqual(@as(u16, 3), s.cursor_col);
+}
+
+test "screen: initWithCells has no history by default" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCells(gpa, 4, 10);
+    defer s.deinit(gpa);
+    try std.testing.expectEqual(@as(u16, 0), s.history_capacity);
+    try std.testing.expect(s.history == null);
+}
+
+test "screen: initWithCellsAndHistory allocates bounded history" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCellsAndHistory(gpa, 4, 10, 100);
+    defer s.deinit(gpa);
+    try std.testing.expectEqual(@as(u16, 100), s.history_capacity);
+    try std.testing.expect(s.history != null);
+    try std.testing.expectEqual(@as(u16, 0), s.history_count);
+}
+
+test "screen: scrollUp captures row to history" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCellsAndHistory(gpa, 2, 10, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "abc" });
+    s.cursor_row = 1;
+    s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "xyz" });
+    s.cursor_col = 0;
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 1), s.history_count);
+    const h = s.history.?;
+    try std.testing.expectEqual(@as(u21, 'a'), h[0]);
+    try std.testing.expectEqual(@as(u21, 'b'), h[1]);
+    try std.testing.expectEqual(@as(u21, 'c'), h[2]);
+    try std.testing.expectEqual(@as(u21, 'x'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'y'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'z'), s.cellAt(0, 2));
+}
+
+test "screen: history capacity limits with wraparound" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCellsAndHistory(gpa, 2, 2, 2);
+    defer s.deinit(gpa);
+    var row_num: u21 = '1';
+    var i: u16 = 0;
+    while (i < 5) : (i += 1) {
+        s.cursor_col = 0;
+        s.cursor_row = 0;
+        for (0..2) |_| {
+            s.apply(SemanticEvent{ .write_codepoint = row_num });
+        }
+        if (i < 4) {
+            s.cursor_row = 1;
+            s.apply(SemanticEvent.line_feed);
+        }
+        row_num += 1;
+    }
+    try std.testing.expectEqual(@as(u16, 2), s.history_count);
+    const h = s.history.?;
+    try std.testing.expectEqual(@as(u21, '3'), h[0]);
+    try std.testing.expectEqual(@as(u21, '3'), h[1]);
+    try std.testing.expectEqual(@as(u21, '4'), h[2]);
+    try std.testing.expectEqual(@as(u21, '4'), h[3]);
+}
+
+test "screen: reset does not truncate history" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCellsAndHistory(gpa, 2, 5, 10);
+    defer s.deinit(gpa);
+    s.apply(SemanticEvent{ .write_text = "test1" });
+    s.cursor_row = 1;
+    s.apply(SemanticEvent.line_feed);
+    try std.testing.expectEqual(@as(u16, 1), s.history_count);
+    s.reset();
+    try std.testing.expectEqual(@as(u16, 1), s.history_count);
 }
