@@ -20,7 +20,7 @@ pub const Engine = struct {
     encode_len: usize = 0,
 
     /// Initialize engine with cursor-only screen state (no cell storage).
-    /// Allocator ownership: caller owns allocator lifetime; engine calls deinit(allocator) for cleanup.
+    /// Allocator ownership: caller owns allocator lifetime; engine cleanup is via deinit().
     pub fn init(allocator: std.mem.Allocator, rows: u16, cols: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();
@@ -34,7 +34,7 @@ pub const Engine = struct {
     }
 
     /// Initialize engine with cell buffer (full screen state storage).
-    /// Engine owns cell buffer; caller must call deinit(allocator) to release.
+    /// Engine owns cell buffer; caller must call deinit() to release.
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();
@@ -50,7 +50,7 @@ pub const Engine = struct {
 
     /// Initialize engine with cell buffer and bounded history buffer (M3+).
     /// history_capacity: max rows retained in scrollback (0 = no history).
-    /// Engine owns cell and history buffers; caller must call deinit(allocator) to release.
+    /// Engine owns cell and history buffers; caller must call deinit() to release.
     pub fn initWithCellsAndHistory(allocator: std.mem.Allocator, rows: u16, cols: u16, history_capacity: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();

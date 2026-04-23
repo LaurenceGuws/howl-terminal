@@ -5327,6 +5327,7 @@ test "M5-B2 parity: split-feed at CSI boundary preserves queue semantics" {
     // Split a cursor-position CSI across feed calls: ESC [ split here 5 ; 1 0 H
     engine.feedSlice("\x1b[5;1");  // incomplete CSI
     const queued_mid = engine.queuedEventCount();
+    try std.testing.expectEqual(@as(usize, 0), queued_mid);
 
     engine.feedSlice("0H");  // completes CSI
     const queued_after = engine.queuedEventCount();
@@ -5350,7 +5351,7 @@ test "M5-B2 parity: feed/apply/reset/feed/apply preserves state isolation" {
     // Feed incomplete escape
     engine.feedSlice("\x1b[");
     const queued = engine.queuedEventCount();
-    try std.testing.expect(queued > 0); // escape queued but not applied
+    try std.testing.expectEqual(@as(usize, 0), queued); // incomplete escape does not emit bridge event yet
 
     // Reset clears parser and queue
     engine.reset();
