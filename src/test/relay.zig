@@ -4583,3 +4583,44 @@ test "runtime: selection cleared when referencing out-of-bounds history index" {
 
     try std.testing.expectEqual(@as(?model_mod.TerminalSelection, null), engine.selectionState());
 }
+
+test "runtime: selection not cleared by reset operation" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 3);
+    defer engine.deinit();
+
+    engine.feedSlice("test\x1b[H");
+    engine.apply();
+
+    engine.selectionStart(0, 2);
+    const sel_before = engine.selectionState().?;
+    try std.testing.expect(sel_before.active);
+
+    engine.reset();
+
+    const sel_after = engine.selectionState().?;
+    try std.testing.expect(sel_after.active);
+    try std.testing.expectEqual(@as(i32, 0), sel_after.start.row);
+}
+
+test "runtime: selection not cleared by resetScreen operation" {
+    const gpa = std.testing.allocator;
+    var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 3);
+    defer engine.deinit();
+
+    engine.feedSlice("test");
+    engine.apply();
+
+    engine.selectionStart(-1, 5);
+    engine.selectionFinish();
+    const sel_before = engine.selectionState().?;
+    try std.testing.expect(sel_before.active);
+    try std.testing.expect(!sel_before.selecting);
+
+    engine.resetScreen();
+
+    const sel_after = engine.selectionState().?;
+    try std.testing.expect(sel_after.active);
+    try std.testing.expect(!sel_after.selecting);
+    try std.testing.expectEqual(@as(i32, -1), sel_after.start.row);
+}
