@@ -4,31 +4,21 @@ No engineer execution queue is published.
 
 ## Current State
 
-`M6` is complete and frozen.
+`M7` is complete and frozen.
 
-`M7` is active, but it is currently architect-owned. The repo is in doctrine and
-audit mode for performance and memory discipline.
+`M8` is active, but it is currently architect-owned. The repo is in readiness
+contract and seam-audit mode for first-host integration.
 
 ## Read Before Any New Queue Exists
 
-- `app_architecture/authorities/M7_FOUNDATION.md`
-- `docs/architect/M7_AUDIT.md`
-- `docs/architect/M7_MEASUREMENT_PROTOCOL.md`
-- `docs/architect/M7_FIXTURES.md`
-- `docs/architect/M7_BASELINE.md`
-- `docs/architect/M7_F1_SPEC.md`
-- `docs/architect/M7_F1_REVIEW.md`
-- `docs/architect/M7_F2_SPEC.md`
-- `docs/architect/M7_F2_REVIEW.md`
-- `docs/architect/M7_F2B_REVIEW.md`
-- `docs/architect/M7_F3_SPEC.md`
-- `docs/architect/M7_F3_REVIEW.md`
+- `app_architecture/authorities/M8_FOUNDATION.md`
 - `app_architecture/authorities/MILESTONE.md`
 - `docs/architect/MILESTONE_PROGRESS.md`
+- `docs/architect/M7_FREEZE_REVIEW.md`
 
 ## Guardrail
 
-Do not start `M7` implementation work from this file.
+Do not start `M8` implementation work from this file.
 
-An engineer queue may be published only after architect doctrine closure,
-hot-path audit, and baseline measurement protocol completion.
+An engineer queue may be published only after M8 readiness contract closure and
+integration seam audit are complete.

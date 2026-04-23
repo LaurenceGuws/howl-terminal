@@ -21,7 +21,7 @@ It is intentionally non-implementation-detailed.
 
 ## Current Direction
 
-Current milestone target is `M7`, with `M1-M6` retained as frozen baselines.
+Current milestone target is `M8`, with `M1-M7` retained as frozen baselines.
 
 ## M2 Checklist
 
@@ -119,17 +119,33 @@ M7 is complete only when performance and memory discipline are defined by
 explicit doctrine, audited against the real codebase, and backed by reproducible
 evidence rather than intuition.
 
-- `[ ]` M7-A: Performance doctrine closure: metric priority order, tradeoff rules, and "bounded" vocabulary are explicit.
-- `[ ]` M7-B: Measurement protocol: trusted local benchmark/profiling method is documented and reproducible.
-- `[ ]` M7-C: Hot-path audit: parser/event/screen/runtime/snapshot hot paths and allocation sites are classified and ranked.
-- `[ ]` M7-D: Implementation gates: future optimization tickets are bounded by exact targets, evidence expectations, and stop conditions.
-- `[ ]` M7-E: Freeze evidence: doctrine, audit findings, accepted optimizations, and resulting bounds are frozen for M8.
+- `[x]` M7-A: Performance doctrine closure: metric priority order, tradeoff rules, and "bounded" vocabulary are explicit.
+- `[x]` M7-B: Measurement protocol: trusted local benchmark/profiling method is documented and reproducible.
+- `[x]` M7-C: Hot-path audit: parser/event/screen/runtime/snapshot hot paths and allocation sites are classified and ranked.
+- `[x]` M7-D: Implementation gates: future optimization tickets are bounded by exact targets, evidence expectations, and stop conditions.
+- `[x]` M7-E: Freeze evidence: doctrine, audit findings, accepted optimizations, and resulting bounds are frozen for M8.
 
 ### M7 Closeout Sequence
 
 1. Complete architect-only doctrine and audit work before publishing any engineer execution queue.
 2. Land only optimization slices that tie to declared measurement surfaces and preserve frozen `M1-M6` semantics.
 3. Mark `M7` done only when the memory/performance story is explicit enough to support host-readiness work without guesswork.
+
+## M8 Checklist
+
+M8 is complete only when host integration readiness is explicit, bounded, and
+stable enough to support first-host work without API churn.
+
+- `[ ]` M8-A: Host-readiness contract closure in `M8_FOUNDATION.md`.
+- `[ ]` M8-B: API stability and integration seam audit against frozen `M1-M7`.
+- `[ ]` M8-C: Integration readiness validation matrix and acceptance gates.
+- `[ ]` M8-D: Freeze evidence and M9 handoff publication.
+
+### M8 Closeout Sequence
+
+1. Complete architect-only readiness authority and seam audit before opening any implementation queue.
+2. Publish bounded implementation gates only after readiness contract closure.
+3. Mark `M8` done only when first-host integration can start without expected API churn.
 
 ## Authority Rules
 
