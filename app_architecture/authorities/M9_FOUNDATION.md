@@ -27,6 +27,16 @@ Locked baseline:
 - define evidence protocol for host-to-host equivalence checks.
 - define acceptance gates for multi-host reproducibility claims.
 
+## M9-A Contract Authority (Closed)
+
+Conformance contract authority is published in:
+
+- `app_architecture/contracts/HOST_CONFORMANCE.md`
+
+M9-A closure condition:
+
+- host-equivalence claim vocabulary and required observable surfaces are explicit.
+
 ## Non-Goals
 
 - no host implementation in this repository.
