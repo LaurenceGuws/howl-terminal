@@ -21,7 +21,7 @@ It is intentionally non-implementation-detailed.
 
 ## Current Direction
 
-Current milestone target is `M8`, with `M1-M7` retained as frozen baselines.
+Current milestone target is `M9`, with `M1-M8` retained as frozen baselines.
 
 ## M2 Checklist
 
@@ -139,7 +139,7 @@ stable enough to support first-host work without API churn.
 - `[x]` M8-A: Host-readiness contract closure in `M8_FOUNDATION.md`.
 - `[x]` M8-B: API stability and integration seam audit against frozen `M1-M7`.
 - `[x]` M8-C: Integration readiness validation matrix and acceptance gates.
-- `[ ]` M8-D: Freeze evidence and M9 handoff publication.
+- `[x]` M8-D: Freeze evidence and M9 handoff publication.
 
 ### M8 Closeout Sequence
 
