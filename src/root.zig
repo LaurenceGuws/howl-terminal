@@ -4,16 +4,22 @@
 
 const std = @import("std");
 
+/// Parser module export.
 pub const parser = @import("parser/parser.zig");
 
+/// Event pipeline module export.
 pub const pipeline = @import("event/pipeline.zig");
 
+/// Semantic mapping module export.
 pub const semantic = @import("event/semantic.zig");
 
+/// Screen state module export.
 pub const screen = @import("screen/state.zig");
 
+/// Shared model module export.
 pub const model = @import("model.zig");
 
+/// Runtime engine module export.
 pub const runtime = @import("runtime/engine.zig");
 
 comptime {

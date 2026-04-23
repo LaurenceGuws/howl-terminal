@@ -4,6 +4,7 @@
 
 const std = @import("std");
 
+/// Runtime metrics accumulator.
 pub const Metrics = struct {
     frames: u64,
     redraws: u64,
@@ -15,6 +16,7 @@ pub const Metrics = struct {
     last_input_time: ?f64,
     alpha: f64,
 
+    /// Initialize metrics state.
     pub fn init() Metrics {
         return .{
             .frames = 0,
@@ -29,6 +31,7 @@ pub const Metrics = struct {
         };
     }
 
+    /// Mark start of a new frame interval.
     pub fn beginFrame(self: *Metrics, now: f64) void {
         if (self.last_frame_time > 0) {
             const dt_ms = (now - self.last_frame_time) * 1000.0;
@@ -38,10 +41,12 @@ pub const Metrics = struct {
         self.frames += 1;
     }
 
+    /// Record input arrival timestamp.
     pub fn noteInput(self: *Metrics, now: f64) void {
         self.last_input_time = now;
     }
 
+    /// Record draw duration and latency metrics.
     pub fn recordDraw(self: *Metrics, start: f64, end: f64) void {
         self.redraws += 1;
         const draw_ms = (end - start) * 1000.0;

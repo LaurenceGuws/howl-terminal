@@ -4,22 +4,26 @@
 
 const std = @import("std");
 
+/// UTF-8 decode result union.
 pub const Utf8Result = union(enum) {
     codepoint: u21,
     incomplete,
     invalid,
 };
 
+/// Incremental UTF-8 decoder state.
 pub const Utf8Decoder = struct {
     buf: [4]u8 = undefined,
     len: u8 = 0,
     needed: u8 = 0,
 
+    /// Reset decoder state.
     pub fn reset(self: *Utf8Decoder) void {
         self.len = 0;
         self.needed = 0;
     }
 
+    /// Feed one byte and return decode state.
     pub fn feed(self: *Utf8Decoder, byte: u8) Utf8Result {
         if (self.needed == 0) {
             if (byte < 0x80) {
@@ -40,6 +44,7 @@ pub const Utf8Decoder = struct {
             return .incomplete;
         }
 
+        // Continuation byte required while sequence is incomplete.
         if ((byte & 0xC0) != 0x80) {
             self.reset();
             return .invalid;

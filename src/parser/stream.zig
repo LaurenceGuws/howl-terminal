@@ -5,19 +5,23 @@
 const std = @import("std");
 const utf8 = @import("utf8.zig");
 
+/// Stream event union for parser sink input.
 pub const StreamEvent = union(enum) {
     codepoint: u21,
     control: u8,
     invalid,
 };
 
+/// Stream decoder for text/control classification.
 pub const Stream = struct {
     decoder: utf8.Utf8Decoder = .{},
 
+    /// Reset stream decoder state.
     pub fn reset(self: *Stream) void {
         self.decoder.reset();
     }
 
+    /// Feed one byte and emit stream event when available.
     pub fn feed(self: *Stream, byte: u8) ?StreamEvent {
         if (self.decoder.needed == 0 and (byte < 0x20 or byte == 0x7f)) {
             return .{ .control = byte };

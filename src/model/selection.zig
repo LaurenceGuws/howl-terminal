@@ -4,11 +4,13 @@
 
 const std = @import("std");
 
+/// Selection endpoint coordinate.
 pub const SelectionPos = struct {
     row: i32,
     col: u16,
 };
 
+/// Selection state snapshot.
 pub const TerminalSelection = struct {
     active: bool,
     selecting: bool,
@@ -16,9 +18,11 @@ pub const TerminalSelection = struct {
     end: SelectionPos,
 };
 
+/// Selection lifecycle state container.
 pub const SelectionState = struct {
     selection: TerminalSelection,
 
+    /// Initialize inactive selection state.
     pub fn init() SelectionState {
         return .{
             .selection = .{
@@ -30,11 +34,13 @@ pub const SelectionState = struct {
         };
     }
 
+    /// Clear and deactivate selection.
     pub fn clear(self: *SelectionState) void {
         self.selection.active = false;
         self.selection.selecting = false;
     }
 
+    /// Start selection at row/column.
     pub fn start(self: *SelectionState, row: i32, col: u16) void {
         self.selection.active = true;
         self.selection.selecting = true;
@@ -42,16 +48,19 @@ pub const SelectionState = struct {
         self.selection.end = .{ .row = row, .col = col };
     }
 
+    /// Update selection end coordinate.
     pub fn update(self: *SelectionState, row: i32, col: u16) void {
         if (!self.selection.active) return;
         self.selection.end = .{ .row = row, .col = col };
     }
 
+    /// Mark current selection as finished.
     pub fn finish(self: *SelectionState) void {
         if (!self.selection.active) return;
         self.selection.selecting = false;
     }
 
+    /// Return active selection snapshot or null.
     pub fn state(self: *const SelectionState) ?TerminalSelection {
         if (!self.selection.active) return null;
         return self.selection;

@@ -7,6 +7,7 @@ const pipeline_mod = @import("../event/pipeline.zig");
 const screen_mod = @import("../screen/state.zig");
 const model_mod = @import("../model.zig");
 
+/// Host-neutral terminal runtime facade.
 pub const Engine = struct {
     allocator: std.mem.Allocator,
     pipeline: pipeline_mod.Pipeline,
@@ -15,6 +16,7 @@ pub const Engine = struct {
     encode_buf: [64]u8 = undefined,
     encode_len: usize = 0,
 
+    /// Initialize engine without cell storage.
     pub fn init(allocator: std.mem.Allocator, rows: u16, cols: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();
@@ -27,6 +29,7 @@ pub const Engine = struct {
         };
     }
 
+    /// Initialize engine with cell storage.
     pub fn initWithCells(allocator: std.mem.Allocator, rows: u16, cols: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();
@@ -40,6 +43,7 @@ pub const Engine = struct {
         };
     }
 
+    /// Initialize engine with cell and history storage.
     pub fn initWithCellsAndHistory(allocator: std.mem.Allocator, rows: u16, cols: u16, history_capacity: u16) !Engine {
         var pipeline = try pipeline_mod.Pipeline.init(allocator);
         errdefer pipeline.deinit();
@@ -53,19 +57,23 @@ pub const Engine = struct {
         };
     }
 
+    /// Release engine-owned resources.
     pub fn deinit(self: *Engine) void {
         self.state.deinit(self.allocator);
         self.pipeline.deinit();
     }
 
+    /// Feed one input byte into parser state.
     pub fn feedByte(self: *Engine, byte: u8) void {
         self.pipeline.feedByte(byte);
     }
 
+    /// Feed a byte slice into parser state.
     pub fn feedSlice(self: *Engine, bytes: []const u8) void {
         self.pipeline.feedSlice(bytes);
     }
 
+    /// Apply queued events to screen state.
     pub fn apply(self: *Engine) void {
         self.pipeline.applyToScreen(&self.state);
         if (self.selection.selection.active) {
@@ -77,58 +85,72 @@ pub const Engine = struct {
         }
     }
 
+    /// Clear queued events without applying.
     pub fn clear(self: *Engine) void {
         self.pipeline.clear();
     }
 
+    /// Reset parser state and clear queue.
     pub fn reset(self: *Engine) void {
         self.pipeline.reset();
     }
 
+    /// Reset visible screen state only.
     pub fn resetScreen(self: *Engine) void {
         self.state.reset();
     }
 
+    /// Return read-only screen state reference.
     pub fn screen(self: *const Engine) *const screen_mod.ScreenState {
         return &self.state;
     }
 
+    /// Return queued event count.
     pub fn queuedEventCount(self: *const Engine) usize {
         return self.pipeline.len();
     }
 
+    /// Return history cell by recency index and column.
     pub fn historyRowAt(self: *const Engine, history_idx: u16, col: u16) u21 {
         return self.state.historyRowAt(history_idx, col);
     }
 
+    /// Return retained history row count.
     pub fn historyCount(self: *const Engine) u16 {
         return self.state.historyCount();
     }
 
+    /// Return configured history capacity.
     pub fn historyCapacity(self: *const Engine) u16 {
         return self.state.historyCapacity();
     }
 
+    /// Return active selection snapshot or null.
     pub fn selectionState(self: *const Engine) ?model_mod.TerminalSelection {
         return self.selection.state();
     }
 
+    /// Start selection at row/column coordinates.
     pub fn selectionStart(self: *Engine, row: i32, col: u16) void {
         self.selection.start(row, col);
     }
 
+    /// Update selection end coordinates.
     pub fn selectionUpdate(self: *Engine, row: i32, col: u16) void {
         self.selection.update(row, col);
     }
 
+    /// Finish current active selection.
     pub fn selectionFinish(self: *Engine) void {
         self.selection.finish();
     }
 
+    /// Clear current selection state.
     pub fn selectionClear(self: *Engine) void {
         self.selection.clear();
     }
 
+    /// Encode logical key and modifiers.
     pub fn encodeKey(self: *Engine, key: model_mod.Key, mod: model_mod.Modifier) []const u8 {
         var len: usize = 0;
 
@@ -488,6 +510,7 @@ pub const Engine = struct {
         return self.encode_buf[0..len];
     }
 
+    /// Encode mouse event payload (placeholder surface).
     pub fn encodeMouse(self: *Engine, event: model_mod.MouseEvent) []const u8 {
         _ = event;
         return self.encode_buf[0..0];

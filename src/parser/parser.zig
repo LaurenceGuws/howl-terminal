@@ -6,6 +6,7 @@ const std = @import("std");
 const stream_mod = @import("stream.zig");
 const csi_mod = @import("csi.zig");
 
+/// Escape-state machine mode.
 pub const EscState = enum {
     ground,
     esc,
@@ -13,39 +14,46 @@ pub const EscState = enum {
     charset,
 };
 
+/// OSC parse-state mode.
 pub const OscState = enum {
     idle,
     osc,
     osc_esc,
 };
 
+/// APC parse-state mode.
 pub const ApcState = enum {
     idle,
     apc,
     apc_esc,
 };
 
+/// DCS parse-state mode.
 pub const DcsState = enum {
     idle,
     dcs,
     dcs_esc,
 };
 
+/// OSC termination style.
 pub const OscTerminator = enum {
     bel,
     st,
 };
 
+/// Character set selector.
 pub const Charset = enum {
     ascii,
     dec_special,
 };
 
+/// Character set target selector.
 pub const CharsetTarget = enum {
     g0,
     g1,
 };
 
+/// Parser sink callback interface.
 pub const Sink = struct {
     ptr: *anyopaque,
     onStreamEventFn: *const fn (*anyopaque, stream_mod.StreamEvent) void,
@@ -56,35 +64,43 @@ pub const Sink = struct {
     onDcsFn: *const fn (*anyopaque, []const u8) void,
     onEscFinalFn: *const fn (*anyopaque, u8) void,
 
+    /// Emit stream event callback.
     pub fn onStreamEvent(self: Sink, event: stream_mod.StreamEvent) void {
         self.onStreamEventFn(self.ptr, event);
     }
 
+    /// Emit ASCII slice callback.
     pub fn onAsciiSlice(self: Sink, bytes: []const u8) void {
         self.onAsciiSliceFn(self.ptr, bytes);
     }
 
+    /// Emit CSI callback.
     pub fn onCsi(self: Sink, action: csi_mod.CsiAction) void {
         self.onCsiFn(self.ptr, action);
     }
 
+    /// Emit OSC callback.
     pub fn onOsc(self: Sink, data: []const u8, terminator: OscTerminator) void {
         self.onOscFn(self.ptr, data, terminator);
     }
 
+    /// Emit APC callback.
     pub fn onApc(self: Sink, data: []const u8) void {
         self.onApcFn(self.ptr, data);
     }
 
+    /// Emit DCS callback.
     pub fn onDcs(self: Sink, data: []const u8) void {
         self.onDcsFn(self.ptr, data);
     }
 
+    /// Emit ESC-final callback.
     pub fn onEscFinal(self: Sink, byte: u8) void {
         self.onEscFinalFn(self.ptr, byte);
     }
 };
 
+/// Stateful parser for terminal input streams.
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     sink: Sink,
@@ -103,6 +119,7 @@ pub const Parser = struct {
     gl_charset: Charset,
     charset_target: CharsetTarget,
 
+    /// Initialize parser state and owned buffers.
     pub fn init(allocator: std.mem.Allocator, sink: Sink) !Parser {
         var osc_buffer = try std.ArrayList(u8).initCapacity(allocator, 256);
         errdefer osc_buffer.deinit(allocator);
@@ -133,12 +150,14 @@ pub const Parser = struct {
         };
     }
 
+    /// Release parser-owned buffers.
     pub fn deinit(self: *Parser) void {
         self.osc_buffer.deinit(self.allocator);
         self.apc_buffer.deinit(self.allocator);
         self.dcs_buffer.deinit(self.allocator);
     }
 
+    /// Reset parser state and transient buffers.
     pub fn reset(self: *Parser) void {
         self.stream.reset();
         self.csi.reset();
@@ -156,6 +175,7 @@ pub const Parser = struct {
         self.dcs_buffer.clearRetainingCapacity();
     }
 
+    /// Handle one byte of terminal input.
     pub fn handleByte(self: *Parser, byte: u8) void {
         if (self.osc_state != .idle) {
             self.handleOscByte(byte);
@@ -236,6 +256,7 @@ pub const Parser = struct {
         }
     }
 
+    /// Handle a byte slice of terminal input.
     pub fn handleSlice(self: *Parser, bytes: []const u8) void {
         var i: usize = 0;
         while (i < bytes.len) {
@@ -257,6 +278,7 @@ pub const Parser = struct {
 
             if (self.esc_state == .ground and self.stream.decoder.needed == 0) {
                 const start = i;
+                // ASCII fast path batches printable bytes into one sink event.
                 while (i < bytes.len) {
                     const b = bytes[i];
                     if (b < 0x20 or b == 0x7f or b == 0x1b or b >= 0x80) break;
@@ -297,6 +319,7 @@ pub const Parser = struct {
                     return;
                 }
 
+                // Stray ESC marker is dropped; following byte stays OSC payload.
                 self.osc_state = .osc;
                 if (self.osc_buffer.items.len < 4096) {
                     self.osc_buffer.append(self.allocator, byte) catch {};
@@ -366,6 +389,7 @@ pub const Parser = struct {
                     return;
                 }
 
+                // Stray ESC marker is dropped; following byte stays DCS payload.
                 self.dcs_state = .dcs;
                 if (self.dcs_buffer.items.len < 4096) {
                     self.dcs_buffer.append(self.allocator, byte) catch {};

@@ -2,10 +2,13 @@
 //! Ownership: parser CSI representation layer.
 //! Reason: provide stable typed storage for parsed CSI sequences.
 
+/// Maximum supported CSI parameter count.
 pub const max_params: usize = 16;
 
+/// Maximum supported CSI intermediate count.
 pub const max_intermediates: usize = 4;
 
+/// Parsed CSI action record.
 pub const CsiAction = struct {
     final: u8,
     params: [max_params]i32,
@@ -16,6 +19,7 @@ pub const CsiAction = struct {
     intermediates_len: u8,
 };
 
+/// Incremental CSI parser state.
 pub const CsiParser = struct {
     params: [max_params]i32 = [_]i32{0} ** max_params,
     count: u8 = 0,
@@ -25,6 +29,7 @@ pub const CsiParser = struct {
     intermediates_len: u8 = 0,
     in_param: bool = false,
 
+    /// Reset parser state to defaults.
     pub fn reset(self: *CsiParser) void {
         self.params = [_]i32{0} ** max_params;
         self.count = 0;
@@ -35,7 +40,9 @@ pub const CsiParser = struct {
         self.in_param = false;
     }
 
+    /// Feed one byte and emit a CSI action when complete.
     pub fn feed(self: *CsiParser, byte: u8) ?CsiAction {
+        // Final byte is in 0x40..0x7E.
         if (byte >= 0x40 and byte <= 0x7E) {
             var final_count = self.count;
             if (self.in_param) final_count += 1;
@@ -81,6 +88,7 @@ pub const CsiParser = struct {
         }
 
         if (byte >= 0x20 and byte <= 0x2F) {
+            // Intermediate bytes are in 0x20..0x2F.
             if (self.intermediates_len < self.intermediates.len) {
                 self.intermediates[self.intermediates_len] = byte;
                 self.intermediates_len += 1;
@@ -88,6 +96,7 @@ pub const CsiParser = struct {
             return null;
         }
 
+        // Ignore unsupported bytes in CSI payload.
         return null;
     }
 };

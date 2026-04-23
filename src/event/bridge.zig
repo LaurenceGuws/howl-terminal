@@ -7,6 +7,7 @@ const parser_mod = @import("../parser/parser.zig");
 const stream_mod = @import("../parser/stream.zig");
 const csi_mod = @import("../parser/csi.zig");
 
+/// Parser-facing bridge event union.
 pub const Event = union(enum) {
     text: []const u8,
     codepoint: u21,
@@ -24,10 +25,12 @@ pub const Event = union(enum) {
     invalid_sequence,
 };
 
+/// Owned event queue bridge for parser sink callbacks.
 pub const Bridge = struct {
     allocator: std.mem.Allocator,
     events: std.ArrayList(Event),
 
+    /// Initialize bridge queue.
     pub fn init(allocator: std.mem.Allocator) Bridge {
         return .{
             .allocator = allocator,
@@ -35,19 +38,23 @@ pub const Bridge = struct {
         };
     }
 
+    /// Release bridge queue storage.
     pub fn deinit(self: *Bridge) void {
         self.clear();
         self.events.deinit(self.allocator);
     }
 
+    /// Return queued event count.
     pub fn len(self: *const Bridge) usize {
         return self.events.items.len;
     }
 
+    /// Return true when queue is empty.
     pub fn isEmpty(self: *const Bridge) bool {
         return self.events.items.len == 0;
     }
 
+    /// Clear queued events and free owned payloads.
     pub fn clear(self: *Bridge) void {
         for (self.events.items) |event| {
             switch (event) {
@@ -58,11 +65,13 @@ pub const Bridge = struct {
         self.events.clearRetainingCapacity();
     }
 
+    /// Drain queued events into destination list.
     pub fn drainInto(self: *Bridge, dest: *std.ArrayList(Event), dest_allocator: std.mem.Allocator) !void {
         try dest.appendSlice(dest_allocator, self.events.items);
         self.events.clearRetainingCapacity();
     }
 
+    /// Build parser sink bound to this bridge.
     pub fn toSink(self: *Bridge) parser_mod.Sink {
         return .{
             .ptr = self,

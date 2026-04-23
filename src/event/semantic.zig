@@ -5,8 +5,10 @@
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 
+/// Bridge event alias for semantic mapping.
 pub const Event = bridge_mod.Event;
 
+/// Screen-directed semantic event union.
 pub const SemanticEvent = union(enum) {
     cursor_up: u16,
     cursor_down: u16,
@@ -32,6 +34,7 @@ pub const SemanticEvent = union(enum) {
     erase_line: u2,
 };
 
+/// Map bridge event to semantic event when supported.
 pub fn process(event: Event) ?SemanticEvent {
     switch (event) {
         .style_change => |sc| return processCsi(sc.final, sc.params, sc.param_count, sc.leader, sc.private, sc.intermediates, sc.intermediates_len),
