@@ -90,6 +90,10 @@ pub const EngineSnapshot = struct {
             .history_write_idx = screen.history_write_idx,
             .selection = selection,
         };
+        errdefer {
+            if (snapshot.cells) |c| allocator.free(c);
+            if (snapshot.history) |h| allocator.free(h);
+        }
 
         // Copy visible screen cells if present.
         if (screen.cells) |cells| {

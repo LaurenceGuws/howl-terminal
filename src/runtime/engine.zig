@@ -530,7 +530,7 @@ pub const Engine = struct {
     /// call snapshot.deinit() to release them when done.
     ///
     /// Error: returns allocation error if owned buffer allocation fails.
-    pub fn snapshot(self: *Engine) !model_mod.EngineSnapshot {
+    pub fn snapshot(self: *const Engine) !model_mod.EngineSnapshot {
         return model_mod.snapshot.EngineSnapshot.captureFromScreen(
             self.allocator,
             &self.state,

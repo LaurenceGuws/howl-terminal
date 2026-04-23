@@ -5708,7 +5708,7 @@ test "M6-C replay evidence: snapshot wraparound history indices after eviction" 
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 2, 5, 3);
     defer engine.deinit();
 
-    engine.feedSlice("AAA\nBBB\nCCC\nDDD\nEEE");
+    engine.feedSlice("A\r\nB\r\nC\r\nD\r\nE");
     engine.apply();
 
     var snap = try engine.snapshot();
@@ -5717,7 +5717,18 @@ test "M6-C replay evidence: snapshot wraparound history indices after eviction" 
     try std.testing.expectEqual(@as(u16, 3), snap.history_capacity);
     try std.testing.expectEqual(@as(u16, 3), snap.history_count);
 
-    if (snap.history != null) {
-        try std.testing.expect(snap.history.?.len == 15);
+    try std.testing.expect(snap.history != null);
+    try std.testing.expectEqual(@as(usize, 15), snap.history.?.len);
+
+    try std.testing.expectEqual(@as(u21, 'C'), snap.historyRowAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), snap.historyRowAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'A'), snap.historyRowAt(2, 0));
+
+    var row: u16 = 0;
+    while (row < snap.history_count) : (row += 1) {
+        var col: u16 = 0;
+        while (col < snap.cols) : (col += 1) {
+            try std.testing.expectEqual(engine.historyRowAt(row, col), snap.historyRowAt(row, col));
+        }
     }
 }
