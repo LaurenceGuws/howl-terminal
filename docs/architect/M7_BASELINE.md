@@ -135,3 +135,42 @@ Command:
   fixture/load shape, establishing a high-water reference for F2 policy work.
 - F2 can now be evaluated with explicit queue-depth and peak-live metrics,
   rather than only latency/throughput/allocation counts.
+
+---
+
+## M7-BL-004 (F2B Post-Implementation)
+
+Baseline ID: `M7-BL-004`
+
+Timestamp (UTC): `2026-04-23 19:50:29Z`
+
+Command:
+
+- `zig build m7-baseline`
+
+### Results
+
+| Workload | Median (ms) | P95 (ms) | Throughput (MiB/s) | Median alloc count | Median alloc bytes | Median peak live bytes | Median max queue depth |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ascii_heavy` | 72.696 | 73.624 | 8.66 | 1 | 3294176 | 3294176 | 30000 |
+| `csi_heavy` | 24.661 | 24.746 | 2.71 | 1 | 1778576 | 1778576 | 16000 |
+| `scroll_heavy_history0` | 104.671 | 106.684 | 0.55 | 4 | 6024374 | 6003867 | 60000 |
+| `scroll_heavy_history1000` | 104.872 | 104.977 | 0.55 | 4 | 6024374 | 6003867 | 60000 |
+| `mixed_interactive` | 6.599 | 6.654 | 7.23 | 1 | 54 | 54 | 4 |
+| `snapshot_opt_in` | 36.047 | 36.394 | n/a | 400 | 99840000 | 499200 | 0 |
+| `queue_growth_ascii_chunked_64` | 77.999 | 78.769 | 8.07 | 1 | 3604400 | 3604400 | 30000 |
+| `queue_growth_scroll_chunked_16` | 107.004 | 107.414 | 0.53 | 1 | 5995216 | 5995216 | 60000 |
+
+### Delta vs M7-BL-003 (Key F2 Workloads)
+
+| Workload | Median latency delta | Throughput delta | Alloc count delta | Alloc bytes delta | Peak live delta | Max queue depth delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `queue_growth_ascii_chunked_64` | +4.27% | -4.17% | -87.50% | -32.11% | -22.58% | -24.41% |
+| `queue_growth_scroll_chunked_16` | +1.46% | -1.82% | -75.00% | -0.48% | -0.14% | +0.00% |
+
+Architect note:
+
+- F2B queue-envelope improvement is significant for chunked ASCII path:
+  lower queue depth, lower alloc count, and lower peak live bytes.
+- Scroll chunked workload queue depth remains unchanged, indicating next queue
+  envelope wins (if pursued) should target control-heavy/event-heavy paths.
