@@ -82,30 +82,44 @@ Canonical audit artifact:
 
 - `docs/review/m8/M8_SEAM_AUDIT.md`
 
-## Readiness Gates (Before Any Engineer Queue Opens)
+## Readiness Gates (Before Engineer Queue Opens)
 
 All gates below must be true before publishing implementation tickets:
 
 - `GATE-M8-A`: host-readiness contract closure is explicit in this file.
 - `GATE-M8-B`: seam audit is complete with per-seam status and unresolved risks.
-- `GATE-M8-C`: integration validation matrix is documented with exact commands.
+- `GATE-M8-C`: integration validation matrix is documented with exact commands and pass criteria.
 - `GATE-M8-C2`: stop conditions are explicit for any future implementation slice.
 
-Engineer queue publication is forbidden until all four gates are satisfied.
+### M8-C Gate Matrix (Authoritative)
 
-## Validation Matrix (M8-C Baseline)
+| Gate | Requirement | Evidence Source | Status |
+| --- | --- | --- | --- |
+| `GATE-M8-A` | contract boundary, change policy, ownership boundary are explicit | this file | `pass` |
+| `GATE-M8-B` | seam audit classification complete with bounded follow-up | `docs/review/m8/M8_SEAM_AUDIT.md` | `pass` |
+| `GATE-M8-C` | executable validation matrix and acceptance checks are explicit | this file + `docs/engineer/ACTIVE_QUEUE.md` | `pass` |
+| `GATE-M8-C2` | stop conditions are explicit for implementation slices | this file + queue ticket stop conditions | `pass` |
 
-Every `M8` slice must pass:
+Gate closure note:
+
+- `encodeMouse` remains an explicit M8 non-goal placeholder and must be treated as
+  deterministic empty output for first-host readiness. No ticket may overclaim mouse
+  reporting completeness at M8.
+
+## Validation Matrix (M8-C)
+
+Mandatory commands per ticket:
 
 - `zig build`
 - `zig build test`
 - `rg -n "compat[^ib]|fallback|workaround|shim" --glob '*.zig' src`
 
-M8-specific evidence requirements (architect review bar):
+Mandatory acceptance checks per ticket:
 
-- integration-seam claims must be traceable to contract docs and tests.
-- no claim may rely on host-specific assumptions not present in contracts.
-- any proposed API adjustment must include explicit portability justification.
+- claims match `git show --name-status` and actual diff.
+- no platform-specific logic added to `src/runtime`, `src/model`, `src/screen`, `src/event`, `src/parser`.
+- no public API signature churn without explicit architect approval.
+- host-readiness assertions are backed by tests or contract references, not prose alone.
 
 ## Stop Conditions
 

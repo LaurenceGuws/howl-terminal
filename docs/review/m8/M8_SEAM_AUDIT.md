@@ -47,4 +47,4 @@ Disposition: no blocking issue found.
 
 - Blocking conflicts: none.
 - Seam audit verdict: pass with one bounded hardening item (`encodeMouse` framing).
-- M8-B can close once M8-C gate matrix explicitly captures placeholder mouse behavior.
+- Closure update: M8-C gate matrix now captures placeholder mouse behavior explicitly in `M8_FOUNDATION.md`; M8-B is closed.

@@ -137,8 +137,8 @@ M8 is complete only when host integration readiness is explicit, bounded, and
 stable enough to support first-host work without API churn.
 
 - `[x]` M8-A: Host-readiness contract closure in `M8_FOUNDATION.md`.
-- `[ ]` M8-B: API stability and integration seam audit against frozen `M1-M7`.
-- `[ ]` M8-C: Integration readiness validation matrix and acceptance gates.
+- `[x]` M8-B: API stability and integration seam audit against frozen `M1-M7`.
+- `[x]` M8-C: Integration readiness validation matrix and acceptance gates.
 - `[ ]` M8-D: Freeze evidence and M9 handoff publication.
 
 ### M8 Closeout Sequence
