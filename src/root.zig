@@ -67,3 +67,124 @@ test "root: runtime Engine method signatures remain host-facing" {
     const queue_fn: fn (*const Engine) usize = Engine.queuedEventCount;
     _ = .{ init_fn, init_cells_fn, deinit_fn, feed_byte_fn, feed_slice_fn, apply_fn, clear_fn, reset_fn, reset_screen_fn, screen_fn, queue_fn };
 }
+
+test "M8-E1: runtime Engine const-read methods (M3+ history/selection)" {
+    const Engine = runtime.Engine;
+    const history_row_fn: fn (*const Engine, u16, u16) u21 = Engine.historyRowAt;
+    const history_count_fn: fn (*const Engine) u16 = Engine.historyCount;
+    const history_capacity_fn: fn (*const Engine) u16 = Engine.historyCapacity;
+    const selection_state_fn: fn (*const Engine) ?model.TerminalSelection = Engine.selectionState;
+    _ = .{ history_row_fn, history_count_fn, history_capacity_fn, selection_state_fn };
+}
+
+test "M8-E1: runtime Engine M5+ lifecycle methods remain stable" {
+    const Engine = runtime.Engine;
+    const init_cells_history_fn: fn (std.mem.Allocator, u16, u16, u16) anyerror!Engine = Engine.initWithCellsAndHistory;
+    const selection_start_fn: fn (*Engine, i32, u16) void = Engine.selectionStart;
+    const selection_update_fn: fn (*Engine, i32, u16) void = Engine.selectionUpdate;
+    const selection_finish_fn: fn (*Engine) void = Engine.selectionFinish;
+    const selection_clear_fn: fn (*Engine) void = Engine.selectionClear;
+    _ = .{ init_cells_history_fn, selection_start_fn, selection_update_fn, selection_finish_fn, selection_clear_fn };
+}
+
+test "M8-E1: runtime Engine snapshot surface and deterministic" {
+    const Engine = runtime.Engine;
+    const allocator = std.testing.allocator;
+    var engine = try Engine.initWithCells(allocator, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    var snap1 = try engine.snapshot();
+    defer snap1.deinit();
+
+    var snap2 = try engine.snapshot();
+    defer snap2.deinit();
+
+    try std.testing.expectEqual(snap1.rows, snap2.rows);
+    try std.testing.expectEqual(snap1.cols, snap2.cols);
+    try std.testing.expectEqual(snap1.cursor_row, snap2.cursor_row);
+    try std.testing.expectEqual(snap1.cursor_col, snap2.cursor_col);
+}
+
+test "M8-E1: encodeKey and encodeMouse methods present and callable" {
+    const Engine = runtime.Engine;
+    const allocator = std.testing.allocator;
+    var engine = try Engine.initWithCells(allocator, 5, 10);
+    defer engine.deinit();
+
+    const encode_key_fn: fn (*Engine, model.Key, model.Modifier) []const u8 = Engine.encodeKey;
+    const encode_mouse_fn: fn (*Engine, model.MouseEvent) []const u8 = Engine.encodeMouse;
+    _ = .{ encode_key_fn, encode_mouse_fn };
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    const encoded_before = engine.encodeKey('A', 0);
+    _ = encoded_before;
+    const screen_before = engine.screen();
+    const cursor_row_before = screen_before.cursor_row;
+
+    _ = engine.encodeKey('B', 0);
+    const screen_after = engine.screen();
+
+    try std.testing.expectEqual(cursor_row_before, screen_after.cursor_row);
+}
+
+test "M8-E1: encodeMouse placeholder returns empty output" {
+    const allocator = std.testing.allocator;
+    var engine = try runtime.Engine.initWithCells(allocator, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("TEST");
+    engine.apply();
+
+    const mouse_event = model.MouseEvent{
+        .kind = .move,
+        .button = .none,
+        .row = 0,
+        .col = 0,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = 0,
+        .buttons_down = 0,
+    };
+
+    const output = engine.encodeMouse(mouse_event);
+    try std.testing.expectEqual(@as(usize, 0), output.len);
+    try std.testing.expectEqualSlices(u8, "", output);
+}
+
+test "M8-E1: encodeMouse does not mutate observable engine state" {
+    const allocator = std.testing.allocator;
+    var engine = try runtime.Engine.initWithCells(allocator, 5, 10);
+    defer engine.deinit();
+
+    engine.feedSlice("HELLO");
+    engine.apply();
+
+    var snap_before = try engine.snapshot();
+    defer snap_before.deinit();
+
+    const mouse_event = model.MouseEvent{
+        .kind = .press,
+        .button = .left,
+        .row = 2,
+        .col = 3,
+        .pixel_x = null,
+        .pixel_y = null,
+        .mod = 0,
+        .buttons_down = 1,
+    };
+
+    _ = engine.encodeMouse(mouse_event);
+
+    var snap_after = try engine.snapshot();
+    defer snap_after.deinit();
+
+    try std.testing.expectEqual(snap_before.cursor_row, snap_after.cursor_row);
+    try std.testing.expectEqual(snap_before.cursor_col, snap_after.cursor_col);
+    try std.testing.expectEqual(snap_before.selection, snap_after.selection);
+    try std.testing.expectEqual(snap_before.history_count, snap_after.history_count);
+}
