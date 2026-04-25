@@ -16,12 +16,9 @@ Repository is in architect-owned rolling freeze-cadence maintenance mode.
 - `docs/review/m10/M10_FREEZE_CADENCE.md`
 - `docs/review/m10/M10_FREEZE_REVIEW.md`
 
-## Test Hygiene Round (TH)
+## TH (Test Hygiene) Closeout
 
-As part of cross-repo test hygiene normalization:
-- TH-1: Baseline inventory documented (TEST_HYGIENE_MATRIX.md)
-- TH-3: VS Code debug config added (.vscode/tasks.json, launch.json)
-- Status: 484/484 tests passing; no changes needed
+**Phase complete.** Package-context test authority: `zig build test` (484 tests passing). Known intentional limits: none.
 
 ## Guardrail
 
