@@ -1,11 +1,10 @@
 # Howl Terminal Scope Authority
 
-Purpose: define what `howl-terminal` owns, what it does not own, and how this
-repo fits the broader Howl family.
+Purpose: define what this repo owns and what it does not own.
 
 ## Product Identity
 
-`howl-terminal` is a portable terminal engine. It is a backend package, not a
+`howl-vt-core` is a portable terminal engine. It is a backend package, not a
 host app.
 
 ## In Scope
@@ -25,12 +24,6 @@ host app.
 - Renderer/frontend ownership
 - Packaging and app distribution
 - Editor/workspace concerns
-
-## Ownership Split
-
-- `howl-terminal`: terminal backend and portable engine behavior
-- `howl-hosts`: GUI/platform/app runtime ownership and demos
-- `howl-shared`: reusable supporting packages
 
 ## Quality Bar
 

@@ -3,7 +3,7 @@
 This protocol defines how `M7` performance and memory evidence is produced.
 
 It exists to prevent benchmark theater and ensure every claimed win is
-reproducible, comparable, and tied to a real `howl-terminal` cost surface.
+reproducible, comparable, and tied to a real `howl-vt-core` cost surface.
 
 ## Scope
 

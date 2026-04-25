@@ -12,13 +12,12 @@ this package.
 
 ## Direction
 
-- `howl-vt-core` owns VT parser/model/protocol/runtime truth.
-- Host-specific UI, JNI, GUI lifecycle, rendering, and packaging belong outside
-  this repo.
+- This repo owns VT parser/model/protocol/runtime truth.
+- Host-specific UI, JNI, GUI lifecycle, rendering, and packaging are out of scope.
 - No legacy brand strings, legacy ABI names, or compatibility aliases are allowed
   in this repo.
-- Public names should use `howl-vt-core` for package/binary identity and
-  `vt_core` where Zig identifiers are required.
+- Public names should use package/binary identity and `vt_core` where Zig
+  identifiers are required.
 
 ## M1 Runtime Facade
 

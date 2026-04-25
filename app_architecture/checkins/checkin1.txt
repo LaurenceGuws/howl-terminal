@@ -14,7 +14,7 @@ Human:
 Archtect:
 Long-term goal:
 
-  1. Build howl-terminal as a standalone, portable VT engine with deterministic behavior, strong replayable tests, and clean boundaries so hosts (howl-hosts) can own runtime/demo/app concerns.
+  1. Build howl-vt-core as a standalone, portable VT engine with deterministic behavior, strong replayable tests, and clean boundaries so hosts (howl-hosts) can own runtime/demo/app concerns.
 
 Current section in focus:
 
@@ -40,7 +40,7 @@ Current section in focus:
       - bounded style-op emission
       - deterministic truncation contract
   3.2 Repo topology is cleaned:
-      - howl-terminal is library/test-only
+      - howl-vt-core is library/test-only
       - src/main.zig removed
       - no local demo executable path
   3.3 Contract/queue docs are synchronized through HT-061E.
@@ -90,7 +90,7 @@ Architect:
 
   1. Corrected direction:
 
-  1.1 `howl-terminal` should own the portable terminal engine:
+  1.1 `howl-vt-core` should own the portable terminal engine:
   - parser
   - event/semantic mapping
   - screen/page/grid state
@@ -151,7 +151,7 @@ Architect:
   Updated ambiguous/in-the-air list:
 
   1.prev Runtime boundary vocabulary:
-  We need to define “terminal runtime” versus “host runtime” in architecture docs. `howl-terminal` should include portable terminal runtime surfaces; `howl-hosts` should include app/platform runtime.
+  We need to define “terminal runtime” versus “host runtime” in architecture docs. `howl-vt-core` should include portable terminal runtime surfaces; `howl-hosts` should include app/platform runtime.
 
   2.prev Color representation final form:
   HT-062 fixed exclusivity, but the likely final form is a tagged `ColorRef`. We should decide whether to convert soon or after the next VT breadth pass. My recommendation is soon, before scrollback/reflow makes cell representation more expensive to
@@ -223,7 +223,7 @@ Human:
   - malformed/overflow handling where behavior is explicit and deterministic
   - SGR 22 clearing bold+dim
   - reset semantics where already obvious
-  - library-only topology for `howl-terminal`
+  - library-only topology for `howl-vt-core`
 
   Flexible / not frozen yet:
   - final screen storage layout
@@ -249,12 +249,12 @@ Human:
 
   Those docs should define family-level ownership:
 
-  - `howl-terminal`: portable VT engine and terminal-owned runtime surfaces
+  - `howl-vt-core`: portable VT engine and terminal-owned runtime surfaces
   - `howl-hosts`: GUI/platform/app lifecycle/render integration/demo packaging
   - `howl-shared`: independent reusable libraries only
   - `howl-editor`: future editor engine, not terminal-driving scope
 
-  The `howl-terminal/app_architecture/` docs should stay terminal-backend-specific.
+  The `howl-vt-core/app_architecture/` docs should stay terminal-backend-specific.
 
   5. Immediate correction plan:
 
@@ -270,7 +270,7 @@ Human:
   6. Testing host:
 
   `../howl-microscope/` is a plausible early testing host if it is mature enough, but it should not drive the terminal API yet. It can become a consumer/probe after the terminal has a clean snapshot/event
-  surface. Until then, relay tests inside `howl-terminal` remain the authority.
+  surface. Until then, relay tests inside `howl-vt-core` remain the authority.
 
 == correction
 Replace only point 6 with this:
@@ -290,13 +290,13 @@ Replace only point 6 with this:
   - unit coverage for report validation and compare metadata
 
   It is not currently a mature live VT oracle. Much of the current execution path is still placeholder/protocol-stub oriented, and the seed probes are still manual/checkpoint style. So it should not become the
-  authority for `howl-terminal` correctness yet.
+  authority for `howl-vt-core` correctness yet.
 
   Correct position:
 
-  `howl-terminal` relay/unit tests remain the authority for core semantic correctness.
+  `howl-vt-core` relay/unit tests remain the authority for core semantic correctness.
 
-  `howl-microscope` is a strong candidate for an external comparison and regression harness once we want to compare Howl behavior against other terminals or reference runs. It can grow alongside `howl-terminal`
+  `howl-microscope` is a strong candidate for an external comparison and regression harness once we want to compare Howl behavior against other terminals or reference runs. It can grow alongside `howl-vt-core`
   as a loosely coupled testing ground, especially for:
   - cross-terminal behavior comparisons
   - artifact-based run history

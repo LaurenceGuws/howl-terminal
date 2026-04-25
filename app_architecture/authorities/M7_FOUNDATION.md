@@ -3,7 +3,7 @@
 `M7_FOUNDATION` is architect-owned authority for `M7`.
 
 `M7` is not an engineer execution lane yet. It is the doctrine phase for
-deciding what "fast", "smooth", and "bounded" mean for `howl-terminal`, how
+deciding what "fast", "smooth", and "bounded" mean for `howl-vt-core`, how
 they will be measured, and which tradeoffs are acceptable before any
 optimization campaign starts.
 
@@ -35,7 +35,7 @@ Current gap:
 
 ### Primary Goal Order
 
-Optimization priority for `howl-terminal` is:
+Optimization priority for `howl-vt-core` is:
 
 1. user-perceived responsiveness
 2. deterministic smoothness under continuous updates
@@ -60,7 +60,7 @@ The engine is considered fast only if it improves one or more of:
 
 ### What "Bounded" Means Here
 
-`howl-terminal` is an embedded-style engine, not a "grow first, rationalize
+`howl-vt-core` is an embedded-style engine, not a "grow first, rationalize
 later" runtime.
 
 For `M7`, bounded means:

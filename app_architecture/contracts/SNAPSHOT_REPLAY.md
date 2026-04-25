@@ -153,7 +153,7 @@ Snapshot/replay contract does NOT cover:
 
 - **Persistence format**: JSON, binary, protobuf encoding of snapshots is out of
   scope; contract is about observable contents, not wire format.
-- **Cross-version compatibility**: snapshots from one version of howl-terminal
+- **Cross-version compatibility**: snapshots from one version of howl-vt-core
   are not guaranteed to replay identically in another version.
 - **Snapshot restore/mutation**: no API to restore screen from snapshot or mutate
   snapshot contents. M6 provides snapshot capture only.

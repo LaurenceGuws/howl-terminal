@@ -7,7 +7,7 @@ contract/doc mapping for input/control behavior.
 
 ## Scope
 
-M4 owns host-neutral input/control encoding behavior in `howl-terminal`:
+M4 owns host-neutral input/control encoding behavior in `howl-vt-core`:
 
 - logical key/modifier model
 - deterministic keyboard encoding (`encodeKey`)

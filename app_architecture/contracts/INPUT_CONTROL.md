@@ -11,7 +11,7 @@ Scope: keyboard input (logical key + modifiers), mouse events (position, button,
 ### Logical Key Representation
 
 - **Key** (`u32`): abstract logical key identifier.
-  - Mapping is platform-agnostic; no keycode tables or layout-dependent remapping within howl-terminal.
+  - Mapping is platform-agnostic; no keycode tables or layout-dependent remapping within howl-vt-core.
   - Host provides the logical key (e.g., VTERM_KEY_UP, VTERM_KEY_ENTER, or character codepoint).
   - Zig key constants defined in `src/model/types.zig` (VTERM_KEY_*).
 
@@ -53,7 +53,7 @@ Scope: keyboard input (logical key + modifiers), mouse events (position, button,
 - Encode mouse events (click, move, wheel) from platform events to MouseEvent.
 - Handle platform input dispatch (keyboard vs mouse, event ordering).
 
-### Howl-Terminal Responsibility
+### howl-vt-core Responsibility
 
 - Accept logical Key + Modifier inputs only; no platform keycodes.
 - Generate deterministic control byte sequences for supported key/modifier combinations.

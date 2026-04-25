@@ -10,7 +10,7 @@ Define what may be claimed as host-equivalent behavior, how it is measured,
 and what is explicitly out of scope.
 
 This contract does not add new terminal behavior. It defines evidence rules for
-comparing host integrations that consume the frozen `howl-terminal` surfaces.
+comparing host integrations that consume the frozen `howl-vt-core` surfaces.
 
 ## Conformance Claim Levels
 

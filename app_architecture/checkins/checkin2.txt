@@ -13,11 +13,11 @@
 
   3. Session layer (shared candidate: howl-session)
 
-  - owns howl-terminal engine lifecycle
+  - owns howl-vt-core engine lifecycle
   - PTY/process feed/apply loop
   - produces render-ready frame model for renderer
 
-  4. Composition in sdl-term main loop
+  4. Composition in howl-sdl-host main loop
 
   - SDL events -> input mapper -> session
   - session snapshot/frame -> renderer

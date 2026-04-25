@@ -31,9 +31,9 @@ Frozen contract floor:
 
 Relevant code:
 
-- [bridge.zig](/home/home/personal/projects/howl/howl-terminal/src/event/bridge.zig:98)
-- [bridge.zig](/home/home/personal/projects/howl/howl-terminal/src/event/bridge.zig:100)
-- [bridge.zig](/home/home/personal/projects/howl/howl-terminal/src/event/bridge.zig:101)
+- [bridge.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/bridge.zig:98)
+- [bridge.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/bridge.zig:100)
+- [bridge.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/bridge.zig:101)
 
 Current behavior:
 
@@ -58,9 +58,9 @@ Architect assessment:
 
 Relevant code:
 
-- [pipeline.zig](/home/home/personal/projects/howl/howl-terminal/src/event/pipeline.zig:67)
-- [bridge.zig](/home/home/personal/projects/howl/howl-terminal/src/event/bridge.zig:31)
-- [bridge.zig](/home/home/personal/projects/howl/howl-terminal/src/event/bridge.zig:95)
+- [pipeline.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/pipeline.zig:67)
+- [bridge.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/bridge.zig:31)
+- [bridge.zig](/home/home/personal/projects/howl/howl-vt-core/src/event/bridge.zig:95)
 
 Current behavior:
 
@@ -84,9 +84,9 @@ Architect assessment:
 
 Relevant code:
 
-- [state.zig](/home/home/personal/projects/howl/howl-terminal/src/screen/state.zig:311)
-- [state.zig](/home/home/personal/projects/howl/howl-terminal/src/screen/state.zig:317)
-- [state.zig](/home/home/personal/projects/howl/howl-terminal/src/screen/state.zig:325)
+- [state.zig](/home/home/personal/projects/howl/howl-vt-core/src/screen/state.zig:311)
+- [state.zig](/home/home/personal/projects/howl/howl-vt-core/src/screen/state.zig:317)
+- [state.zig](/home/home/personal/projects/howl/howl-vt-core/src/screen/state.zig:325)
 
 Current behavior:
 
@@ -111,9 +111,9 @@ Architect assessment:
 
 Relevant code:
 
-- [snapshot.zig](/home/home/personal/projects/howl/howl-terminal/src/model/snapshot.zig:97)
-- [snapshot.zig](/home/home/personal/projects/howl/howl-terminal/src/model/snapshot.zig:108)
-- [engine.zig](/home/home/personal/projects/howl/howl-terminal/src/runtime/engine.zig:533)
+- [snapshot.zig](/home/home/personal/projects/howl/howl-vt-core/src/model/snapshot.zig:97)
+- [snapshot.zig](/home/home/personal/projects/howl/howl-vt-core/src/model/snapshot.zig:108)
+- [engine.zig](/home/home/personal/projects/howl/howl-vt-core/src/runtime/engine.zig:533)
 
 Current behavior:
 
@@ -136,9 +136,9 @@ Architect assessment:
 
 Relevant code:
 
-- [stream.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/stream.zig:20)
-- [csi.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/csi.zig:27)
-- [parser.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/parser.zig:167)
+- [stream.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/stream.zig:20)
+- [csi.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/csi.zig:27)
+- [parser.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/parser.zig:167)
 
 Current behavior:
 
@@ -161,10 +161,10 @@ Architect assessment:
 
 Relevant code:
 
-- [parser.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/parser.zig:124)
-- [parser.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/parser.zig:312)
-- [parser.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/parser.zig:351)
-- [parser.zig](/home/home/personal/projects/howl/howl-terminal/src/parser/parser.zig:383)
+- [parser.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/parser.zig:124)
+- [parser.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/parser.zig:312)
+- [parser.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/parser.zig:351)
+- [parser.zig](/home/home/personal/projects/howl/howl-vt-core/src/parser/parser.zig:383)
 
 Current behavior:
 

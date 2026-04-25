@@ -2,7 +2,7 @@
 
 `QUALITY_DOCTRINE_CONTRACT` — introduced for `M10`.
 
-Authority for long-horizon quality claims in `howl-terminal` after frozen
+Authority for long-horizon quality claims in `howl-vt-core` after frozen
 `M1-M9` baselines.
 
 ## Purpose

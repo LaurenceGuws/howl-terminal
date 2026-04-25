@@ -15,9 +15,9 @@ ARCHITECTURE.
 
 PRIMARY DIRECTION:
 
-- `howl-terminal`: portable terminal engine, VT core, runtime, tests, and clean
+- `howl-vt-core`: portable terminal engine, VT core, runtime, tests, and clean
   public API.
-- `sdl-term`: first Linux host shell (SDL window/input + host loop composition).
+- `howl-sdl-host`: first Linux host shell (SDL window/input + host loop composition).
 - `howl-session`: shared session runtime (engine lifecycle + PTY/process loop).
 - `howl-render-gl`: shared OpenGL renderer module.
 - `howl-editor`: future editor engine; do not let it distract from terminal

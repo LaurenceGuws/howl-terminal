@@ -15,7 +15,7 @@ It is intentionally non-implementation-detailed.
 | `M5` | Runtime Interface | Engine runtime interface is host-neutral and explicit. |
 | `M6` | Snapshot and Replay Contracts | Stable snapshot/replay contracts for host and diagnostics. |
 | `M7` | Performance and Memory Discipline | Hot paths are audited, bounded, and benchmarked. |
-| `M8` | Host Integration Readiness | `howl-terminal` API is ready for first host integration without API churn. |
+| `M8` | Host Integration Readiness | `howl-vt-core` API is ready for first host integration without API churn. |
 | `M9` | Multi-Host Confidence | Cross-host reproducibility and conformance evidence is established. |
 | `M10` | Best-in-Class Embedded Engine | Portable terminal engine with rigorous correctness and operational quality. |
 
