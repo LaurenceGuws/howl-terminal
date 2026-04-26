@@ -4944,7 +4944,7 @@ test "runtime: input encoding output is not mutable from caller" {
     try std.testing.expectEqual(@as(u8, 'B'), bytes[0]);
 }
 
-test "M4 closeout: keyboard input comprehensive coverage" {
+test "input encoding: keyboard coverage across printable, control, cursor, and function keys" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -4981,7 +4981,7 @@ test "M4 closeout: keyboard input comprehensive coverage" {
     try std.testing.expectEqualSlices(u8, "\x1b[24~", f12);
 }
 
-test "M4 closeout: modifier combinations are deterministic" {
+test "input encoding: modifier combinations are deterministic" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -5006,7 +5006,7 @@ test "M4 closeout: modifier combinations are deterministic" {
     try std.testing.expectEqual(@as(u8, '6'), shift_ctrl_left[4]);
 }
 
-test "M4 closeout: encoding is reset-stable" {
+test "input encoding: encoding survives reset and screen reset" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5028,7 +5028,7 @@ test "M4 closeout: encoding is reset-stable" {
     try std.testing.expectEqualSlices(u8, buf_before[0..before.len], after_screen);
 }
 
-test "M4 closeout: encoding does not mutate state" {
+test "input encoding: encoding does not mutate state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -5050,7 +5050,7 @@ test "M4 closeout: encoding does not mutate state" {
     try std.testing.expectEqual(history_before, history_after);
 }
 
-test "M4 closeout: encoding covers extended keys with modifiers" {
+test "input encoding: extended keys with modifiers" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -5068,7 +5068,7 @@ test "M4 closeout: encoding covers extended keys with modifiers" {
     try std.testing.expectEqualSlices(u8, "\x1b[5;3~", alt_pageup);
 }
 
-test "M4 closeout: encoding covers function keys with modifiers" {
+test "input encoding: function keys with modifiers" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -5083,7 +5083,7 @@ test "M4 closeout: encoding covers function keys with modifiers" {
     try std.testing.expectEqualSlices(u8, "\x1b[23;3~", alt_f11);
 }
 
-test "M5-A2 conformance: clear() empties queue without mutating parser or screen" {
+test "runtime contract: clear() empties queue without mutating parser or screen" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5100,7 +5100,7 @@ test "M5-A2 conformance: clear() empties queue without mutating parser or screen
     try std.testing.expectEqual(screen_before.cursor_col, engine.screen().cursor_col);
 }
 
-test "M5-A2 conformance: reset() clears parser+queue but preserves screen modes" {
+test "runtime contract: reset() clears parser and queue while preserving screen modes" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
@@ -5121,7 +5121,7 @@ test "M5-A2 conformance: reset() clears parser+queue but preserves screen modes"
     try std.testing.expectEqual(auto_wrap, engine.screen().auto_wrap);
 }
 
-test "M5-A2 conformance: resetScreen() clears screen but preserves parser+queue" {
+test "runtime contract: resetScreen() clears screen while preserving parser and queue" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5141,7 +5141,7 @@ test "M5-A2 conformance: resetScreen() clears screen but preserves parser+queue"
     try std.testing.expectEqual(queued_before, engine.queuedEventCount());
 }
 
-test "M5-A2 conformance: multiple apply() calls without feed are no-ops" {
+test "runtime contract: repeated apply() calls without feed are no-ops" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
@@ -5157,7 +5157,7 @@ test "M5-A2 conformance: multiple apply() calls without feed are no-ops" {
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 }
 
-test "M5-A2 conformance: feed operations queue events without applying" {
+test "runtime contract: feed operations queue events before apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
@@ -5177,7 +5177,7 @@ test "M5-A2 conformance: feed operations queue events without applying" {
     try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
 }
 
-test "M5-A2 conformance: encode operations have no observable state effects" {
+test "runtime contract: encode operations have no observable state effects" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -5203,7 +5203,7 @@ test "M5-A2 conformance: encode operations have no observable state effects" {
     try std.testing.expectEqual(queued_count, engine.queuedEventCount());
 }
 
-test "M5-A2 conformance: screen() returns const reference only" {
+test "runtime contract: screen() returns a const reference" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 5, 10);
     defer engine.deinit();
@@ -5218,7 +5218,7 @@ test "M5-A2 conformance: screen() returns const reference only" {
     try std.testing.expectEqual(screen_ref.cursor_row, screen_ref2.cursor_row);
 }
 
-test "M5-A2 conformance: feed/apply/reset ordering" {
+test "runtime contract: feed/apply/reset ordering" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -5242,7 +5242,7 @@ test "M5-A2 conformance: feed/apply/reset ordering" {
     try std.testing.expectEqual(@as(u16, 0), engine.screen().cursor_col);
 }
 
-test "M5-B2 parity: split-feed at CSI boundary preserves queue semantics" {
+test "runtime parity: split-feed at CSI boundary preserves queue semantics" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.init(gpa, 10, 20);
     defer engine.deinit();
@@ -5259,7 +5259,7 @@ test "M5-B2 parity: split-feed at CSI boundary preserves queue semantics" {
     try std.testing.expectEqual(@as(u16, 9), engine.screen().cursor_col);
 }
 
-test "M5-B2 parity: feed/apply/reset/feed/apply preserves state isolation" {
+test "runtime parity: feed/apply/reset/feed/apply preserves state isolation" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
     defer engine.deinit();
@@ -5281,7 +5281,7 @@ test "M5-B2 parity: feed/apply/reset/feed/apply preserves state isolation" {
     try std.testing.expectEqual(@as(u16, 10), engine.screen().cursor_col);
 }
 
-test "M5-B2 parity: selection + history interaction during apply" {
+test "runtime parity: selection and history remain stable during apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -5301,7 +5301,7 @@ test "M5-B2 parity: selection + history interaction during apply" {
     try std.testing.expectEqual(sel_before.start.row, sel_after.?.start.row);
 }
 
-test "M5-B2 parity: encode interleaved with feed/apply does not mutate state" {
+test "runtime parity: encode interleaved with feed/apply does not mutate state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5323,7 +5323,7 @@ test "M5-B2 parity: encode interleaved with feed/apply does not mutate state" {
     try std.testing.expectEqual(col_after_abc + 3, engine.screen().cursor_col);
 }
 
-test "M5-B2 parity: complex state machine sequence" {
+test "runtime parity: complex state machine sequence" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 10);
     defer engine.deinit();
@@ -5351,7 +5351,7 @@ test "M5-B2 parity: complex state machine sequence" {
     try std.testing.expectEqual(@as(u16, 0), engine.historyCount());
 }
 
-test "M6-A snapshot: capture from simple text" {
+test "snapshot: capture from simple text" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5375,7 +5375,7 @@ test "M6-A snapshot: capture from simple text" {
     try std.testing.expectEqual(@as(u21, 'O'), snap.cellAt(0, 4));
 }
 
-test "M6-A snapshot: determinism - identical state produces identical snapshots" {
+test "snapshot: determinism across identical state" {
     const gpa = std.testing.allocator;
 
     var engine1 = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
@@ -5403,7 +5403,7 @@ test "M6-A snapshot: determinism - identical state produces identical snapshots"
     }
 }
 
-test "M6-A snapshot: split-feed replay equivalence - atomic vs chunked" {
+test "snapshot: split-feed replay equivalence" {
     const gpa = std.testing.allocator;
 
     var engine_atomic = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
@@ -5432,7 +5432,7 @@ test "M6-A snapshot: split-feed replay equivalence - atomic vs chunked" {
     }
 }
 
-test "M6-A snapshot: history capture when history enabled" {
+test "snapshot: history capture when history is enabled" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -5453,7 +5453,7 @@ test "M6-A snapshot: history capture when history enabled" {
     }
 }
 
-test "M6-A snapshot: historyRowAt matches engine after wraparound" {
+test "snapshot: historyRowAt matches engine after wraparound" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 2, 3, 2);
     defer engine.deinit();
@@ -5477,7 +5477,7 @@ test "M6-A snapshot: historyRowAt matches engine after wraparound" {
     }
 }
 
-test "M6-A snapshot: selection state included in snapshot" {
+test "snapshot: selection state is included" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5502,7 +5502,7 @@ test "M6-A snapshot: selection state included in snapshot" {
     }
 }
 
-test "M6-A snapshot: parity with direct screen state" {
+test "snapshot: parity with direct screen state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5522,7 +5522,7 @@ test "M6-A snapshot: parity with direct screen state" {
     try std.testing.expectEqual(screen.auto_wrap, snap.auto_wrap);
 }
 
-test "M6-C replay evidence: clear does not change snapshot" {
+test "replay: clear leaves snapshot unchanged" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5542,7 +5542,7 @@ test "M6-C replay evidence: clear does not change snapshot" {
     try std.testing.expectEqual(snap_before.cursor_row, snap_after.cursor_row);
 }
 
-test "M6-C replay evidence: reset preserves screen state in snapshot" {
+test "replay: reset preserves snapshot state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5566,7 +5566,7 @@ test "M6-C replay evidence: reset preserves screen state in snapshot" {
     }
 }
 
-test "M6-C replay evidence: resetScreen clears cells but preserves history" {
+test "replay: resetScreen clears cells while preserving history" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -5594,7 +5594,7 @@ test "M6-C replay evidence: resetScreen clears cells but preserves history" {
     }
 }
 
-test "M6-C replay evidence: snapshot determinism across feed sequence variations" {
+test "replay: snapshot determinism across feed sequence variations" {
     const gpa = std.testing.allocator;
 
     var engine1 = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
@@ -5626,7 +5626,7 @@ test "M6-C replay evidence: snapshot determinism across feed sequence variations
     }
 }
 
-test "M6-C replay evidence: snapshot reflects mode changes" {
+test "replay: snapshot reflects mode changes" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5650,7 +5650,7 @@ test "M6-C replay evidence: snapshot reflects mode changes" {
     try std.testing.expectEqual(true, snap3.cursor_visible);
 }
 
-test "M6-C replay evidence: snapshot includes active selection with endpoints" {
+test "replay: snapshot includes active selection endpoints" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5675,7 +5675,7 @@ test "M6-C replay evidence: snapshot includes active selection with endpoints" {
     }
 }
 
-test "M6-C replay evidence: snapshot parity across direct pipeline vs runtime" {
+test "replay: snapshot parity across direct pipeline and runtime" {
     const gpa = std.testing.allocator;
     const test_bytes = "ABC\x1b[1;5HXY";
 
@@ -5708,7 +5708,7 @@ test "M6-C replay evidence: snapshot parity across direct pipeline vs runtime" {
     }
 }
 
-test "M6-C replay evidence: snapshot wraparound history indices after eviction" {
+test "replay: snapshot wraparound history indices after eviction" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 2, 5, 3);
     defer engine.deinit();
@@ -5738,7 +5738,7 @@ test "M6-C replay evidence: snapshot wraparound history indices after eviction" 
     }
 }
 
-test "M8-E2: feed/apply/reset interleavings preserve frozen boundaries" {
+test "runtime stability: feed/apply/reset interleavings preserve frozen boundaries" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5766,7 +5766,7 @@ test "M8-E2: feed/apply/reset interleavings preserve frozen boundaries" {
     try std.testing.expectEqual(snap3.cursor_col, snap4.cursor_col);
 }
 
-test "M8-E2: resetScreen clears cells without disrupting subsequent feed/apply" {
+test "runtime stability: resetScreen clears cells without disrupting subsequent feed/apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5790,7 +5790,7 @@ test "M8-E2: resetScreen clears cells without disrupting subsequent feed/apply" 
     try std.testing.expectEqual(@as(u16, 5), snap_after.cursor_col);
 }
 
-test "M8-E2: selection remains stable across feed/apply/reset cycles" {
+test "runtime stability: selection remains stable across feed/apply/reset cycles" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5826,7 +5826,7 @@ test "M8-E2: selection remains stable across feed/apply/reset cycles" {
     try std.testing.expectEqual(snap_sel.selection, snap_reset.selection);
 }
 
-test "M8-E2: history preserved across clear/reset cycles" {
+test "runtime stability: history remains preserved across clear/reset cycles" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -5855,7 +5855,7 @@ test "M8-E2: history preserved across clear/reset cycles" {
     try std.testing.expectEqual(hist_before, snap_after_screen_reset.history_count);
 }
 
-test "M8-E2: encodeKey does not affect screen or queued events" {
+test "runtime stability: encodeKey does not affect screen or queued events" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5877,7 +5877,7 @@ test "M8-E2: encodeKey does not affect screen or queued events" {
     try std.testing.expectEqual(snap_before.cursor_col, snap_after.cursor_col);
 }
 
-test "M8-E2: encodeMouse interleaved with mutations shows zero side effects" {
+test "runtime stability: encodeMouse interleaved with mutations shows zero side effects" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -5935,7 +5935,7 @@ test "M8-E2: encodeMouse interleaved with mutations shows zero side effects" {
     try std.testing.expectEqual(snap3.selection != null, snap4.selection != null);
 }
 
-test "M8-E2: queuedEventCount reflects only feed phase, not encode calls" {
+test "runtime stability: queuedEventCount reflects feed only, not encode calls" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -5966,7 +5966,7 @@ test "M8-E2: queuedEventCount reflects only feed phase, not encode calls" {
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 }
 
-test "M8-E2: history read seam stable across concurrent selection operations" {
+test "runtime stability: history read seam remains stable across concurrent selection operations" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -5992,7 +5992,7 @@ test "M8-E2: history read seam stable across concurrent selection operations" {
     try std.testing.expectEqual(hist_cap, engine.historyCapacity());
 }
 
-test "M8-E2: snapshot stable across mixed feed/encode/selection operations" {
+test "runtime stability: snapshot remains stable across mixed feed/encode/selection operations" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 15);
     defer engine.deinit();
@@ -6111,7 +6111,7 @@ const ConformanceCheckpoint = struct {
     }
 };
 
-test "M9-E1: ConformanceCheckpoint captures contract-visible fields" {
+test "conformance checkpoint: captures contract-visible fields" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -6131,7 +6131,7 @@ test "M9-E1: ConformanceCheckpoint captures contract-visible fields" {
     try std.testing.expectEqual(@as(usize, 0), cp.queued_event_count);
 }
 
-test "M9-E1: ConformanceCheckpoint determinism across repeated captures" {
+test "conformance checkpoint: determinism across repeated captures" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6145,7 +6145,7 @@ test "M9-E1: ConformanceCheckpoint determinism across repeated captures" {
     try std.testing.expect(cp1.eql(cp2));
 }
 
-test "M9-E1: encode calls do not alter ConformanceCheckpoint state" {
+test "conformance checkpoint: encode calls do not alter checkpoint state" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6175,7 +6175,7 @@ test "M9-E1: encode calls do not alter ConformanceCheckpoint state" {
     try std.testing.expect(cp_before.eql(cp_after));
 }
 
-test "M9-E1: feed/apply checkpoint boundaries captured correctly" {
+test "conformance checkpoint: feed/apply boundaries are captured correctly" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6192,7 +6192,7 @@ test "M9-E1: feed/apply checkpoint boundaries captured correctly" {
     try std.testing.expectEqual(@as(usize, 0), cp_after_apply.queued_event_count);
 }
 
-test "M9-FX-001: text baseline - ASCII writes and cursor progression" {
+test "text baseline: ASCII writes and cursor progression" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6210,7 +6210,7 @@ test "M9-FX-001: text baseline - ASCII writes and cursor progression" {
     try std.testing.expectEqual(@as(u16, 9), cp2.cursor_col);
 }
 
-test "M9-FX-001: text baseline - CR/LF line wrapping" {
+test "text baseline: CR/LF line wrapping" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
     defer engine.deinit();
@@ -6223,7 +6223,7 @@ test "M9-FX-001: text baseline - CR/LF line wrapping" {
     try std.testing.expectEqual(@as(u16, 0), cp.cursor_col);
 }
 
-test "M9-FX-002: UTF-8 text baseline - mixed codepoints" {
+test "text baseline: UTF-8 mixed codepoints" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 20);
     defer engine.deinit();
@@ -6235,7 +6235,7 @@ test "M9-FX-002: UTF-8 text baseline - mixed codepoints" {
     try std.testing.expectEqual(@as(u16, 9), cp.cursor_col);
 }
 
-test "M9-FX-003: cursor/erase baseline - CSI H cursor movement" {
+test "cursor baseline: CSI H cursor movement" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6253,7 +6253,7 @@ test "M9-FX-003: cursor/erase baseline - CSI H cursor movement" {
     try std.testing.expectEqual(@as(u16, 2), cp2.cursor_col);
 }
 
-test "M9-FX-003: cursor/erase baseline - ED erase display" {
+test "cursor baseline: ED erase display" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
     defer engine.deinit();
@@ -6273,7 +6273,7 @@ test "M9-FX-003: cursor/erase baseline - ED erase display" {
     try std.testing.expectEqual(@as(u21, 0), engine.screen().cellAt(2, 4));
 }
 
-test "M9-FX-004: mode baseline - DEC private mode ?25 cursor visibility" {
+test "mode baseline: DEC private mode ?25 cursor visibility" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6297,7 +6297,7 @@ test "M9-FX-004: mode baseline - DEC private mode ?25 cursor visibility" {
     try std.testing.expectEqual(true, cp3.cursor_visible);
 }
 
-test "M9-FX-004: mode baseline - DEC private mode ?7 auto wrap" {
+test "mode baseline: DEC private mode ?7 auto wrap" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 3, 5);
     defer engine.deinit();
@@ -6315,7 +6315,7 @@ test "M9-FX-004: mode baseline - DEC private mode ?7 auto wrap" {
     try std.testing.expectEqual(false, cp2.auto_wrap);
 }
 
-test "M9-FX-005: history baseline - scroll-producing stream" {
+test "history baseline: scroll-producing stream" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -6328,7 +6328,7 @@ test "M9-FX-005: history baseline - scroll-producing stream" {
     try std.testing.expectEqual(@as(u16, 10), cp.history_capacity);
 }
 
-test "M9-FX-006: selection baseline - start/update/finish/clear" {
+test "selection baseline: start/update/finish/clear" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6355,7 +6355,7 @@ test "M9-FX-006: selection baseline - start/update/finish/clear" {
     try std.testing.expect(cp4.selection == null);
 }
 
-test "M9-FX-007: reset boundary - clear does not change screen" {
+test "reset baseline: clear does not change screen" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6374,7 +6374,7 @@ test "M9-FX-007: reset boundary - clear does not change screen" {
     try std.testing.expectEqual(cp_before.cursor_col, cp_after.cursor_col);
 }
 
-test "M9-FX-007: reset boundary - reset preserves screen" {
+test "reset baseline: reset preserves screen" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6393,7 +6393,7 @@ test "M9-FX-007: reset boundary - reset preserves screen" {
     try std.testing.expectEqual(cp_before.cursor_col, cp_after.cursor_col);
 }
 
-test "M9-FX-007: reset boundary - resetScreen clears screen" {
+test "reset baseline: resetScreen clears screen" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();
@@ -6411,7 +6411,7 @@ test "M9-FX-007: reset boundary - resetScreen clears screen" {
     try std.testing.expectEqual(hist_before, cp.history_count);
 }
 
-test "M9-FX-008: encode interleave - encodeKey mixed with feed/apply" {
+test "encode interleave: encodeKey mixed with feed/apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6435,7 +6435,7 @@ test "M9-FX-008: encode interleave - encodeKey mixed with feed/apply" {
     try std.testing.expectEqual(@as(usize, 0), cp3.queued_event_count);
 }
 
-test "M9-FX-008: encode interleave - encodeMouse with state checks" {
+test "encode interleave: encodeMouse with state checks" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 5, 10, 20);
     defer engine.deinit();
@@ -6461,7 +6461,7 @@ test "M9-FX-008: encode interleave - encodeMouse with state checks" {
     try std.testing.expect(cp_before.eql(cp_after));
 }
 
-test "M9-FX-009: snapshot stability - repeated captures across mixed ops" {
+test "snapshot stability: repeated captures across mixed operations" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 15);
     defer engine.deinit();
@@ -6502,7 +6502,7 @@ test "M9-FX-009: snapshot stability - repeated captures across mixed ops" {
     }
 }
 
-test "M10-E1: M10-FX-001 burst feed/apply stress loop" {
+test "stress loop: burst feed/apply" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 10, 20);
     defer engine.deinit();
@@ -6517,7 +6517,7 @@ test "M10-E1: M10-FX-001 burst feed/apply stress loop" {
     }
 }
 
-test "M10-E1: M10-FX-002 mixed reset boundary stress under load" {
+test "stress loop: mixed reset boundary under load" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6541,7 +6541,7 @@ test "M10-E1: M10-FX-002 mixed reset boundary stress under load" {
     }
 }
 
-test "M10-E2: M10-FX-003 selection/history drift loop (soak)" {
+test "stress loop: selection and history drift" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 20);
     defer engine.deinit();
@@ -6567,7 +6567,7 @@ test "M10-E2: M10-FX-003 selection/history drift loop (soak)" {
     }
 }
 
-test "M10-E1: M10-FX-004 encode interleave stress" {
+test "stress loop: encode interleave" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6596,7 +6596,7 @@ test "M10-E1: M10-FX-004 encode interleave stress" {
     }
 }
 
-test "M10-E2: M10-FX-005 snapshot drift loop (soak)" {
+test "stress loop: snapshot drift" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6625,7 +6625,7 @@ test "M10-E2: M10-FX-005 snapshot drift loop (soak)" {
     }
 }
 
-test "M10-E2: M10-FX-006 mode toggle soak with assertions" {
+test "stress loop: mode toggle assertions" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6657,7 +6657,7 @@ test "M10-E2: M10-FX-006 mode toggle soak with assertions" {
     }
 }
 
-test "M10-E3: drift detection - mixed selection/history operations (E3 class)" {
+test "drift detection: mixed selection and history operations" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 16);
     defer engine.deinit();
@@ -6688,7 +6688,7 @@ test "M10-E3: drift detection - mixed selection/history operations (E3 class)" {
     }
 }
 
-test "M10-E3: drift detection - encode operations preserve state invariants (E3 class)" {
+test "drift detection: encode operations preserve state invariants" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCells(gpa, 5, 10);
     defer engine.deinit();
@@ -6732,7 +6732,7 @@ test "M10-E3: drift detection - encode operations preserve state invariants (E3 
     }
 }
 
-test "M10-E3: drift detection - reset boundary invariants (E3 class)" {
+test "drift detection: reset boundary invariants" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 4, 8, 12);
     defer engine.deinit();
