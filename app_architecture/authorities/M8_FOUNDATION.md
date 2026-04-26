@@ -24,7 +24,7 @@ Locked baseline:
 ## M8 Scope
 
 - close host-readiness contract for first-host integration.
-- audit API and integration seams against frozen `M1-M7` contracts.
+- audit API and integration boundaries against frozen `M1-M7` contracts.
 - define integration validation matrix and gate conditions.
 - publish implementation queue only after architect closure gates pass.
 
@@ -67,16 +67,16 @@ Disallowed:
 - terminal engine owns deterministic parse/event/screen/history/selection/input-encode behavior.
 - snapshot is read-only capture surface; persistence/transport/restore are out of scope.
 
-## Integration Seam Families (M8-B Audit Targets)
+## Integration Boundary Families (M8-B Audit Targets)
 
-Audit and classify each seam for first-host readiness:
+Audit and classify each boundary for first-host readiness:
 
-1. lifecycle seam: `init*`, `deinit`, `clear`, `reset`, `resetScreen`
-2. input ingest seam: `feedByte`, `feedSlice`, `apply`
-3. state read seam: `screen`, `queuedEventCount`
-4. history/selection seam: `history*`, `selection*`
-5. control output seam: `encodeKey`, `encodeMouse`
-6. snapshot seam: `snapshot` read surface and parity guarantees
+1. lifecycle boundary: `init*`, `deinit`, `clear`, `reset`, `resetScreen`
+2. input ingest boundary: `feedByte`, `feedSlice`, `apply`
+3. state read boundary: `screen`, `queuedEventCount`
+4. history/selection boundary: `history*`, `selection*`
+5. control output boundary: `encodeKey`, `encodeMouse`
+6. snapshot boundary: `snapshot` read surface and parity guarantees
 
 Canonical audit artifact:
 
@@ -87,7 +87,7 @@ Canonical audit artifact:
 All gates below must be true before publishing implementation tickets:
 
 - `GATE-M8-A`: host-readiness contract closure is explicit in this file.
-- `GATE-M8-B`: seam audit is complete with per-seam status and unresolved risks.
+- `GATE-M8-B`: boundary audit is complete with per-boundary status and unresolved risks.
 - `GATE-M8-C`: integration validation matrix is documented with exact commands and pass criteria.
 - `GATE-M8-C2`: stop conditions are explicit for any future implementation slice.
 
@@ -96,7 +96,7 @@ All gates below must be true before publishing implementation tickets:
 | Gate | Requirement | Evidence Source | Status |
 | --- | --- | --- | --- |
 | `GATE-M8-A` | contract boundary, change policy, ownership boundary are explicit | this file | `pass` |
-| `GATE-M8-B` | seam audit classification complete with bounded follow-up | `docs/review/m8/M8_SEAM_AUDIT.md` | `pass` |
+| `GATE-M8-B` | boundary audit classification complete with bounded follow-up | `docs/review/m8/M8_SEAM_AUDIT.md` | `pass` |
 | `GATE-M8-C` | executable validation matrix and acceptance checks are explicit | this file + `docs/engineer/ACTIVE_QUEUE.md` | `pass` |
 | `GATE-M8-C2` | stop conditions are explicit for implementation slices | this file + queue ticket stop conditions | `pass` |
 
@@ -128,7 +128,7 @@ Stop and escalate if any occur:
 - proposed readiness requirement conflicts with frozen `M1-M7` semantics.
 - required host-readiness change introduces platform-specific behavior into core.
 - API change cannot be justified against multi-host portability.
-- seam audit exposes ambiguity that cannot be resolved from existing contract authority.
+- boundary audit exposes ambiguity that cannot be resolved from existing contract authority.
 
 ## M8 Phases
 
@@ -141,10 +141,10 @@ Exit check:
 
 - contract is explicit enough that another architect can derive the same gate decisions.
 
-### M8-B: Seam Audit
+### M8-B: Boundary Audit
 
-- audit lifecycle, feed/apply, state read, history/selection, encode, and snapshot seams.
-- classify each seam as `ready`, `needs-hardening`, or `blocked`.
+- audit lifecycle, feed/apply, state read, history/selection, encode, and snapshot boundaries.
+- classify each boundary as `ready`, `needs-hardening`, or `blocked`.
 
 Exit check:
 

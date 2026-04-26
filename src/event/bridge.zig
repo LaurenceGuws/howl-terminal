@@ -1,5 +1,5 @@
 //! Responsibility: collect parser callbacks into owned event records.
-//! Ownership: event bridge seam between parser and semantic layers.
+//! Ownership: parser-event boundary between parser and semantic layers.
 //! Reason: isolate parser sink mechanics from downstream processing.
 
 const std = @import("std");

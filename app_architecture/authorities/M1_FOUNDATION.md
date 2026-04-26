@@ -14,7 +14,7 @@ These completed outcomes remain in force:
 - Minimal semantic cursor/control mapping
 - Minimal screen state model with erase/cursor/text behavior
 - Library/test-only topology (no local app executable)
-- Existing contract docs for parser/event/model seams
+- Existing contract docs for parser/event/model boundaries
 
 ## M1 Focus
 
@@ -23,7 +23,7 @@ Style and color expansion is outside this milestone and not part of current exec
 
 ## M1 package surface (host-neutral)
 
-The `vt_core` module root orders the stable M1 seam first:
+The `vt_core` module root orders the stable M1 boundary first:
 
 1. `parser` — byte and escape parsing into sink events
 2. `pipeline` — parser plus bridge queue and `applyToScreen`
@@ -54,11 +54,11 @@ The facade is a transparent wrapper; it does not extend VT semantics or change a
 Runtime parity confidence is enforced by replay integration tests in `src/test/relay.zig` that run identical scenario streams through direct `Pipeline+ScreenState` and through `runtime.Engine`, then assert matching cursor/cell/queue outcomes across cursor, control, erase, split-feed, and zero-dimension cases.
 
 Parity coverage includes ignored-event determinism as a first-class invariant:
-OSC title payloads, APC payloads, DCS payloads, ESC-final passthrough events, and non-mapped controls must not mutate screen state at this seam; after apply, queue depth must still deterministically drain to zero for both direct pipeline and runtime facade flows.
+OSC title payloads, APC payloads, DCS payloads, ESC-final passthrough events, and non-mapped controls must not mutate screen state at this boundary; after apply, queue depth must still deterministically drain to zero for both direct pipeline and runtime facade flows.
 
 ## M1 pipeline determinism (non-style)
 
-The `Pipeline` orchestration layer is part of the M1 foundation: `clear` drops queued bridge work without screen application; `reset` clears both the queue and parser partial state; each `applyToScreen` drains the queue once and then clears it, so repeated apply without new input is a no-op on `ScreenState`. Full wording lives under “Pipeline seam” in `app_architecture/contracts/SEMANTIC_SCREEN.md`.
+The `Pipeline` orchestration layer is part of the M1 foundation: `clear` drops queued bridge work without screen application; `reset` clears both the queue and parser partial state; each `applyToScreen` drains the queue once and then clears it, so repeated apply without new input is a no-op on `ScreenState`. Full wording lives under “Pipeline boundary” in `app_architecture/contracts/SEMANTIC_SCREEN.md`.
 
 ## M1 edge and zero-dimension determinism
 

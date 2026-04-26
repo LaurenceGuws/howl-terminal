@@ -14,7 +14,7 @@ M4 owns host-neutral input/control encoding behavior in `howl-vt-core`:
 - placeholder mouse encode surface (`encodeMouse`)
 - stable key/modifier constants used by host integrations
 
-M4 does not own host event adapters, platform keycode maps, renderer policy, or
+M4 does not own host event implementations, platform keycode maps, renderer policy, or
 mouse reporting format implementation.
 
 ## Stable Contracts
@@ -45,7 +45,7 @@ Validation baseline:
 
 - `zig build`
 - `zig build test`
-- no `compat/fallback/workaround/shim` patterns in `src/**/*.zig`
+- no `compat/fallback/workaround/shim` rules in `src/**/*.zig`
 
 ## Docstring Rule (Frozen Surfaces)
 

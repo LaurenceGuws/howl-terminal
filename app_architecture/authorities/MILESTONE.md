@@ -83,7 +83,7 @@ and replay-tested through runtime surfaces.
 ## M5 Checklist
 
 M5 is complete only when runtime interface behavior is explicit, host-neutral,
-and parity-tested for real host-loop usage patterns.
+and parity-tested for real host-loop usage rules.
 
 - `[x]` M5-A: Runtime contract closure: lifecycle, mutation boundaries, and reset/clear interactions are unambiguous in authority docs.
 - `[x]` M5-B: Runtime interface hardening: `Engine` API aligns to contract without host/platform leakage or mutable escapes.
@@ -138,13 +138,13 @@ M8 is complete only when host integration readiness is explicit, bounded, and
 stable enough to support first-host work without API churn.
 
 - `[x]` M8-A: Host-readiness contract closure in `M8_FOUNDATION.md`.
-- `[x]` M8-B: API stability and integration seam audit against frozen `M1-M7`.
+- `[x]` M8-B: API stability and integration boundary audit against frozen `M1-M7`.
 - `[x]` M8-C: Integration readiness validation matrix and acceptance gates.
 - `[x]` M8-D: Freeze evidence and M9 handoff publication.
 
 ### M8 Closeout Sequence
 
-1. Complete architect-only readiness authority and seam audit before opening any implementation queue.
+1. Complete architect-only readiness authority and boundary audit before opening any implementation queue.
 2. Publish bounded implementation gates only after readiness contract closure.
 3. Mark `M8` done only when first-host integration can start without expected API churn.
 

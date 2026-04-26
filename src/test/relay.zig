@@ -2707,7 +2707,7 @@ test "parity: DCS payload is dropped and screen remains deterministic" {
     });
 }
 
-test "parity: ESC final passthrough is dropped at bridge seam" {
+test "parity: ESC final passthrough is dropped at parser-event boundary" {
     const gpa = std.testing.allocator;
     try runParityScenario(gpa, .{
         .name = "ESC final dropped",
@@ -5966,7 +5966,7 @@ test "runtime stability: queuedEventCount reflects feed only, not encode calls" 
     try std.testing.expectEqual(@as(usize, 0), engine.queuedEventCount());
 }
 
-test "runtime stability: history read seam remains stable across concurrent selection operations" {
+test "runtime stability: history read boundary remains stable across concurrent selection operations" {
     const gpa = std.testing.allocator;
     var engine = try runtime_mod.Engine.initWithCellsAndHistory(gpa, 3, 5, 10);
     defer engine.deinit();

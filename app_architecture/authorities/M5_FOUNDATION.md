@@ -25,7 +25,7 @@ M5 is done only when all of the following are true:
 
 - runtime interface scope is frozen in contracts with no ambiguous ownership.
 - runtime method groups and lifecycle invariants are explicit and test-backed.
-- runtime facade parity is proven for mixed host-loop usage patterns.
+- runtime facade parity is proven for mixed host-loop usage rules.
 - all M5 work is complete without reopening frozen M1-M4 behavior.
 
 ## Execution Gates (Ordered)

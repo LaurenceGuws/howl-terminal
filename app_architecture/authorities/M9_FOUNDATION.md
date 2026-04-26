@@ -9,7 +9,7 @@
 Locked baseline:
 
 - parser/event/screen/history/selection/input/runtime/snapshot contracts are frozen.
-- `M8` host-readiness contract and seam audit are frozen.
+- `M8` host-readiness contract and boundary audit are frozen.
 - first-host readiness is accepted without expected API churn.
 
 ## End Point (M9 Done)
