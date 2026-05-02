@@ -87,6 +87,20 @@ pub const VtCore = struct {
     /// F12 key alias.
     pub const key_f12: Key = keymap.VTERM_KEY_F12;
 
+    /// Read-only render-facing view of visible terminal state.
+    pub const RenderView = struct {
+        rows: u16,
+        cols: u16,
+        cursor_row: u16,
+        cursor_col: u16,
+        cursor_visible: bool,
+        screen: *const screen_mod.ScreenState,
+
+        pub fn cellAt(self: RenderView, row: u16, col: u16) u21 {
+            return self.screen.cellAt(row, col);
+        }
+    };
+
     allocator: std.mem.Allocator,
     pipeline: pipeline_mod.Pipeline,
     state: screen_mod.ScreenState,
@@ -181,6 +195,18 @@ pub const VtCore = struct {
     /// Return read-only screen state reference.
     pub fn screen(self: *const VtCore) *const screen_mod.ScreenState {
         return &self.state;
+    }
+
+    /// Return a stable render-facing snapshot view of visible state.
+    pub fn renderView(self: *const VtCore) RenderView {
+        return .{
+            .rows = self.state.rows,
+            .cols = self.state.cols,
+            .cursor_row = self.state.cursor_row,
+            .cursor_col = self.state.cursor_col,
+            .cursor_visible = self.state.cursor_visible,
+            .screen = &self.state,
+        };
     }
 
     /// Return queued event count.
