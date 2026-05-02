@@ -108,6 +108,84 @@ pub const ScreenState = struct {
         self.history = null;
     }
 
+    /// Resize visible grid while preserving retained history rows.
+    pub fn resize(self: *ScreenState, allocator: std.mem.Allocator, rows: u16, cols: u16) !void {
+        const old_cells = self.cells;
+        const old_history = self.history;
+        const old_rows = self.rows;
+        const old_cols = self.cols;
+        const old_history_count = self.history_count;
+        const old_history_capacity = self.history_capacity;
+
+        const cell_count = @as(usize, rows) * @as(usize, cols);
+        var new_cells: ?[]u21 = null;
+        if (cell_count > 0) {
+            const buf = try allocator.alloc(u21, cell_count);
+            @memset(buf, 0);
+            new_cells = buf;
+        }
+        errdefer if (new_cells) |buf| allocator.free(buf);
+
+        var new_history: ?[]u21 = null;
+        if (old_history != null and old_history_capacity > 0 and cols > 0) {
+            const hist_size = @as(usize, old_history_capacity) * @as(usize, cols);
+            const buf = try allocator.alloc(u21, hist_size);
+            @memset(buf, 0);
+            new_history = buf;
+        }
+        errdefer if (new_history) |buf| allocator.free(buf);
+
+        if (new_cells) |dst| {
+            const copy_rows: u16 = @min(old_rows, rows);
+            const copy_cols: u16 = @min(old_cols, cols);
+            var row: u16 = 0;
+            while (row < copy_rows) : (row += 1) {
+                const dst_start = @as(usize, row) * @as(usize, cols);
+                var col: u16 = 0;
+                while (col < copy_cols) : (col += 1) {
+                    dst[dst_start + @as(usize, col)] = self.cellAt(row, col);
+                }
+            }
+        }
+
+        var next_history_count: u16 = 0;
+        var next_history_write_idx: u16 = 0;
+        if (new_history) |dst| {
+            const copy_cols: u16 = @min(old_cols, cols);
+            var recency_plus_one = old_history_count;
+            while (recency_plus_one > 0) : (recency_plus_one -= 1) {
+                const recency = recency_plus_one - 1;
+                const dst_start = @as(usize, next_history_write_idx) * @as(usize, cols);
+                var col: u16 = 0;
+                while (col < copy_cols) : (col += 1) {
+                    dst[dst_start + @as(usize, col)] = self.historyRowAt(recency, col);
+                }
+                next_history_write_idx = (next_history_write_idx + 1) % old_history_capacity;
+                if (next_history_count < old_history_capacity) next_history_count += 1;
+            }
+        }
+
+        self.rows = rows;
+        self.cols = cols;
+        self.cells = new_cells;
+        self.history = new_history;
+        self.history_capacity = if (new_history != null) old_history_capacity else 0;
+        self.history_count = next_history_count;
+        self.history_write_idx = next_history_write_idx;
+        self.row_origin = 0;
+        self.wrap_pending = false;
+        if (rows == 0 or cols == 0) {
+            self.cursor_row = 0;
+            self.cursor_col = 0;
+        } else {
+            self.cursor_row = @min(self.cursor_row, rows - 1);
+            self.cursor_col = @min(self.cursor_col, cols - 1);
+        }
+
+        if (old_cells) |buf| allocator.free(buf);
+        if (old_history) |buf| allocator.free(buf);
+    }
+
     /// Reset visible screen state to defaults.
     pub fn reset(self: *ScreenState) void {
         self.cursor_row = 0;
@@ -357,4 +435,3 @@ pub const ScreenState = struct {
         @memset(c[start + @as(usize, start_col) .. start + @as(usize, end_col_exclusive)], 0);
     }
 };
-

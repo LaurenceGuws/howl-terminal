@@ -192,6 +192,18 @@ pub const VtCore = struct {
         self.state.reset();
     }
 
+    /// Resize visible screen while preserving history ring contents.
+    pub fn resize(self: *VtCore, rows: u16, cols: u16) !void {
+        try self.state.resize(self.allocator, rows, cols);
+        if (self.selection.selection.active) {
+            if (self.state.shouldInvalidateSelectionEndpoint(self.selection.selection.start.row) or
+                self.state.shouldInvalidateSelectionEndpoint(self.selection.selection.end.row))
+            {
+                self.selection.clear();
+            }
+        }
+    }
+
     /// Return read-only screen state reference.
     pub fn screen(self: *const VtCore) *const screen_mod.ScreenState {
         return &self.state;
@@ -700,6 +712,7 @@ test "VtCore facade methods remain available" {
     try std.testing.expect(@hasDecl(VtCore, "clear"));
     try std.testing.expect(@hasDecl(VtCore, "reset"));
     try std.testing.expect(@hasDecl(VtCore, "resetScreen"));
+    try std.testing.expect(@hasDecl(VtCore, "resize"));
     try std.testing.expect(@hasDecl(VtCore, "screen"));
     try std.testing.expect(@hasDecl(VtCore, "queuedEventCount"));
 }
@@ -716,9 +729,10 @@ test "VtCore method signatures remain host-facing" {
     const clear_fn: fn (*VtCore) void = VtCore.clear;
     const reset_fn: fn (*VtCore) void = VtCore.reset;
     const reset_screen_fn: fn (*VtCore) void = VtCore.resetScreen;
+    const resize_fn: fn (*VtCore, u16, u16) anyerror!void = VtCore.resize;
     const screen_fn: fn (*const VtCore) *const ScreenState = VtCore.screen;
     const queue_fn: fn (*const VtCore) usize = VtCore.queuedEventCount;
-    _ = .{ init_fn, init_cells_fn, deinit_fn, feed_byte_fn, feed_slice_fn, apply_fn, clear_fn, reset_fn, reset_screen_fn, screen_fn, queue_fn };
+    _ = .{ init_fn, init_cells_fn, deinit_fn, feed_byte_fn, feed_slice_fn, apply_fn, clear_fn, reset_fn, reset_screen_fn, resize_fn, screen_fn, queue_fn };
 }
 
 test "const-read history and selection accessors stay stable" {
@@ -756,6 +770,20 @@ test "snapshot surface remains deterministic" {
     try std.testing.expectEqual(snap1.cols, snap2.cols);
     try std.testing.expectEqual(snap1.cursor_row, snap2.cursor_row);
     try std.testing.expectEqual(snap1.cursor_col, snap2.cursor_col);
+}
+
+test "resize keeps history enabled state" {
+    const allocator = std.testing.allocator;
+    var vt_core = try VtCore.initWithCellsAndHistory(allocator, 1, 3, 8);
+    defer vt_core.deinit();
+
+    vt_core.feedSlice("111\n222\n333");
+    vt_core.apply();
+    const before = vt_core.historyCount();
+    try vt_core.resize(3, 6);
+
+    try std.testing.expectEqual(@as(u16, 8), vt_core.historyCapacity());
+    try std.testing.expect(vt_core.historyCount() >= before);
 }
 
 test "encodeKey and encodeMouse methods are callable" {

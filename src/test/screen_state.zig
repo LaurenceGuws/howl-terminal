@@ -460,3 +460,27 @@ test "screen: reset does not truncate history" {
     s.reset();
     try std.testing.expectEqual(@as(u16, 1), s.history_count);
 }
+
+test "screen: resize preserves history rows" {
+    const gpa = std.testing.allocator;
+    var s = try ScreenState.initWithCellsAndHistory(gpa, 1, 3, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "111" });
+    s.apply(SemanticEvent.line_feed);
+    s.cursor_row = 0;
+    s.cursor_col = 0;
+    s.apply(SemanticEvent{ .write_text = "222" });
+    s.apply(SemanticEvent.line_feed);
+
+    try std.testing.expectEqual(@as(u16, 2), s.historyCount());
+    try std.testing.expectEqual(@as(u21, '2'), s.historyRowAt(0, 0));
+    try std.testing.expectEqual(@as(u21, '1'), s.historyRowAt(1, 0));
+
+    try s.resize(gpa, 4, 5);
+
+    try std.testing.expectEqual(@as(u16, 2), s.historyCount());
+    try std.testing.expectEqual(@as(u16, 4), s.historyCapacity());
+    try std.testing.expectEqual(@as(u21, '2'), s.historyRowAt(0, 0));
+    try std.testing.expectEqual(@as(u21, '1'), s.historyRowAt(1, 0));
+}
