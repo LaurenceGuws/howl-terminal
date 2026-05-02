@@ -1,6 +1,6 @@
 //! Responsibility: screen state behavior and edge-case tests.
 //! Ownership: screen mutation conformance verification.
-//! Reason: keep production screen module free from embedded test bulk.
+//! Reason: keep production screen module free from test bulk.
 
 const std = @import("std");
 const screen_mod = @import("../screen/state.zig");
