@@ -121,7 +121,7 @@ test "snapshot: historyRowAt matches vt_core after wraparound" {
     try std.testing.expectEqual(vt_core.historyCount(), snap.history_count);
     try std.testing.expectEqual(vt_core.historyCapacity(), snap.history_capacity);
 
-    var idx: u16 = 0;
+    var idx: usize = 0;
     while (idx < vt_core.historyCount()) : (idx += 1) {
         var col: u16 = 0;
         while (col < vt_core.screen().cols) : (col += 1) {

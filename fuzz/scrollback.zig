@@ -19,7 +19,7 @@ const OpKind = enum {
 pub const RunSummary = struct {
     structural_hash: u64,
     logical_hash: u64,
-    history_count: u16,
+    history_count: usize,
     rows: u16,
     cols: u16,
 };
@@ -41,7 +41,7 @@ pub const CoreStateSummary = struct {
     cursor_row: u16,
     cursor_col: u16,
     wrap_pending: bool,
-    history_count: u16,
+    history_count: usize,
     history_capacity: u16,
 };
 
@@ -58,7 +58,6 @@ pub const InvariantError = error{
     ColBelowMinimum,
     CursorRowOutOfBounds,
     CursorColOutOfBounds,
-    HistoryCountExceeded,
 };
 
 pub fn runScenario(allocator: std.mem.Allocator, seed: u64, op_count: usize) !RunSummary {
@@ -118,7 +117,6 @@ pub fn runCanonicalPreservation(
             try applyResizeStep(&vt, rand)
         else
             try applyZoomJitterStep(&vt, rand);
-
         const actual = try canonicalLogicalHash(allocator, &vt);
         if (actual != before) {
             logBreakpoint(churn_idx, pre_state, step, before, actual, summarizeCoreState(&vt));
@@ -249,7 +247,6 @@ fn ensureCoreInvariants(vt: *const vt_mod.VtCore) InvariantError!void {
     if (s.cols < ColsMin) return error.ColBelowMinimum;
     if (s.cursor_row >= s.rows) return error.CursorRowOutOfBounds;
     if (s.cursor_col >= s.cols) return error.CursorColOutOfBounds;
-    if (vt.historyCount() > vt.historyCapacity()) return error.HistoryCountExceeded;
 }
 
 fn hashStructural(vt: *const vt_mod.VtCore) u64 {
@@ -272,7 +269,7 @@ fn hashLogicalContent(vt: *const vt_mod.VtCore) u64 {
     const s = vt.screen();
     const history = vt.historyCount();
 
-    var hr: u16 = 0;
+    var hr: usize = 0;
     while (hr < history) : (hr += 1) {
         var col: u16 = 0;
         while (col < s.cols) : (col += 1) {
@@ -294,6 +291,15 @@ fn hashLogicalContent(vt: *const vt_mod.VtCore) u64 {
 }
 
 fn canonicalLogicalHash(allocator: std.mem.Allocator, vt: *const vt_mod.VtCore) !u64 {
+    const lines = try canonicalLogicalStream(allocator, vt);
+    defer allocator.free(lines);
+
+    var h = std.hash.Wyhash.init(0xd1b54a32d192ed03);
+    h.update(std.mem.sliceAsBytes(lines));
+    return h.final();
+}
+
+fn canonicalLogicalStream(allocator: std.mem.Allocator, vt: *const vt_mod.VtCore) ![]u21 {
     const s = vt.screen();
     var lines: std.ArrayList(u21) = .empty;
     defer lines.deinit(allocator);
@@ -301,10 +307,10 @@ fn canonicalLogicalHash(allocator: std.mem.Allocator, vt: *const vt_mod.VtCore) 
     var row_buf: std.ArrayList(u21) = .empty;
     defer row_buf.deinit(allocator);
 
-    var history_idx: i32 = @intCast(vt.historyCount());
+    var history_idx = vt.historyCount();
     while (history_idx > 0) {
         history_idx -= 1;
-        try appendHistoryRowCanonical(allocator, &lines, &row_buf, vt, @intCast(history_idx), s.cols);
+        try appendHistoryRowCanonical(allocator, &lines, &row_buf, vt, history_idx, s.cols);
     }
 
     var row: u16 = 0;
@@ -316,9 +322,7 @@ fn canonicalLogicalHash(allocator: std.mem.Allocator, vt: *const vt_mod.VtCore) 
         try flushLogicalRow(allocator, &lines, &row_buf);
     }
 
-    var h = std.hash.Wyhash.init(0xd1b54a32d192ed03);
-    h.update(std.mem.sliceAsBytes(lines.items));
-    return h.final();
+    return try lines.toOwnedSlice(allocator);
 }
 
 fn appendHistoryRowCanonical(
@@ -326,7 +330,7 @@ fn appendHistoryRowCanonical(
     all_lines: *std.ArrayList(u21),
     current_line: *std.ArrayList(u21),
     vt: *const vt_mod.VtCore,
-    recency: u16,
+    recency: usize,
     cols: u16,
 ) !void {
     const s = vt.screen();
@@ -364,7 +368,7 @@ fn flushLogicalRow(allocator: std.mem.Allocator, all_lines: *std.ArrayList(u21),
     current_line.clearRetainingCapacity();
 }
 
-fn historyContentLen(s: anytype, vt: *const vt_mod.VtCore, recency: u16, cols: u16) u16 {
+fn historyContentLen(s: anytype, vt: *const vt_mod.VtCore, recency: usize, cols: u16) u16 {
     var col = cols;
     while (col > 0) {
         const idx = col - 1;
@@ -393,12 +397,10 @@ fn visibleRowWrapped(s: anytype, row: u16) bool {
     return wraps[idx];
 }
 
-fn historyRowWrapped(s: anytype, recency: u16) bool {
+fn historyRowWrapped(s: anytype, recency: usize) bool {
     const wraps = s.history_wraps orelse return false;
-    if (recency >= s.history_count or s.history_capacity == 0) return false;
-    const cap = @as(usize, s.history_capacity);
-    const newest_slot = (@as(usize, s.history_write_idx) + cap - 1) % cap;
-    const slot = (newest_slot + cap - @as(usize, recency)) % cap;
+    if (recency >= s.history_count) return false;
+    const slot = s.history_count - 1 - recency;
     return wraps[slot];
 }
 

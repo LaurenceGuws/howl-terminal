@@ -401,7 +401,7 @@ test "screen: initWithCellsAndHistory allocates bounded history" {
     defer s.deinit(gpa);
     try std.testing.expectEqual(@as(u16, 100), s.history_capacity);
     try std.testing.expect(s.history != null);
-    try std.testing.expectEqual(@as(u16, 0), s.history_count);
+    try std.testing.expectEqual(@as(usize, 0), s.history_count);
 }
 
 test "screen: scrollUp captures row to history" {
@@ -414,7 +414,7 @@ test "screen: scrollUp captures row to history" {
     s.apply(SemanticEvent{ .write_text = "xyz" });
     s.cursor_col = 0;
     s.apply(SemanticEvent.line_feed);
-    try std.testing.expectEqual(@as(u16, 1), s.history_count);
+    try std.testing.expectEqual(@as(usize, 1), s.history_count);
     const h = s.history.?;
     try std.testing.expectEqual(@as(u21, 'a'), h[0]);
     try std.testing.expectEqual(@as(u21, 'b'), h[1]);
@@ -442,7 +442,7 @@ test "screen: history capacity limits with wraparound" {
         }
         row_num += 1;
     }
-    try std.testing.expectEqual(@as(u16, 2), s.history_count);
+    try std.testing.expectEqual(@as(usize, 2), s.history_count);
     try std.testing.expectEqual(@as(u21, '4'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, '4'), s.historyRowAt(0, 1));
     try std.testing.expectEqual(@as(u21, '3'), s.historyRowAt(1, 0));
@@ -456,9 +456,9 @@ test "screen: reset does not truncate history" {
     s.apply(SemanticEvent{ .write_text = "test1" });
     s.cursor_row = 1;
     s.apply(SemanticEvent.line_feed);
-    try std.testing.expectEqual(@as(u16, 1), s.history_count);
+    try std.testing.expectEqual(@as(usize, 1), s.history_count);
     s.reset();
-    try std.testing.expectEqual(@as(u16, 1), s.history_count);
+    try std.testing.expectEqual(@as(usize, 1), s.history_count);
 }
 
 test "screen: row-only resize preserves live bottom and restores from history" {
@@ -479,7 +479,7 @@ test "screen: row-only resize preserves live bottom and restores from history" {
 
     try s.resize(gpa, 2, 4);
 
-    try std.testing.expectEqual(@as(u16, 2), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 2), s.historyCount());
     try std.testing.expectEqual(@as(u21, 'B'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'A'), s.historyRowAt(1, 0));
     try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(0, 0));
@@ -488,7 +488,7 @@ test "screen: row-only resize preserves live bottom and restores from history" {
 
     try s.resize(gpa, 4, 4);
 
-    try std.testing.expectEqual(@as(u16, 0), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 0), s.historyCount());
     try std.testing.expectEqual(@as(u16, 8), s.historyCapacity());
     try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(1, 0));
@@ -504,13 +504,13 @@ test "screen: column resize reflows wrapped content into history and viewport" {
 
     s.apply(SemanticEvent{ .write_text = "ABCDEFGHIJ" });
 
-    try std.testing.expectEqual(@as(u16, 1), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 1), s.historyCount());
     try std.testing.expectEqual(@as(u21, 'A'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'D'), s.historyRowAt(0, 3));
 
     try s.resize(gpa, 1, 5);
 
-    try std.testing.expectEqual(@as(u16, 1), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 1), s.historyCount());
     try std.testing.expectEqual(@as(u16, 8), s.historyCapacity());
     try std.testing.expectEqual(@as(u21, 'A'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'E'), s.historyRowAt(0, 4));
@@ -519,7 +519,7 @@ test "screen: column resize reflows wrapped content into history and viewport" {
 
     try s.resize(gpa, 2, 4);
 
-    try std.testing.expectEqual(@as(u16, 1), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 1), s.historyCount());
     try std.testing.expectEqual(@as(u21, 'A'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'D'), s.historyRowAt(0, 3));
     try std.testing.expectEqual(@as(u21, 'E'), s.cellAt(0, 0));
@@ -541,7 +541,7 @@ test "screen: column resize preserves exact-fill cursor wrap state" {
 
     try s.resize(gpa, 1, 2);
 
-    try std.testing.expectEqual(@as(u16, 1), s.historyCount());
+    try std.testing.expectEqual(@as(usize, 1), s.historyCount());
     try std.testing.expectEqual(@as(u21, 'A'), s.historyRowAt(0, 0));
     try std.testing.expectEqual(@as(u21, 'B'), s.historyRowAt(0, 1));
     try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(0, 0));

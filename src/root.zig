@@ -99,6 +99,7 @@ pub const VtCore = struct {
         cursor_row: u16,
         cursor_col: u16,
         cursor_visible: bool,
+        is_alternate_screen: bool,
         screen: *const Grid.GridModel,
 
         pub fn cellAt(self: RenderView, row: u16, col: u16) u21 {
@@ -108,7 +109,15 @@ pub const VtCore = struct {
 
     allocator: std.mem.Allocator,
     pipeline: Interpret.Pipeline,
-    state: Grid.GridModel,
+    primary_state: Grid.GridModel,
+    alt_state: Grid.GridModel,
+    alt_active: bool,
+    saved_primary_cursor: ?struct {
+        row: u16,
+        col: u16,
+        wrap_pending: bool,
+        cursor_visible: bool,
+    } = null,
     selection: Selection.SelectionState,
     encode_buf: [64]u8 = undefined,
     encode_len: usize = 0,
@@ -118,10 +127,13 @@ pub const VtCore = struct {
         var pipeline = try Interpret.Pipeline.init(allocator);
         errdefer pipeline.deinit();
         const state = Grid.GridModel.init(rows, cols);
+        const alt_state = Grid.GridModel.init(rows, cols);
         return VtCore{
             .allocator = allocator,
             .pipeline = pipeline,
-            .state = state,
+            .primary_state = state,
+            .alt_state = alt_state,
+            .alt_active = false,
             .selection = Selection.SelectionState.init(),
         };
     }
@@ -132,10 +144,14 @@ pub const VtCore = struct {
         errdefer pipeline.deinit();
         var state = try Grid.GridModel.initWithCells(allocator, rows, cols);
         errdefer state.deinit(allocator);
+        var alt_state = try Grid.GridModel.initWithCells(allocator, rows, cols);
+        errdefer alt_state.deinit(allocator);
         return VtCore{
             .allocator = allocator,
             .pipeline = pipeline,
-            .state = state,
+            .primary_state = state,
+            .alt_state = alt_state,
+            .alt_active = false,
             .selection = Selection.SelectionState.init(),
         };
     }
@@ -146,17 +162,22 @@ pub const VtCore = struct {
         errdefer pipeline.deinit();
         var state = try Grid.GridModel.initWithCellsAndHistory(allocator, rows, cols, history_capacity);
         errdefer state.deinit(allocator);
+        var alt_state = try Grid.GridModel.initWithCells(allocator, rows, cols);
+        errdefer alt_state.deinit(allocator);
         return VtCore{
             .allocator = allocator,
             .pipeline = pipeline,
-            .state = state,
+            .primary_state = state,
+            .alt_state = alt_state,
+            .alt_active = false,
             .selection = Selection.SelectionState.init(),
         };
     }
 
     /// Release vt_core-owned resources.
     pub fn deinit(self: *VtCore) void {
-        self.state.deinit(self.allocator);
+        self.primary_state.deinit(self.allocator);
+        self.alt_state.deinit(self.allocator);
         self.pipeline.deinit();
     }
 
@@ -172,8 +193,13 @@ pub const VtCore = struct {
 
     /// Apply queued events to the grid model.
     pub fn apply(self: *VtCore) void {
-        self.pipeline.applyToScreen(&self.state);
-        self.selection.clearIfInvalidatedByGrid(&self.state);
+        for (self.pipeline.events()) |ev| {
+            if (Interpret.process(ev)) |sem_ev| {
+                self.applySemantic(sem_ev);
+            }
+        }
+        self.pipeline.clear();
+        self.selection.clearIfInvalidatedByGrid(self.activeState());
     }
 
     /// Clear queued events without applying.
@@ -188,29 +214,31 @@ pub const VtCore = struct {
 
     /// Reset visible grid state only.
     pub fn resetScreen(self: *VtCore) void {
-        self.state.reset();
+        self.activeStateMut().reset();
     }
 
     /// Resize visible screen while preserving history ring contents.
     pub fn resize(self: *VtCore, rows: u16, cols: u16) !void {
-        try self.state.resize(self.allocator, rows, cols);
-        self.selection.clearIfInvalidatedByGrid(&self.state);
+        try self.primary_state.resize(self.allocator, rows, cols);
+        try self.alt_state.resize(self.allocator, rows, cols);
+        self.selection.clearIfInvalidatedByGrid(self.activeState());
     }
 
     /// Return read-only grid model reference.
     pub fn screen(self: *const VtCore) *const Grid.GridModel {
-        return &self.state;
+        return self.activeState();
     }
 
     /// Return a stable render-facing snapshot view of visible state.
     pub fn renderView(self: *const VtCore) RenderView {
         return .{
-            .rows = self.state.rows,
-            .cols = self.state.cols,
-            .cursor_row = self.state.cursor_row,
-            .cursor_col = self.state.cursor_col,
-            .cursor_visible = self.state.cursor_visible,
-            .screen = &self.state,
+            .rows = self.activeState().rows,
+            .cols = self.activeState().cols,
+            .cursor_row = self.activeState().cursor_row,
+            .cursor_col = self.activeState().cursor_col,
+            .cursor_visible = self.activeState().cursor_visible,
+            .is_alternate_screen = self.alt_active,
+            .screen = self.activeState(),
         };
     }
 
@@ -220,18 +248,24 @@ pub const VtCore = struct {
     }
 
     /// Return history cell by recency index and column.
-    pub fn historyRowAt(self: *const VtCore, history_idx: u16, col: u16) u21 {
-        return self.state.historyRowAt(history_idx, col);
+    pub fn historyRowAt(self: *const VtCore, history_idx: usize, col: u16) u21 {
+        if (self.alt_active) return 0;
+        return self.primary_state.historyRowAt(history_idx, col);
     }
 
     /// Return retained history row count.
-    pub fn historyCount(self: *const VtCore) u16 {
-        return self.state.historyCount();
+    pub fn historyCount(self: *const VtCore) usize {
+        if (self.alt_active) return 0;
+        return self.primary_state.historyCount();
     }
 
     /// Return configured history capacity.
     pub fn historyCapacity(self: *const VtCore) u16 {
-        return self.state.historyCapacity();
+        return self.primary_state.historyCapacity();
+    }
+
+    pub fn isAlternateScreen(self: *const VtCore) bool {
+        return self.alt_active;
     }
 
     /// Return active selection snapshot or null.
@@ -307,9 +341,53 @@ pub const VtCore = struct {
     pub fn snapshot(self: *const VtCore) !Snapshot.VtCoreSnapshot {
         return Snapshot.VtCoreSnapshot.captureFromScreen(
             self.allocator,
-            &self.state,
+            self.activeState(),
             self.selection.state(),
         );
+    }
+
+    fn activeState(self: *const VtCore) *const Grid.GridModel {
+        return if (self.alt_active) &self.alt_state else &self.primary_state;
+    }
+
+    fn activeStateMut(self: *VtCore) *Grid.GridModel {
+        return if (self.alt_active) &self.alt_state else &self.primary_state;
+    }
+
+    fn applySemantic(self: *VtCore, sem_ev: Interpret.SemanticEvent) void {
+        switch (sem_ev) {
+            .enter_alt_screen => |opts| self.enterAltScreen(opts.clear, opts.save_cursor),
+            .exit_alt_screen => |opts| self.exitAltScreen(opts.restore_cursor),
+            else => self.activeStateMut().apply(sem_ev),
+        }
+    }
+
+    fn enterAltScreen(self: *VtCore, clear_alt: bool, save_cursor: bool) void {
+        if (save_cursor) {
+            self.saved_primary_cursor = .{
+                .row = self.primary_state.cursor_row,
+                .col = self.primary_state.cursor_col,
+                .wrap_pending = self.primary_state.wrap_pending,
+                .cursor_visible = self.primary_state.cursor_visible,
+            };
+        }
+        if (clear_alt) self.alt_state.reset();
+        self.alt_active = true;
+        self.selection.clear();
+    }
+
+    fn exitAltScreen(self: *VtCore, restore_cursor: bool) void {
+        self.alt_active = false;
+        if (restore_cursor) {
+            if (self.saved_primary_cursor) |saved| {
+                self.primary_state.cursor_row = @min(saved.row, self.primary_state.rows -| 1);
+                self.primary_state.cursor_col = @min(saved.col, self.primary_state.cols -| 1);
+                self.primary_state.wrap_pending = saved.wrap_pending;
+                self.primary_state.cursor_visible = saved.cursor_visible;
+            }
+            self.saved_primary_cursor = null;
+        }
+        self.selection.clear();
     }
 };
 
@@ -347,8 +425,8 @@ test "VtCore method signatures remain host-facing" {
 }
 
 test "const-read history and selection accessors stay stable" {
-    const history_row_fn: fn (*const VtCore, u16, u16) u21 = VtCore.historyRowAt;
-    const history_count_fn: fn (*const VtCore) u16 = VtCore.historyCount;
+    const history_row_fn: fn (*const VtCore, usize, u16) u21 = VtCore.historyRowAt;
+    const history_count_fn: fn (*const VtCore) usize = VtCore.historyCount;
     const history_capacity_fn: fn (*const VtCore) u16 = VtCore.historyCapacity;
     const selection_state_fn: fn (*const VtCore) ?Selection.TerminalSelection = VtCore.selectionState;
     _ = .{ history_row_fn, history_count_fn, history_capacity_fn, selection_state_fn };
@@ -395,6 +473,52 @@ test "resize keeps history enabled state" {
 
     try std.testing.expectEqual(@as(u16, 8), vt_core.historyCapacity());
     try std.testing.expect(vt_core.historyCount() <= before);
+}
+
+test "alternate screen exit preserves primary scrollback" {
+    const allocator = std.testing.allocator;
+    var vt_core = try VtCore.initWithCellsAndHistory(allocator, 2, 4, 16);
+    defer vt_core.deinit();
+
+    vt_core.feedSlice("AAAA\nBBBB\nCCCC\nDDDD");
+    vt_core.apply();
+    var before = try vt_core.snapshot();
+    defer before.deinit();
+    const history_before = vt_core.historyCount();
+    try std.testing.expect(history_before > 0);
+
+    vt_core.feedSlice("\x1b[?1049hALT!");
+    vt_core.apply();
+    try std.testing.expect(vt_core.isAlternateScreen());
+    try std.testing.expectEqual(@as(usize, 0), vt_core.historyCount());
+    try std.testing.expectEqual(@as(u21, 'A'), vt_core.screen().cellAt(0, 0));
+
+    vt_core.feedSlice("\x1b[?1049l");
+    vt_core.apply();
+    var after = try vt_core.snapshot();
+    defer after.deinit();
+    try std.testing.expect(!vt_core.isAlternateScreen());
+    try std.testing.expectEqual(history_before, vt_core.historyCount());
+    try std.testing.expectEqual(before.cursor_row, after.cursor_row);
+    try std.testing.expectEqual(before.cursor_col, after.cursor_col);
+    var row: u16 = 0;
+    while (row < before.rows) : (row += 1) {
+        var col: u16 = 0;
+        while (col < before.cols) : (col += 1) {
+            try std.testing.expectEqual(before.cellAt(row, col), after.cellAt(row, col));
+        }
+    }
+}
+
+test "alternate screen 1049 restores primary cursor" {
+    const allocator = std.testing.allocator;
+    var vt_core = try VtCore.initWithCells(allocator, 4, 8);
+    defer vt_core.deinit();
+
+    vt_core.feedSlice("\x1b[3;4H\x1b[?1049h\x1b[2;2H\x1b[?1049l");
+    vt_core.apply();
+    try std.testing.expectEqual(@as(u16, 2), vt_core.screen().cursor_row);
+    try std.testing.expectEqual(@as(u16, 3), vt_core.screen().cursor_col);
 }
 
 test "encodeKey and encodeMouse methods are callable" {

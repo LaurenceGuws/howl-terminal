@@ -50,6 +50,7 @@ classDiagram
 - `ParserApi` owns byte-stream parsing contracts.
 - `Interpret` owns parser-to-grid translation flow.
 - `Grid` owns screen, cursor, and scrollback model state.
+- `Grid` treats scrollback truth as logical lines; history rows exposed to hosts and snapshots are width-dependent projections.
 - `Selection` owns selection state and validity against grid mutations.
 - `Snapshot` owns exported snapshot shapes only.
 
@@ -104,6 +105,7 @@ sequenceDiagram
 - `apply` is the boundary that mutates screen state.
 - `renderView` returns a stable read-only projection for rendering.
 - `resize` preserves terminal semantics while updating visible geometry.
+- `historyCapacity` limits retained logical history lines; projected history row count may exceed that when narrow widths rewrap those lines.
 - Selection validity is rechecked after grid-affecting operations.
 
 ## Non-Goals

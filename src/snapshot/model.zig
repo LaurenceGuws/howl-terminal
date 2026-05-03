@@ -54,13 +54,13 @@ pub const VtCoreSnapshot = struct {
     history: ?[]u21,
 
     /// Current number of rows in history buffer.
-    history_count: u16,
+    history_count: usize,
 
     /// Configured history buffer capacity.
     history_capacity: u16,
 
     /// History write index for circular buffer wraparound calculation.
-    history_write_idx: u16,
+    history_write_idx: usize,
 
     /// Active selection state snapshot (null if inactive).
     selection: ?Selection.TerminalSelection,
@@ -114,7 +114,7 @@ pub const VtCoreSnapshot = struct {
 
         // Copy history buffer if present.
         if (screen.history) |history| {
-            const size = @as(usize, screen.history_capacity) * @as(usize, screen.cols);
+            const size = history.len;
             const owned_history = try allocator.alloc(u21, size);
             @memcpy(owned_history, history);
             snapshot.history = owned_history;
@@ -151,18 +151,16 @@ pub const VtCoreSnapshot = struct {
     /// Reads history in recency order: history_idx=0 is most recent row (-1 in
     /// History Selection coordinate model), history_idx=1 is next older, etc.
     ///
-    /// Respects circular buffer wraparound via history_write_idx, matching
-    /// GridModel semantics exactly. Returns 0 if history_idx >= history_count,
+    /// Reads the flattened history projection in recency order. Returns 0 if
+    /// history_idx >= history_count,
     /// col >= cols, or history not configured.
     ///
     /// Determinism: identical history buffer and indices produce identical results.
     /// Reads are const and never mutate snapshot state.
-    pub fn historyRowAt(self: *const VtCoreSnapshot, history_idx: u16, col: u16) u21 {
+    pub fn historyRowAt(self: *const VtCoreSnapshot, history_idx: usize, col: u16) u21 {
         const h = self.history orelse return 0;
         if (history_idx >= self.history_count or col >= self.cols) return 0;
-        const cap = @as(usize, self.history_capacity);
-        const newest_slot = (@as(usize, self.history_write_idx) + cap - 1) % cap;
-        const logical_slot = (newest_slot + cap - @as(usize, history_idx)) % cap;
+        const logical_slot = self.history_count - 1 - history_idx;
         return h[logical_slot * @as(usize, self.cols) + @as(usize, col)];
     }
 };

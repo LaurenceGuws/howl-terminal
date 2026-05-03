@@ -1688,7 +1688,7 @@ test "replay: snapshot wraparound history indices after eviction" {
     defer snap.deinit();
 
     try std.testing.expectEqual(@as(u16, 3), snap.history_capacity);
-    try std.testing.expectEqual(@as(u16, 3), snap.history_count);
+    try std.testing.expectEqual(@as(usize, 3), snap.history_count);
 
     try std.testing.expect(snap.history != null);
     try std.testing.expectEqual(@as(usize, 15), snap.history.?.len);
@@ -1697,7 +1697,7 @@ test "replay: snapshot wraparound history indices after eviction" {
     try std.testing.expectEqual(@as(u21, 'B'), snap.historyRowAt(1, 0));
     try std.testing.expectEqual(@as(u21, 'A'), snap.historyRowAt(2, 0));
 
-    var row: u16 = 0;
+    var row: usize = 0;
     while (row < snap.history_count) : (row += 1) {
         var col: u16 = 0;
         while (col < snap.cols) : (col += 1) {
