@@ -1,4 +1,4 @@
-//! Responsibility: provide the vt-core package entry object.
+//! Responsibility: provide the vt-core package entry owner.
 //! Ownership: primary embeddable terminal boundary.
 //! Reason: expose one host-neutral terminal object while keeping domain internals behind sibling owners.
 

@@ -1,4 +1,4 @@
-//! Responsibility: export the input domain object surface.
+//! Responsibility: export the input domain owner surface.
 //! Ownership: input package boundary.
 //! Reason: keep one canonical owner for key, mouse, and codec behavior.
 
@@ -6,14 +6,21 @@ const keymap = @import("input/keymap.zig");
 const mouse = @import("input/mouse.zig");
 const codec = @import("input/codec.zig");
 
+/// Canonical input domain owner.
 pub const Input = struct {
+    /// Canonical VT key type.
     pub const Key = keymap.Key;
+    /// Canonical VT modifier-bit type.
     pub const Modifier = keymap.Modifier;
 
+    /// Mouse-button enum.
     pub const MouseButton = mouse.MouseButton;
+    /// Mouse-event kind enum.
     pub const MouseEventKind = mouse.MouseEventKind;
+    /// Mouse-event payload.
     pub const MouseEvent = mouse.MouseEvent;
 
+    /// Input codec owner.
     pub const Codec = codec.InputCodec;
 
     pub const mod_none: Modifier = keymap.VTERM_MOD_NONE;
