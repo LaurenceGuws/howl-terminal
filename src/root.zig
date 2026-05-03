@@ -247,6 +247,20 @@ pub const VtCore = struct {
         return self.pipeline.len();
     }
 
+    /// Return the most recent queued title-set event before apply clears the queue.
+    pub fn latestTitleSet(self: *const VtCore) ?[]const u8 {
+        var i = self.pipeline.events().len;
+        while (i > 0) {
+            i -= 1;
+            const ev = self.pipeline.events()[i];
+            switch (ev) {
+                .title_set => |title| return title,
+                else => {},
+            }
+        }
+        return null;
+    }
+
     /// Return history cell by recency index and column.
     pub fn historyRowAt(self: *const VtCore, history_idx: usize, col: u16) u21 {
         if (self.alt_active) return 0;
