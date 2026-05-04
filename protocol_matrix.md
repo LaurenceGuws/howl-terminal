@@ -35,19 +35,19 @@ This file is the source of truth for protocol maturity work in this repo.
 | DEC private modes beyond that baseline | partial | High-impact focus/paste/mouse/app-cursor modes exist, and supported DEC modes now answer `DECRQM`. Broader mode families remain unsupported. |
 | ANSI modes and mode reports: `SM`, `RM`, `DECRQM`, `DSR`, `DA`, `DA2`, `DECXCPR` | partial | `DSR`, `CPR`, `DA`, `DA2`, and supported DEC-mode `DECRQM` now reply. General ANSI mode reporting is still unsupported. |
 | ESC single-byte control finals | partial | Parser and bridge preserve ESC finals; DEC save/restore cursor (`ESC 7`/`ESC 8`) is implemented, broader ESC-final semantics remain unsupported. |
-| Charset designation: `ESC (`, `ESC )`, DEC Special Graphics select | partial | Parser tracks G0/G1 designation internally, but bridge/grid do not consume charset state. |
-| Shift in/out charset use: `SI`, `SO` | unsupported | No GL switching behavior wired through. |
+| Charset designation: `ESC (`, `ESC )`, DEC Special Graphics select | partial | Parser tracks G0/G1 designation and DEC Special Graphics maps through visible cells. Broader charset families remain unsupported. |
+| Shift in/out charset use: `SI`, `SO` | partial | G0/G1 GL switching is wired for the supported charset set, including DEC Special Graphics. |
 | OSC transport | partial | Parser transports OSC with BEL/ST terminators and bridge now preserves typed OSC command/payload records. Semantic/host handling is still narrow. |
 | OSC window title/icon title | partial | Bridge recognizes title OSC selectors and `latestTitleSet()` exposes them, but no broader host callback surface exists yet. |
-| OSC 8 hyperlinks | partial | OSC 8 now drives stable `link_id` cell metadata and `VtCore` URI lookup. Richer host/render integration is still pending. |
-| OSC 52 clipboard | partial | OSC 52 now surfaces a pending host clipboard request payload after `apply()`. Policy, decoding, and host integration remain to be defined. |
+| OSC 8 hyperlinks | partial | OSC 8 drives stable `link_id` cell metadata, `VtCore` URI lookup, render surface propagation, and Linux-host `Ctrl+left click` opening behind explicit policy. Hover polish remains pending. |
+| OSC 52 clipboard | partial | OSC 52 surfaces pending clipboard requests and Linux-host applies explicit allow/deny policy. Queries and broader selector behavior remain unsupported. |
 | OSC color queries/setters (`4`, `10`, `11`, `12`, etc.) | unsupported | No selector parsing or response path. |
 | DCS transport | partial | Parser and bridge preserve DCS payloads now; semantics and host integration are still absent. |
 | APC transport | partial | Parser and bridge preserve APC payloads now; semantics and host integration are still absent. |
 | Kitty keyboard protocol | unsupported | APC/DCS transport now survives the bridge, but no kitty semantic or input encoder support exists yet. |
 | Kitty graphics protocol | unsupported | APC/DCS transport now survives the bridge, but no graphics protocol handling or render plumbing exists. |
-| Bracketed paste mode (`?2004`) | partial | Mode tracking and paste wrapper emission now exist; full host paste integration path still needs to be threaded through higher layers. |
-| Focus in/out (`?1004`) | partial | Mode tracking and focus report emission now exist. |
+| Bracketed paste mode (`?2004`) | supported | Mode tracking, host paste routing, and paste wrapper emission are wired through `howl-term` and Linux-host. |
+| Focus in/out (`?1004`) | supported | Mode tracking, effective host focus routing, and focus report emission are wired through `howl-term` and Linux-host. |
 | Mouse tracking (`1000/1002/1003/1005/1006/1015`) | partial | DECSET mode tracking now exists and SGR (`1006`) mouse encoding works for press/release/motion. Legacy encodings and the rest of the family remain unsupported. |
 | Application cursor / keypad modes | partial | `?1` application cursor mode now changes arrow-key encoding; keypad modes and broader key-mode negotiation remain unsupported. |
 | modifyOtherKeys / enhanced keyboard reporting | unsupported | No negotiated keyboard-reporting mode surface exists yet. |
