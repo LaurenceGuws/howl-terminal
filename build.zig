@@ -38,6 +38,28 @@ pub fn build(b: *std.Build) void {
     test_unit_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(test_unit_step);
 
+    const regression_mod = b.createModule(.{
+        .root_source_file = b.path("src/test/scrollback_regression.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    regression_mod.addImport("fuzz_scrollback", fuzz_scrollback_mod);
+
+    const regression_tests = b.addTest(.{
+        .name = "test-regression",
+        .root_module = regression_mod,
+        .filters = b.args orelse &.{},
+    });
+    const run_regression_tests = b.addRunArtifact(regression_tests);
+    if (b.args != null) {
+        run_regression_tests.has_side_effects = true;
+    }
+
+    const test_regression_step = b.step("test:regression", "Run slow regression tests");
+    const test_regression_build_step = b.step("test:regression:build", "Build slow regression tests");
+    test_regression_build_step.dependOn(&b.addInstallArtifact(regression_tests, .{}).step);
+    test_regression_step.dependOn(&run_regression_tests.step);
+
     const fuzz_module = b.createModule(.{
         .root_source_file = b.path("fuzz/main.zig"),
         .target = target,

@@ -35,6 +35,14 @@ pub const SemanticEvent = union(enum) {
     },
     enter_alt_screen: struct { clear: bool, save_cursor: bool },
     exit_alt_screen: struct { restore_cursor: bool },
+    insert_lines: u16,
+    delete_lines: u16,
+    scroll_up_lines: u16,
+    scroll_down_lines: u16,
+    set_scroll_region: struct {
+        top: u16,
+        bottom: ?u16,
+    },
     reset_screen,
     erase_display: u2,
     erase_line: u2,
@@ -97,12 +105,20 @@ fn processCsi(final: u8, params: [16]i32, count: u8, leader: u8, private: bool, 
         'd' => return SemanticEvent{ .cursor_vertical_absolute = paramOrDefault1(params[0]) - 1 },
         'I' => return SemanticEvent{ .horizontal_tab_forward = paramOrDefault1(params[0]) },
         'Z' => return SemanticEvent{ .horizontal_tab_back = paramOrDefault1(params[0]) },
+        'L' => return SemanticEvent{ .insert_lines = paramOrDefault1(params[0]) },
+        'M' => return SemanticEvent{ .delete_lines = paramOrDefault1(params[0]) },
+        'S' => return SemanticEvent{ .scroll_up_lines = paramOrDefault1(params[0]) },
+        'T' => return SemanticEvent{ .scroll_down_lines = paramOrDefault1(params[0]) },
         'm' => return SemanticEvent{ .sgr = .{ .params = params, .param_count = count } },
         'H', 'f' => {
             const row = paramOrDefault1(params[0]);
             const col = paramOrDefault1(if (count >= 1) params[1] else 0);
             return SemanticEvent{ .cursor_position = .{ .row = row - 1, .col = col - 1 } };
         },
+        'r' => return SemanticEvent{ .set_scroll_region = .{
+            .top = paramOrDefault1(params[0]) - 1,
+            .bottom = if (count >= 2 and params[1] > 0) paramOrDefault1(params[1]) - 1 else null,
+        } },
         'J' => return SemanticEvent{ .erase_display = eraseMode(params[0]) },
         'K' => return SemanticEvent{ .erase_line = eraseMode(params[0]) },
         'p' => {

@@ -16,6 +16,7 @@ const Interpret = interpret_owner.Interpret;
 const Selection = selection_owner.Selection;
 const Snapshot = snapshot_owner.Snapshot;
 
+
 /// Host-neutral terminal facade.
 pub const VtCore = struct {
     pub const DirtyRows = grid_model.DirtyRows;
@@ -408,6 +409,7 @@ pub const VtCore = struct {
         }
         if (clear_alt) self.alt_state.reset();
         self.alt_active = true;
+        self.alt_state.markAllDirty();
         self.selection.clear();
     }
 
@@ -422,6 +424,7 @@ pub const VtCore = struct {
             }
             self.saved_primary_cursor = null;
         }
+        self.primary_state.markAllDirty();
         self.selection.clear();
     }
 };
@@ -558,6 +561,23 @@ test "alternate screen 1049 restores primary cursor" {
     try std.testing.expectEqual(@as(u16, 3), vt_core.screen().cursor_col);
 }
 
+test "alternate screen switches mark active viewport fully dirty" {
+    const allocator = std.testing.allocator;
+    var vt_core = try VtCore.initWithCells(allocator, 3, 4);
+    defer vt_core.deinit();
+    const expected = VtCore.DirtyRows{ .start_row = 0, .end_row = 2 };
+
+    vt_core.activeStateMut().clearDirtyRows();
+    vt_core.feedSlice("\x1b[?1049h");
+    vt_core.apply();
+    try std.testing.expectEqual(expected, vt_core.screen().peekDirtyRows().?);
+
+    vt_core.activeStateMut().clearDirtyRows();
+    vt_core.feedSlice("\x1b[?1049l");
+    vt_core.apply();
+    try std.testing.expectEqual(expected, vt_core.screen().peekDirtyRows().?);
+}
+
 test "encodeKey and encodeMouse methods are callable" {
     const allocator = std.testing.allocator;
     var vt_core = try VtCore.initWithCells(allocator, 5, 10);
@@ -637,7 +657,6 @@ test "VtCore exposes key and modifier constants" {
 
 test {
     _ = @import("test/pipeline_regression.zig");
-    _ = @import("test/scrollback_regression.zig");
     _ = @import("test/screen_state_behavior.zig");
     _ = @import("test/semantic_mapping.zig");
     _ = @import("test/snapshot_regression.zig");

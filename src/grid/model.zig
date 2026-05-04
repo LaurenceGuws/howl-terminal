@@ -54,6 +54,8 @@ pub const GridModel = struct {
     auto_wrap: bool,
     view_padding_rows: u16,
     row_origin: u16,
+    scroll_top: u16,
+    scroll_bottom: u16,
     cells: ?[]Cell,
     row_wraps: ?[]bool,
     history: ?[]Cell,
@@ -80,6 +82,8 @@ pub const GridModel = struct {
             .auto_wrap = true,
             .view_padding_rows = 0,
             .row_origin = 0,
+            .scroll_top = 0,
+            .scroll_bottom = rows -| 1,
             .cells = null,
             .row_wraps = null,
             .history = null,
@@ -120,6 +124,8 @@ pub const GridModel = struct {
             .auto_wrap = true,
             .view_padding_rows = 0,
             .row_origin = 0,
+            .scroll_top = 0,
+            .scroll_bottom = rows -| 1,
             .cells = cells,
             .row_wraps = row_wraps,
             .history = null,
@@ -170,6 +176,8 @@ pub const GridModel = struct {
             .auto_wrap = true,
             .view_padding_rows = 0,
             .row_origin = 0,
+            .scroll_top = 0,
+            .scroll_bottom = rows -| 1,
             .cells = cells,
             .row_wraps = row_wraps,
             .history = history,
@@ -383,6 +391,8 @@ pub const GridModel = struct {
         self.history_write_idx = 0;
         self.row_origin = 0;
         self.view_padding_rows = 0;
+        self.scroll_top = 0;
+        self.scroll_bottom = rows -| 1;
         self.dirty_rows = if (rows > 0) .{ .start_row = 0, .end_row = rows -| 1 } else null;
 
         try self.replaceHistoryAuthority(
@@ -562,48 +572,24 @@ pub const GridModel = struct {
     }
 
     fn rebuildHistoryProjection(self: *GridModel, allocator: std.mem.Allocator) !void {
-        if (self.history) |buf| allocator.free(buf);
-        self.history = null;
-        if (self.history_wraps) |buf| allocator.free(buf);
-        self.history_wraps = null;
         self.history_count = 0;
         self.history_write_idx = 0;
 
         if (self.history_capacity == 0 or self.cols == 0) return;
 
-        var row_starts: std.ArrayListUnmanaged(usize) = .empty;
-        defer row_starts.deinit(allocator);
-        var row_lens: std.ArrayListUnmanaged(usize) = .empty;
-        defer row_lens.deinit(allocator);
-        var row_wraps: std.ArrayListUnmanaged(bool) = .empty;
-        defer row_wraps.deinit(allocator);
-        var flat_cells: std.ArrayListUnmanaged(Cell) = .empty;
-        defer flat_cells.deinit(allocator);
-
         for (self.history_lines.items) |line| {
-            try self.appendHistoryProjectionRows(allocator, line.cells.items, false, &row_starts, &row_lens, &row_wraps, &flat_cells);
+            try self.appendHistoryProjectionRows(allocator, line.cells.items, false);
         }
         if (self.open_history_line) |line| {
-            try self.appendHistoryProjectionRows(allocator, line.cells.items, true, &row_starts, &row_lens, &row_wraps, &flat_cells);
+            try self.appendHistoryProjectionRows(allocator, line.cells.items, true);
         }
-
-        self.history_count = row_wraps.items.len;
-        self.history_write_idx = 0;
-        self.history = try allocator.alloc(Cell, flat_cells.items.len);
-        @memcpy(self.history.?, flat_cells.items);
-        self.history_wraps = try allocator.alloc(bool, row_wraps.items.len);
-        @memcpy(self.history_wraps.?, row_wraps.items);
     }
 
     fn appendHistoryProjectionRows(
-        self: *const GridModel,
+        self: *GridModel,
         allocator: std.mem.Allocator,
         cells: []const Cell,
         continues_to_visible: bool,
-        row_starts: *std.ArrayListUnmanaged(usize),
-        row_lens: *std.ArrayListUnmanaged(usize),
-        row_wraps: *std.ArrayListUnmanaged(bool),
-        flat_cells: *std.ArrayListUnmanaged(Cell),
     ) !void {
         const cols = @as(usize, self.cols);
         if (cols == 0) return;
@@ -613,18 +599,7 @@ pub const GridModel = struct {
         while (row_idx < row_count) : (row_idx += 1) {
             const start = row_idx * cols;
             const end = @min(cells.len, start + cols);
-            try row_starts.append(allocator, flat_cells.items.len);
-            try row_lens.append(allocator, end - start);
-            try row_wraps.append(allocator, row_idx + 1 < row_count or continues_to_visible);
-            var col_idx: usize = 0;
-            while (col_idx < cols) : (col_idx += 1) {
-                const src_idx = start + col_idx;
-                if (src_idx < cells.len) {
-                    try flat_cells.append(allocator, cells[src_idx]);
-                } else {
-                    try flat_cells.append(allocator, default_cell);
-                }
-            }
+            try self.appendProjectedHistoryRow(allocator, cells[start..end], row_idx + 1 < row_count or continues_to_visible);
         }
     }
 
@@ -639,6 +614,7 @@ pub const GridModel = struct {
         while (col < len) : (col += 1) {
             open_line.cells.append(allocator, self.cellInfoAt(row, col)) catch return;
         }
+        self.appendProjectedHistoryRow(allocator, open_line.cells.items[open_line.cells.items.len - len .. open_line.cells.items.len], wrapped) catch return;
         if (!wrapped) {
             const finalized = self.open_history_line.?;
             self.open_history_line = null;
@@ -649,7 +625,6 @@ pub const GridModel = struct {
             };
             self.pruneHistoryLines(allocator);
         }
-        self.rebuildHistoryProjection(allocator) catch {};
     }
 
     fn visibleRowContentLen(self: *const GridModel, row: u16) u16 {
@@ -668,10 +643,93 @@ pub const GridModel = struct {
         const drop = self.history_lines.items.len - self.history_capacity;
         var i: usize = 0;
         while (i < drop) : (i += 1) {
+            self.dropOldestProjectedHistoryRows(self.projectedRowCountForCells(self.history_lines.items[i].cells.items));
             self.history_lines.items[i].deinit(allocator);
         }
         std.mem.copyForwards(HistoryLine, self.history_lines.items[0 .. self.history_lines.items.len - drop], self.history_lines.items[drop..]);
         self.history_lines.shrinkRetainingCapacity(self.history_lines.items.len - drop);
+    }
+
+    fn appendProjectedHistoryRow(self: *GridModel, allocator: std.mem.Allocator, cells: []const Cell, wrapped: bool) !void {
+        if (self.cols == 0) return;
+        try self.ensureProjectedHistoryCapacity(allocator, self.history_count + 1);
+
+        const wraps = self.history_wraps orelse return;
+        const history = self.history orelse return;
+        const slot = self.projectedHistoryAppendSlot();
+        const cols = @as(usize, self.cols);
+        const base = slot * cols;
+
+        @memset(history[base .. base + cols], default_cell);
+        @memcpy(history[base .. base + cells.len], cells);
+        wraps[slot] = wrapped;
+        self.history_count += 1;
+    }
+
+    fn ensureProjectedHistoryCapacity(self: *GridModel, allocator: std.mem.Allocator, min_rows: usize) !void {
+        if (self.cols == 0) return;
+
+        const current_rows = if (self.history_wraps) |wraps| wraps.len else 0;
+        if (current_rows >= min_rows) return;
+
+        const new_rows = @max(min_rows, @max(current_rows * 2, @as(usize, 8)));
+        const cols = @as(usize, self.cols);
+        const new_history = try allocator.alloc(Cell, new_rows * cols);
+        errdefer allocator.free(new_history);
+        @memset(new_history, default_cell);
+
+        const new_wraps = try allocator.alloc(bool, new_rows);
+        errdefer allocator.free(new_wraps);
+        @memset(new_wraps, false);
+
+        const old_count = self.history_count;
+        var logical_row: usize = 0;
+        while (logical_row < old_count) : (logical_row += 1) {
+            const old_slot = self.historySlotForLogicalRow(logical_row) orelse break;
+            const src_start = old_slot * cols;
+            const dst_start = logical_row * cols;
+            if (self.history) |history| {
+                @memcpy(new_history[dst_start .. dst_start + cols], history[src_start .. src_start + cols]);
+            }
+            if (self.history_wraps) |wraps| new_wraps[logical_row] = wraps[old_slot];
+        }
+
+        if (self.history) |history| allocator.free(history);
+        if (self.history_wraps) |wraps| allocator.free(wraps);
+        self.history = new_history;
+        self.history_wraps = new_wraps;
+        self.history_write_idx = 0;
+    }
+
+    fn projectedHistoryAppendSlot(self: *const GridModel) usize {
+        const capacity = self.projectedHistoryCapacity();
+        if (capacity == 0) return 0;
+        return (self.history_write_idx + self.history_count) % capacity;
+    }
+
+    fn projectedHistoryCapacity(self: *const GridModel) usize {
+        return if (self.history_wraps) |wraps| wraps.len else 0;
+    }
+
+    fn projectedRowCountForCells(self: *const GridModel, cells: []const Cell) usize {
+        const cols = @as(usize, self.cols);
+        if (cols == 0) return 0;
+        return @max(1, std.math.divCeil(usize, cells.len, cols) catch unreachable);
+    }
+
+    fn dropOldestProjectedHistoryRows(self: *GridModel, row_count: usize) void {
+        if (row_count == 0 or self.history_count == 0) return;
+
+        const drop = @min(row_count, self.history_count);
+        const capacity = self.projectedHistoryCapacity();
+        if (drop == self.history_count or capacity == 0) {
+            self.history_count = 0;
+            self.history_write_idx = 0;
+            return;
+        }
+
+        self.history_write_idx = (self.history_write_idx + drop) % capacity;
+        self.history_count -= drop;
     }
 
     /// Reset visible grid state to defaults.
@@ -684,6 +742,8 @@ pub const GridModel = struct {
         self.auto_wrap = true;
         self.view_padding_rows = 0;
         self.row_origin = 0;
+        self.scroll_top = 0;
+        self.scroll_bottom = self.rows -| 1;
         self.current_attrs = default_cell_attrs;
         self.dirty_rows = if (self.rows > 0) .{ .start_row = 0, .end_row = self.rows -| 1 } else null;
         if (self.cells) |c| @memset(c, default_cell);
@@ -696,6 +756,10 @@ pub const GridModel = struct {
 
     pub fn clearDirtyRows(self: *GridModel) void {
         self.dirty_rows = null;
+    }
+
+    pub fn markAllDirty(self: *GridModel) void {
+        self.markAllRowsDirty();
     }
 
     /// Read visible cell value by row and column.
@@ -827,6 +891,26 @@ pub const GridModel = struct {
             },
             .sgr => |sgr| self.applySgr(sgr.params[0..sgr.param_count]),
             .enter_alt_screen, .exit_alt_screen => {},
+            .insert_lines => |count| {
+                self.wrap_pending = false;
+                self.insertLines(count);
+            },
+            .delete_lines => |count| {
+                self.wrap_pending = false;
+                self.deleteLines(count);
+            },
+            .scroll_up_lines => |count| {
+                self.wrap_pending = false;
+                self.scrollUpRegion(self.scroll_top, self.scrollBottom(), count);
+            },
+            .scroll_down_lines => |count| {
+                self.wrap_pending = false;
+                self.scrollDownRegion(self.scroll_top, self.scrollBottom(), count);
+            },
+            .set_scroll_region => |region| {
+                self.wrap_pending = false;
+                self.setScrollRegion(region.top, region.bottom);
+            },
             .reset_screen => self.reset(),
             .erase_display => |mode| {
                 self.wrap_pending = false;
@@ -1000,11 +1084,16 @@ pub const GridModel = struct {
 
     fn lineFeed(self: *GridModel) void {
         if (self.rows == 0) return;
-        if (self.cursor_row < self.rows - 1) {
+        const bottom = self.scrollBottom();
+        if (self.cursor_row < bottom) {
             self.cursor_row += 1;
             return;
         }
-        self.scrollUp();
+        if (self.cursor_row == bottom) {
+            self.scrollUpRegion(self.scroll_top, bottom, 1);
+            return;
+        }
+        if (self.cursor_row < self.rows - 1) self.cursor_row += 1;
     }
 
     fn scrollUp(self: *GridModel) void {
@@ -1017,6 +1106,89 @@ pub const GridModel = struct {
         const bottom_start = self.rowStart(self.rows - 1);
         @memset(c[bottom_start .. bottom_start + row_len], default_cell);
         self.setRowWrapped(self.rows - 1, false);
+    }
+
+    fn scrollBottom(self: *const GridModel) u16 {
+        return if (self.rows == 0) 0 else @min(self.scroll_bottom, self.rows - 1);
+    }
+
+    fn setScrollRegion(self: *GridModel, top: u16, bottom: ?u16) void {
+        if (self.rows == 0) {
+            self.scroll_top = 0;
+            self.scroll_bottom = 0;
+            self.cursor_row = 0;
+            self.cursor_col = 0;
+            return;
+        }
+
+        const new_top = @min(top, self.rows - 1);
+        const new_bottom = if (bottom) |value| @min(value, self.rows - 1) else self.rows - 1;
+        if (new_top >= new_bottom) return;
+
+        self.scroll_top = new_top;
+        self.scroll_bottom = new_bottom;
+        self.cursor_row = 0;
+        self.cursor_col = 0;
+    }
+
+    fn insertLines(self: *GridModel, count: u16) void {
+        const bottom = self.scrollBottom();
+        if (self.cursor_row < self.scroll_top or self.cursor_row > bottom) return;
+        self.scrollDownRegion(self.cursor_row, bottom, count);
+    }
+
+    fn deleteLines(self: *GridModel, count: u16) void {
+        const bottom = self.scrollBottom();
+        if (self.cursor_row < self.scroll_top or self.cursor_row > bottom) return;
+        self.scrollUpRegion(self.cursor_row, bottom, count);
+    }
+
+    fn scrollUpRegion(self: *GridModel, top: u16, bottom: u16, count: u16) void {
+        if (self.rows == 0 or self.cols == 0 or top >= self.rows or top > bottom) return;
+        const bounded_bottom = @min(bottom, self.rows - 1);
+        const region_len: u16 = bounded_bottom - top + 1;
+        const amount = @min(count, region_len);
+        if (amount == 0) return;
+
+        if (top == 0 and bounded_bottom == self.rows - 1) {
+            var remaining = amount;
+            while (remaining > 0) : (remaining -= 1) self.scrollUp();
+            return;
+        }
+
+        self.markDirtyRows(top, bounded_bottom);
+
+        var dst = top;
+        while (dst + amount <= bounded_bottom) : (dst += 1) {
+            self.copyRow(dst, dst + amount);
+        }
+
+        var clear_row = bounded_bottom - amount + 1;
+        while (clear_row <= bounded_bottom) : (clear_row += 1) {
+            self.clearFullRow(clear_row);
+        }
+    }
+
+    fn scrollDownRegion(self: *GridModel, top: u16, bottom: u16, count: u16) void {
+        if (self.rows == 0 or self.cols == 0 or top >= self.rows or top > bottom) return;
+        const bounded_bottom = @min(bottom, self.rows - 1);
+        const region_len: u16 = bounded_bottom - top + 1;
+        const amount = @min(count, region_len);
+        if (amount == 0) return;
+
+        self.markDirtyRows(top, bounded_bottom);
+
+        var dst = bounded_bottom;
+        while (dst >= top + amount) {
+            self.copyRow(dst, dst - amount);
+            if (dst == top + amount) break;
+            dst -= 1;
+        }
+
+        var clear_row = top;
+        while (clear_row < top + amount) : (clear_row += 1) {
+            self.clearFullRow(clear_row);
+        }
     }
 
     fn rowStart(self: *const GridModel, logical_row: u16) usize {
@@ -1042,9 +1214,15 @@ pub const GridModel = struct {
         wraps[idx] = wrapped;
     }
 
+    fn historySlotForLogicalRow(self: *const GridModel, logical_row: usize) ?usize {
+        const capacity = self.projectedHistoryCapacity();
+        if (logical_row >= self.history_count or capacity == 0) return null;
+        return (self.history_write_idx + logical_row) % capacity;
+    }
+
     fn historySlotForRecency(self: *const GridModel, history_idx: usize) ?usize {
         if (history_idx >= self.history_count) return null;
-        return self.history_count - 1 - history_idx;
+        return self.historySlotForLogicalRow(self.history_count - 1 - history_idx);
     }
 
     fn historyRowWrapped(self: *const GridModel, history_idx: usize) bool {
@@ -1057,6 +1235,21 @@ pub const GridModel = struct {
         const c = self.cells orelse return;
         const start = self.rowStart(row);
         @memset(c[start + @as(usize, start_col) .. start + @as(usize, end_col_exclusive)], default_cell);
+    }
+
+    fn clearFullRow(self: *GridModel, row: u16) void {
+        if (self.cols == 0) return;
+        self.clearRowRange(row, 0, self.cols);
+        self.setRowWrapped(row, false);
+    }
+
+    fn copyRow(self: *GridModel, dst_row: u16, src_row: u16) void {
+        const c = self.cells orelse return;
+        const row_len = @as(usize, self.cols);
+        const dst_start = self.rowStart(dst_row);
+        const src_start = self.rowStart(src_row);
+        std.mem.copyForwards(Cell, c[dst_start .. dst_start + row_len], c[src_start .. src_start + row_len]);
+        self.setRowWrapped(dst_row, self.rowWrapped(src_row));
     }
 
     fn markDirtyRow(self: *GridModel, row: u16) void {

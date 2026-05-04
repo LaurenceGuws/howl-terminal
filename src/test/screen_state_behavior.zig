@@ -461,6 +461,77 @@ test "screen: scrollUp captures row to history" {
     try std.testing.expectEqual(@as(u21, 'z'), s.cellAt(0, 2));
 }
 
+test "screen: DECSTBM and IL shift rows down inside region" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 4, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 0, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "AAAA" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "BBBB" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 2, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "CCCC" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 3, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "DDDD" });
+
+    s.apply(SemanticEvent{ .set_scroll_region = .{ .top = 1, .bottom = 3 } });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .insert_lines = 1 });
+
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(3, 0));
+}
+
+test "screen: DECSTBM and DL shift rows up inside region" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 4, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 0, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "AAAA" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "BBBB" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 2, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "CCCC" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 3, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "DDDD" });
+
+    s.apply(SemanticEvent{ .set_scroll_region = .{ .top = 1, .bottom = 3 } });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .delete_lines = 1 });
+
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'D'), s.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(3, 0));
+}
+
+test "screen: SU scrolls only within configured region" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 4, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 0, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "AAAA" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "BBBB" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 2, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "CCCC" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 3, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "DDDD" });
+
+    s.apply(SemanticEvent{ .set_scroll_region = .{ .top = 1, .bottom = 3 } });
+    s.apply(SemanticEvent{ .scroll_up_lines = 1 });
+
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'C'), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'D'), s.cellAt(2, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(3, 0));
+}
+
 test "screen: history capacity limits with wraparound" {
     const gpa = std.testing.allocator;
     var s = try GridModel.initWithCellsAndHistory(gpa, 2, 2, 2);

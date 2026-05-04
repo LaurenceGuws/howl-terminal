@@ -164,6 +164,38 @@ test "semantic: CBT large param saturates to u16 max" {
     try std.testing.expectEqual(std.math.maxInt(u16), sem.horizontal_tab_back);
 }
 
+test "semantic: IL explicit count" {
+    const sem = process(makeStyleChange('L', 3, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 3), sem.insert_lines);
+}
+
+test "semantic: DL defaults to one line" {
+    const sem = process(makeStyleChange('M', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.delete_lines);
+}
+
+test "semantic: SU explicit count" {
+    const sem = process(makeStyleChange('S', 2, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.scroll_up_lines);
+}
+
+test "semantic: SD defaults to one line" {
+    const sem = process(makeStyleChange('T', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.scroll_down_lines);
+}
+
+test "semantic: DECSTBM captures top and bottom margins" {
+    const sem = process(makeStyleChange('r', 2, 5, 2)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.set_scroll_region.top);
+    try std.testing.expectEqual(@as(?u16, 4), sem.set_scroll_region.bottom);
+}
+
+test "semantic: DECSTBM with omitted bottom resets to viewport bottom" {
+    const sem = process(makeStyleChange('r', 3, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 2), sem.set_scroll_region.top);
+    try std.testing.expectEqual(@as(?u16, null), sem.set_scroll_region.bottom);
+}
+
 test "semantic: CUP explicit row and col" {
     const sem = process(makeStyleChange('H', 3, 5, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 2), sem.cursor_position.row);
@@ -176,8 +208,8 @@ test "semantic: CUP no params defaults to origin" {
     try std.testing.expectEqual(@as(u16, 0), sem.cursor_position.col);
 }
 
-test "semantic: non-cursor CSI returns null" {
-    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('m', 1, 0, 1)));
+test "semantic: unsupported CSI returns null" {
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(makeStyleChange('x', 1, 0, 1)));
 }
 
 test "semantic: DECSTR maps to reset_screen" {

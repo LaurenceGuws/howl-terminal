@@ -113,10 +113,16 @@ pub const VtCoreSnapshot = struct {
         }
 
         // Copy history buffer if present.
-        if (screen.history) |history| {
-            const size = history.len;
+        if (screen.history_count > 0 and screen.cols > 0) {
+            const size = screen.history_count * @as(usize, screen.cols);
             const owned_history = try allocator.alloc(u21, size);
-            for (history, owned_history) |src, *dst| dst.* = @intCast(src.codepoint);
+            var row: usize = 0;
+            while (row < screen.history_count) : (row += 1) {
+                var col: u16 = 0;
+                while (col < screen.cols) : (col += 1) {
+                    owned_history[row * @as(usize, screen.cols) + @as(usize, col)] = @intCast(screen.historyCellAt(screen.history_count - 1 - row, col).codepoint);
+                }
+            }
             snapshot.history = owned_history;
         }
 
