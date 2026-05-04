@@ -1831,3 +1831,34 @@ test "replay: neovim colored empty cells through EL and ECH" {
     try std.testing.expectEqual(@as(u8, 44), ech_cell.attrs.bg.g);
     try std.testing.expectEqual(@as(u8, 52), ech_cell.attrs.bg.b);
 }
+
+test "replay: DEC special graphics renders box drawing cells" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 1, 8);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "\x1b(0lqkxmj\x1b(Bq");
+
+    try std.testing.expectEqual(@as(u21, 0x250C), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0x2500), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0x2510), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 0x2502), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 0x2514), screen.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 0x2518), screen.cellAt(0, 5));
+    try std.testing.expectEqual(@as(u21, 'q'), screen.cellAt(0, 6));
+}
+
+test "replay: DEC special graphics G1 via SO SI" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 1, 4);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "\x1b)0\x0eq\x0fq");
+
+    try std.testing.expectEqual(@as(u21, 0x2500), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'q'), screen.cellAt(0, 1));
+}

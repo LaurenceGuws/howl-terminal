@@ -198,6 +198,18 @@ pub const Parser = struct {
                     self.osc_state = .idle;
                     return;
                 }
+                if (byte == 0x0E) {
+                    self.gl_charset = self.g1_charset;
+                    return;
+                }
+                if (byte == 0x0F) {
+                    self.gl_charset = self.g0_charset;
+                    return;
+                }
+                if (self.gl_charset == .dec_special and byte >= 0x20 and byte <= 0x7e) {
+                    self.sink.onStreamEvent(.{ .codepoint = mapDecSpecial(byte) });
+                    return;
+                }
                 if (self.stream.feed(byte)) |event| {
                     self.sink.onStreamEvent(event);
                 }
@@ -276,7 +288,7 @@ pub const Parser = struct {
                 continue;
             }
 
-            if (self.esc_state == .ground and self.stream.decoder.needed == 0) {
+            if (self.esc_state == .ground and self.stream.decoder.needed == 0 and self.gl_charset == .ascii) {
                 const start = i;
                 // ASCII fast path batches printable bytes into one sink event.
                 while (i < bytes.len) {
@@ -404,6 +416,39 @@ pub const Parser = struct {
         self.dcs_state = .idle;
     }
 };
+
+fn mapDecSpecial(byte: u8) u21 {
+    return switch (byte) {
+        '`' => 0x25C6, // ◆
+        'a' => 0x2592, // ▒
+        'f' => 0x00B0, // °
+        'g' => 0x00B1, // ±
+        'h' => 0x2424, // ␤
+        'i' => 0x240B, // ␋
+        'j' => 0x2518, // ┘
+        'k' => 0x2510, // ┐
+        'l' => 0x250C, // ┌
+        'm' => 0x2514, // └
+        'n' => 0x253C, // ┼
+        'o' => 0x23BA, // ⎺
+        'p' => 0x23BB, // ⎻
+        'q' => 0x2500, // ─
+        'r' => 0x23BC, // ⎼
+        's' => 0x23BD, // ⎽
+        't' => 0x251C, // ├
+        'u' => 0x2524, // ┤
+        'v' => 0x2534, // ┴
+        'w' => 0x252C, // ┬
+        'x' => 0x2502, // │
+        'y' => 0x2264, // ≤
+        'z' => 0x2265, // ≥
+        '{' => 0x03C0, // π
+        '|' => 0x2260, // ≠
+        '}' => 0x00A3, // £
+        '~' => 0x00B7, // ·
+        else => byte,
+    };
+}
 
 
 const Event = union(enum) {
@@ -620,4 +665,39 @@ test "parser: CSI with multiple parameters exact order" {
     try std.testing.expectEqual(@as(i32, 31), harness.events.items[0].csi.params[1]);
     try std.testing.expectEqual(@as(i32, 40), harness.events.items[0].csi.params[2]);
     try std.testing.expectEqual(@as(u8, 3), harness.events.items[0].csi.count);
+}
+
+test "parser: DEC special graphics maps box drawing bytes" {
+    const gpa = std.testing.allocator;
+    var harness = Harness.init(gpa);
+    defer harness.deinit();
+    var parser = try Parser.init(gpa, harness.toSink());
+    defer parser.deinit();
+
+    parser.handleSlice("\x1b(0lqkxmj\x1b(Bq");
+
+    try std.testing.expectEqual(@as(usize, 7), harness.events.items.len);
+    try std.testing.expectEqual(@as(u21, 0x250C), harness.events.items[0].stream_codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2500), harness.events.items[1].stream_codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2510), harness.events.items[2].stream_codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2502), harness.events.items[3].stream_codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2514), harness.events.items[4].stream_codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2518), harness.events.items[5].stream_codepoint);
+    try std.testing.expect(harness.events.items[6] == .ascii_slice);
+    try std.testing.expectEqualSlices(u8, "q", harness.events.items[6].ascii_slice);
+}
+
+test "parser: SO SI switch G1 DEC special graphics" {
+    const gpa = std.testing.allocator;
+    var harness = Harness.init(gpa);
+    defer harness.deinit();
+    var parser = try Parser.init(gpa, harness.toSink());
+    defer parser.deinit();
+
+    parser.handleSlice("\x1b)0\x0eq\x0fq");
+
+    try std.testing.expectEqual(@as(usize, 2), harness.events.items.len);
+    try std.testing.expectEqual(@as(u21, 0x2500), harness.events.items[0].stream_codepoint);
+    try std.testing.expect(harness.events.items[1] == .ascii_slice);
+    try std.testing.expectEqualSlices(u8, "q", harness.events.items[1].ascii_slice);
 }
