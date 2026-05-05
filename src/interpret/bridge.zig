@@ -111,6 +111,10 @@ pub const Bridge = struct {
 
     fn onAsciiSlice(ptr: *anyopaque, bytes: []const u8) void {
         const self: *Bridge = @ptrCast(@alignCast(ptr));
+        if (bytes.len == 1) {
+            self.events.append(self.allocator, Event{ .codepoint = bytes[0] }) catch {};
+            return;
+        }
         const owned = self.arena.allocator().dupe(u8, bytes) catch return;
         self.events.append(self.allocator, Event{ .text = owned }) catch {};
     }
@@ -202,6 +206,18 @@ test "bridge: maps ASCII text to text event" {
     try std.testing.expectEqual(@as(usize, 1), bridge.events.items.len);
     try std.testing.expect(bridge.events.items[0] == .text);
     try std.testing.expectEqualSlices(u8, "hello", bridge.events.items[0].text);
+}
+
+test "bridge: maps single ASCII byte to codepoint event" {
+    const gpa = std.testing.allocator;
+    var bridge = Bridge.init(gpa);
+    defer bridge.deinit();
+    var parser = try ParserApi.Parser.init(gpa, bridge.toSink());
+    defer parser.deinit();
+    parser.handleSlice("x");
+    try std.testing.expectEqual(@as(usize, 1), bridge.events.items.len);
+    try std.testing.expect(bridge.events.items[0] == .codepoint);
+    try std.testing.expectEqual(@as(u21, 'x'), bridge.events.items[0].codepoint);
 }
 
 test "bridge: maps UTF-8 codepoint to codepoint event" {
