@@ -7,6 +7,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const perf_optimize: std.builtin.OptimizeMode = .ReleaseFast;
     const mod = b.addModule("vt_core", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -19,6 +20,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     mod.addImport("fuzz_scrollback", fuzz_scrollback_mod);
+    const perf_mod = b.addModule("vt_core_perf", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = perf_optimize,
+    });
+    perf_mod.addImport("vt_core", perf_mod);
+    const perf_fuzz_scrollback_mod = b.createModule(.{
+        .root_source_file = b.path("src/fuzz/scrollback.zig"),
+        .target = target,
+        .optimize = perf_optimize,
+    });
+    perf_mod.addImport("fuzz_scrollback", perf_fuzz_scrollback_mod);
 
     const mod_tests = b.addTest(.{
         .name = "test-unit",
@@ -79,9 +92,9 @@ pub fn build(b: *std.Build) void {
     const baseline_mod = b.createModule(.{
         .root_source_file = b.path("src/test/vt_core_benchmark.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = perf_optimize,
     });
-    baseline_mod.addImport("vt_core", mod);
+    baseline_mod.addImport("vt_core", perf_mod);
     const baseline_exe = b.addExecutable(.{
         .name = "m7_baseline",
         .root_module = baseline_mod,
