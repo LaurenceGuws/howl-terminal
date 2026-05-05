@@ -31,11 +31,10 @@ pub const CsiParser = struct {
 
     /// Reset parser state to defaults.
     pub fn reset(self: *CsiParser) void {
-        self.params = [_]i32{0} ** max_params;
+        self.params[0] = 0;
         self.count = 0;
         self.leader = 0;
         self.private = false;
-        self.intermediates = [_]u8{0} ** max_intermediates;
         self.intermediates_len = 0;
         self.in_param = false;
     }
@@ -70,7 +69,10 @@ pub const CsiParser = struct {
         }
 
         if (byte == ';' or byte == ':') {
-            if (self.count < self.params.len) self.count += 1;
+            if (self.count < self.params.len) {
+                self.count += 1;
+                if (self.count < self.params.len) self.params[self.count] = 0;
+            }
             self.in_param = false;
             return null;
         }
@@ -166,6 +168,19 @@ test "CSI parser: multi-param sequence (1;31;40m)" {
     try std.testing.expectEqual(@as(i32, 31), action.?.params[1]);
     try std.testing.expectEqual(@as(i32, 40), action.?.params[2]);
     try std.testing.expectEqual(@as(u8, 3), action.?.count);
+}
+
+test "CSI parser: empty params stay defaulted after reset" {
+    var parser = CsiParser{};
+    _ = parser.feed('9');
+    _ = parser.feed('9');
+    _ = parser.feed('m');
+
+    var action: ?CsiAction = null;
+    for (";H") |byte| action = parser.feed(byte);
+    try std.testing.expectEqual(@as(u8, 'H'), action.?.final);
+    try std.testing.expectEqual(@as(u8, 1), action.?.count);
+    try std.testing.expectEqual(@as(i32, 0), action.?.params[0]);
 }
 
 test "CSI parser: cursor position query (6n)" {
