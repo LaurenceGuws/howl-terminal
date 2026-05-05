@@ -111,17 +111,6 @@ pub const Bridge = struct {
 
     fn onAsciiSlice(ptr: *anyopaque, bytes: []const u8) void {
         const self: *Bridge = @ptrCast(@alignCast(ptr));
-        if (self.events.items.len > 0) {
-            const last = &self.events.items[self.events.items.len - 1];
-            if (last.* == .text) {
-                const prev = last.text;
-                const merged = self.arena.allocator().alloc(u8, prev.len + bytes.len) catch return;
-                @memcpy(merged[0..prev.len], prev);
-                @memcpy(merged[prev.len..], bytes);
-                last.* = Event{ .text = merged };
-                return;
-            }
-        }
         const owned = self.arena.allocator().dupe(u8, bytes) catch return;
         self.events.append(self.allocator, Event{ .text = owned }) catch {};
     }
