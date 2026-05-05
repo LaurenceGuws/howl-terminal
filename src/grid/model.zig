@@ -36,9 +36,28 @@ const RewrappedRow = struct {
     wrapped: bool,
 };
 
+fn allocDirtyCols(allocator: std.mem.Allocator, rows: u16, initial: u16) !?[]u16 {
+    if (rows == 0) return null;
+    const buf = try allocator.alloc(u16, rows);
+    @memset(buf, initial);
+    return buf;
+}
+
+fn dirtyRowsForFull(rows: u16, dirty_cols_start: ?[]const u16, dirty_cols_end: ?[]const u16) ?DirtyRows {
+    if (rows == 0) return null;
+    return .{
+        .start_row = 0,
+        .end_row = rows -| 1,
+        .dirty_cols_start = dirty_cols_start orelse &.{},
+        .dirty_cols_end = dirty_cols_end orelse &.{},
+    };
+}
+
 pub const DirtyRows = struct {
     start_row: u16,
     end_row: u16,
+    dirty_cols_start: []const u16 = &.{},
+    dirty_cols_end: []const u16 = &.{},
 };
 
 /// Terminal grid model for cursor/cell/history behavior.
@@ -73,6 +92,8 @@ pub const GridModel = struct {
     },
     current_attrs: CellAttrs,
     dirty_rows: ?DirtyRows,
+    dirty_cols_start: ?[]u16,
+    dirty_cols_end: ?[]u16,
 
     /// Initialize cursor-only grid state.
     pub fn init(rows: u16, cols: u16) GridModel {
@@ -103,6 +124,8 @@ pub const GridModel = struct {
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = null,
+            .dirty_cols_start = null,
+            .dirty_cols_end = null,
         };
     }
 
@@ -120,6 +143,11 @@ pub const GridModel = struct {
             @memset(buf, false);
             break :blk buf;
         } else null;
+        errdefer if (row_wraps) |buf| allocator.free(buf);
+        const dirty_cols_start = try allocDirtyCols(allocator, rows, 0);
+        errdefer if (dirty_cols_start) |buf| allocator.free(buf);
+        const dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
+        errdefer if (dirty_cols_end) |buf| allocator.free(buf);
         return .{
             .allocator = allocator,
             .rows = rows,
@@ -146,7 +174,9 @@ pub const GridModel = struct {
             .open_history_line = null,
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
-            .dirty_rows = if (rows > 0) .{ .start_row = 0, .end_row = rows -| 1 } else null,
+            .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
+            .dirty_cols_start = dirty_cols_start,
+            .dirty_cols_end = dirty_cols_end,
         };
     }
 
@@ -165,6 +195,10 @@ pub const GridModel = struct {
             break :blk buf;
         } else null;
         errdefer if (row_wraps) |buf| allocator.free(buf);
+        const dirty_cols_start = try allocDirtyCols(allocator, rows, 0);
+        errdefer if (dirty_cols_start) |buf| allocator.free(buf);
+        const dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
+        errdefer if (dirty_cols_end) |buf| allocator.free(buf);
         const history: ?[]Cell = if (cells != null and history_capacity > 0) blk: {
             const buf = try allocator.alloc(Cell, 0);
             break :blk buf;
@@ -200,7 +234,9 @@ pub const GridModel = struct {
             .open_history_line = null,
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
-            .dirty_rows = if (rows > 0) .{ .start_row = 0, .end_row = rows -| 1 } else null,
+            .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
+            .dirty_cols_start = dirty_cols_start,
+            .dirty_cols_end = dirty_cols_end,
         };
     }
 
@@ -210,6 +246,10 @@ pub const GridModel = struct {
         self.cells = null;
         if (self.row_wraps) |buf| allocator.free(buf);
         self.row_wraps = null;
+        if (self.dirty_cols_start) |buf| allocator.free(buf);
+        self.dirty_cols_start = null;
+        if (self.dirty_cols_end) |buf| allocator.free(buf);
+        self.dirty_cols_end = null;
         if (self.history) |h| allocator.free(h);
         self.history = null;
         if (self.history_wraps) |buf| allocator.free(buf);
@@ -229,6 +269,8 @@ pub const GridModel = struct {
     fn resizeWithReflow(self: *GridModel, allocator: std.mem.Allocator, rows: u16, cols: u16) !void {
         const old_cells = self.cells;
         const old_row_wraps = self.row_wraps;
+        const old_dirty_cols_start = self.dirty_cols_start;
+        const old_dirty_cols_end = self.dirty_cols_end;
         const old_rows = self.rows;
         const old_history = self.history;
         const old_history_wraps = self.history_wraps;
@@ -376,6 +418,10 @@ pub const GridModel = struct {
             new_row_wraps = buf;
         }
         errdefer if (new_row_wraps) |buf| allocator.free(buf);
+        const new_dirty_cols_start = try allocDirtyCols(allocator, rows, 0);
+        errdefer if (new_dirty_cols_start) |buf| allocator.free(buf);
+        const new_dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
+        errdefer if (new_dirty_cols_end) |buf| allocator.free(buf);
 
         if (new_cells) |dst| {
             const dst_wraps = new_row_wraps.?;
@@ -397,6 +443,8 @@ pub const GridModel = struct {
         self.cols = cols;
         self.cells = new_cells;
         self.row_wraps = new_row_wraps;
+        self.dirty_cols_start = new_dirty_cols_start;
+        self.dirty_cols_end = new_dirty_cols_end;
         self.history = null;
         self.history_wraps = null;
         self.history_count = 0;
@@ -405,7 +453,7 @@ pub const GridModel = struct {
         self.view_padding_rows = 0;
         self.scroll_top = 0;
         self.scroll_bottom = rows -| 1;
-        self.dirty_rows = if (rows > 0) .{ .start_row = 0, .end_row = rows -| 1 } else null;
+        self.dirty_rows = dirtyRowsForFull(rows, new_dirty_cols_start, new_dirty_cols_end);
 
         try self.replaceHistoryAuthority(
             allocator,
@@ -432,6 +480,8 @@ pub const GridModel = struct {
 
         if (old_cells) |buf| allocator.free(buf);
         if (old_row_wraps) |buf| allocator.free(buf);
+        if (old_dirty_cols_start) |buf| allocator.free(buf);
+        if (old_dirty_cols_end) |buf| allocator.free(buf);
         if (old_history) |buf| allocator.free(buf);
         if (old_history_wraps) |buf| allocator.free(buf);
     }
@@ -759,7 +809,7 @@ pub const GridModel = struct {
         self.scroll_bottom = self.rows -| 1;
         self.saved_cursor = null;
         self.current_attrs = default_cell_attrs;
-        self.dirty_rows = if (self.rows > 0) .{ .start_row = 0, .end_row = self.rows -| 1 } else null;
+        self.markAllRowsDirty();
         if (self.cells) |c| @memset(c, default_cell);
         if (self.row_wraps) |buf| @memset(buf, false);
     }
@@ -770,6 +820,8 @@ pub const GridModel = struct {
 
     pub fn clearDirtyRows(self: *GridModel) void {
         self.dirty_rows = null;
+        if (self.dirty_cols_start) |buf| @memset(buf, self.cols);
+        if (self.dirty_cols_end) |buf| @memset(buf, 0);
     }
 
     pub fn markAllDirty(self: *GridModel) void {
@@ -1040,11 +1092,17 @@ pub const GridModel = struct {
     fn eraseLine(self: *GridModel, mode: u2) void {
         _ = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
-        self.markDirtyRow(self.cursor_row);
         switch (mode) {
-            0 => self.clearRowRange(self.cursor_row, self.cursor_col, self.cols),
-            1 => self.clearRowRange(self.cursor_row, 0, self.cursor_col + 1),
+            0 => {
+                self.markDirtyCols(self.cursor_row, self.cursor_col, self.cols -| 1);
+                self.clearRowRange(self.cursor_row, self.cursor_col, self.cols);
+            },
+            1 => {
+                self.markDirtyCols(self.cursor_row, 0, self.cursor_col);
+                self.clearRowRange(self.cursor_row, 0, self.cursor_col + 1);
+            },
             2 => {
+                self.markDirtyRow(self.cursor_row);
                 self.clearRowRange(self.cursor_row, 0, self.cols);
                 self.setRowWrapped(self.cursor_row, false);
             },
@@ -1055,7 +1113,7 @@ pub const GridModel = struct {
     fn eraseChars(self: *GridModel, count: u16) void {
         if (self.rows == 0 or self.cols == 0) return;
         const amount = @min(@max(count, 1), self.cols - self.cursor_col);
-        self.markDirtyRow(self.cursor_row);
+        self.markDirtyCols(self.cursor_row, self.cursor_col, self.cursor_col + amount - 1);
         self.clearRowRange(self.cursor_row, self.cursor_col, self.cursor_col + amount);
     }
 
@@ -1071,7 +1129,7 @@ pub const GridModel = struct {
         const src_col: usize = @min(@as(usize, self.cursor_col) + @as(usize, amount), @as(usize, self.cols));
         const move_len = @as(usize, self.cols) - src_col;
 
-        self.markDirtyRow(self.cursor_row);
+        self.markDirtyCols(self.cursor_row, self.cursor_col, self.cols -| 1);
         if (move_len > 0) {
             std.mem.copyForwards(Cell, row[dst_col .. dst_col + move_len], row[src_col .. src_col + move_len]);
         }
@@ -1091,7 +1149,7 @@ pub const GridModel = struct {
         }
         if (self.cells) |c| {
             const start = self.rowStart(self.cursor_row);
-            self.markDirtyRow(self.cursor_row);
+            self.markDirtyCols(self.cursor_row, self.cursor_col, self.cursor_col);
             c[start + @as(usize, self.cursor_col)] = .{
                 .codepoint = cp,
                 .attrs = self.current_attrs,
@@ -1367,24 +1425,68 @@ pub const GridModel = struct {
 
     fn markDirtyRow(self: *GridModel, row: u16) void {
         if (self.rows == 0 or row >= self.rows) return;
-        self.markDirtyRows(row, row);
+        self.markDirtyCols(row, 0, self.cols -| 1);
+    }
+
+    fn markDirtyCols(self: *GridModel, row: u16, start_col: u16, end_col: u16) void {
+        if (self.rows == 0 or self.cols == 0 or row >= self.rows) return;
+        const start = @min(start_col, self.cols -| 1);
+        const end = @min(end_col, self.cols -| 1);
+        const lo = @min(start, end);
+        const hi = @max(start, end);
+        if (self.dirty_rows) |*d| {
+            d.start_row = @min(d.start_row, row);
+            d.end_row = @max(d.end_row, row);
+            d.dirty_cols_start = self.dirty_cols_start orelse &.{};
+            d.dirty_cols_end = self.dirty_cols_end orelse &.{};
+        } else {
+            self.dirty_rows = .{
+                .start_row = row,
+                .end_row = row,
+                .dirty_cols_start = self.dirty_cols_start orelse &.{},
+                .dirty_cols_end = self.dirty_cols_end orelse &.{},
+            };
+        }
+        if (self.dirty_cols_start) |cols_start| {
+            cols_start[row] = @min(cols_start[row], lo);
+        }
+        if (self.dirty_cols_end) |cols_end| {
+            cols_end[row] = @max(cols_end[row], hi);
+        }
     }
 
     fn markDirtyRows(self: *GridModel, start_row: u16, end_row: u16) void {
         if (self.rows == 0) return;
         const start = @min(start_row, self.rows -| 1);
         const end = @min(end_row, self.rows -| 1);
+        if (self.dirty_cols_start) |cols_start| {
+            var row = start;
+            while (row <= end) : (row += 1) cols_start[row] = 0;
+        }
+        if (self.dirty_cols_end) |cols_end| {
+            var row = start;
+            while (row <= end) : (row += 1) cols_end[row] = self.cols -| 1;
+        }
         if (self.dirty_rows) |*d| {
             d.start_row = @min(d.start_row, start);
             d.end_row = @max(d.end_row, end);
+            d.dirty_cols_start = self.dirty_cols_start orelse &.{};
+            d.dirty_cols_end = self.dirty_cols_end orelse &.{};
         } else {
-            self.dirty_rows = .{ .start_row = start, .end_row = end };
+            self.dirty_rows = .{
+                .start_row = start,
+                .end_row = end,
+                .dirty_cols_start = self.dirty_cols_start orelse &.{},
+                .dirty_cols_end = self.dirty_cols_end orelse &.{},
+            };
         }
     }
 
     fn markAllRowsDirty(self: *GridModel) void {
         if (self.rows == 0) return;
-        self.dirty_rows = .{ .start_row = 0, .end_row = self.rows -| 1 };
+        if (self.dirty_cols_start) |buf| @memset(buf, 0);
+        if (self.dirty_cols_end) |buf| @memset(buf, self.cols -| 1);
+        self.dirty_rows = dirtyRowsForFull(self.rows, self.dirty_cols_start, self.dirty_cols_end);
     }
 
     fn clampByte(v: i32) u8 {

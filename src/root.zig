@@ -20,7 +20,6 @@ const ClipboardRequest = struct {
     raw: []u8,
 };
 
-
 /// Host-neutral terminal facade.
 pub const VtCore = struct {
     pub const DirtyRows = grid_model.DirtyRows;
@@ -729,17 +728,23 @@ test "alternate screen switches mark active viewport fully dirty" {
     const allocator = std.testing.allocator;
     var vt_core = try VtCore.initWithCells(allocator, 3, 4);
     defer vt_core.deinit();
-    const expected = VtCore.DirtyRows{ .start_row = 0, .end_row = 2 };
-
     vt_core.activeStateMut().clearDirtyRows();
     vt_core.feedSlice("\x1b[?1049h");
     vt_core.apply();
-    try std.testing.expectEqual(expected, vt_core.screen().peekDirtyRows().?);
+    const enter_dirty = vt_core.screen().peekDirtyRows().?;
+    try std.testing.expectEqual(@as(u16, 0), enter_dirty.start_row);
+    try std.testing.expectEqual(@as(u16, 2), enter_dirty.end_row);
+    try std.testing.expectEqual(@as(u16, 0), enter_dirty.dirty_cols_start[0]);
+    try std.testing.expectEqual(@as(u16, 3), enter_dirty.dirty_cols_end[2]);
 
     vt_core.activeStateMut().clearDirtyRows();
     vt_core.feedSlice("\x1b[?1049l");
     vt_core.apply();
-    try std.testing.expectEqual(expected, vt_core.screen().peekDirtyRows().?);
+    const exit_dirty = vt_core.screen().peekDirtyRows().?;
+    try std.testing.expectEqual(@as(u16, 0), exit_dirty.start_row);
+    try std.testing.expectEqual(@as(u16, 2), exit_dirty.end_row);
+    try std.testing.expectEqual(@as(u16, 0), exit_dirty.dirty_cols_start[0]);
+    try std.testing.expectEqual(@as(u16, 3), exit_dirty.dirty_cols_end[2]);
 }
 
 test "encodeKey and encodeMouse methods are callable" {
