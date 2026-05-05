@@ -84,7 +84,9 @@ pub const GridModel = struct {
     history_count: usize,
     history_write_idx: usize,
     history_lines: std.ArrayListUnmanaged(HistoryLine),
+    history_lines_start: usize,
     open_history_line: ?HistoryLine,
+    open_history_reuse_slot: ?usize,
     saved_cursor: ?struct {
         row: u16,
         col: u16,
@@ -120,7 +122,9 @@ pub const GridModel = struct {
             .history_count = 0,
             .history_write_idx = 0,
             .history_lines = .empty,
+            .history_lines_start = 0,
             .open_history_line = null,
+            .open_history_reuse_slot = null,
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = null,
@@ -171,7 +175,9 @@ pub const GridModel = struct {
             .history_count = 0,
             .history_write_idx = 0,
             .history_lines = .empty,
+            .history_lines_start = 0,
             .open_history_line = null,
+            .open_history_reuse_slot = null,
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
@@ -231,7 +237,9 @@ pub const GridModel = struct {
             .history_count = 0,
             .history_write_idx = 0,
             .history_lines = .empty,
+            .history_lines_start = 0,
             .open_history_line = null,
+            .open_history_reuse_slot = null,
             .saved_cursor = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
@@ -288,7 +296,9 @@ pub const GridModel = struct {
         var cursor_offset: usize = 0;
         var cursor_found = false;
 
-        for (self.history_lines.items) |line| {
+        var history_line_idx: usize = 0;
+        while (history_line_idx < self.history_lines.items.len) : (history_line_idx += 1) {
+            const line = self.historyLineAt(history_line_idx);
             var copied = try cloneHistoryLine(allocator, line.cells.items);
             copied.cursor_offset = null;
             try logical_lines.append(allocator, copied);
@@ -629,8 +639,10 @@ pub const GridModel = struct {
     fn clearHistoryAuthority(self: *GridModel, allocator: std.mem.Allocator) void {
         for (self.history_lines.items) |*line| line.deinit(allocator);
         self.history_lines.clearRetainingCapacity();
+        self.history_lines_start = 0;
         if (self.open_history_line) |*line| line.deinit(allocator);
         self.open_history_line = null;
+        self.open_history_reuse_slot = null;
     }
 
     fn rebuildHistoryProjection(self: *GridModel, allocator: std.mem.Allocator) !void {
@@ -639,7 +651,9 @@ pub const GridModel = struct {
 
         if (self.history_capacity == 0 or self.cols == 0) return;
 
-        for (self.history_lines.items) |line| {
+        var line_idx: usize = 0;
+        while (line_idx < self.history_lines.items.len) : (line_idx += 1) {
+            const line = self.historyLineAt(line_idx);
             try self.appendHistoryProjectionRows(allocator, line.cells.items, false);
         }
         if (self.open_history_line) |line| {
@@ -670,7 +684,11 @@ pub const GridModel = struct {
         const allocator = self.allocator orelse return;
         const wrapped = self.rowWrapped(row);
         const len = self.visibleRowContentLen(row);
-        if (self.open_history_line == null) self.open_history_line = .{};
+        if (self.open_history_line == null) {
+            const reusable = self.takeReusableHistoryLine();
+            self.open_history_line = reusable.line;
+            self.open_history_reuse_slot = reusable.slot;
+        }
         const open_line = &self.open_history_line.?;
         var col: u16 = 0;
         while (col < len) : (col += 1) {
@@ -680,12 +698,17 @@ pub const GridModel = struct {
         if (!wrapped) {
             const finalized = self.open_history_line.?;
             self.open_history_line = null;
-            self.history_lines.append(allocator, finalized) catch {
-                var failed = finalized;
-                failed.deinit(allocator);
-                return;
-            };
-            self.pruneHistoryLines(allocator);
+            if (self.open_history_reuse_slot) |slot| {
+                self.open_history_reuse_slot = null;
+                self.history_lines.items[slot] = finalized;
+            } else {
+                self.history_lines.append(allocator, finalized) catch {
+                    var failed = finalized;
+                    failed.deinit(allocator);
+                    return;
+                };
+                self.pruneHistoryLines(allocator);
+            }
         }
     }
 
@@ -710,6 +733,22 @@ pub const GridModel = struct {
         }
         std.mem.copyForwards(HistoryLine, self.history_lines.items[0 .. self.history_lines.items.len - drop], self.history_lines.items[drop..]);
         self.history_lines.shrinkRetainingCapacity(self.history_lines.items.len - drop);
+    }
+
+    fn takeReusableHistoryLine(self: *GridModel) struct { line: HistoryLine, slot: ?usize } {
+        if (self.history_capacity == 0 or self.history_lines.items.len < self.history_capacity) return .{ .line = .{}, .slot = null };
+        const slot = self.history_lines_start;
+        var reusable = self.history_lines.items[slot];
+        self.history_lines.items[slot] = .{};
+        self.dropOldestProjectedHistoryRows(self.projectedRowCountForCells(reusable.cells.items));
+        self.history_lines_start = (self.history_lines_start + 1) % self.history_lines.items.len;
+        reusable.cells.clearRetainingCapacity();
+        return .{ .line = reusable, .slot = slot };
+    }
+
+    fn historyLineAt(self: *const GridModel, logical_index: usize) HistoryLine {
+        const slot = (self.history_lines_start + logical_index) % self.history_lines.items.len;
+        return self.history_lines.items[slot];
     }
 
     fn appendProjectedHistoryRow(self: *GridModel, allocator: std.mem.Allocator, cells: []const Cell, wrapped: bool) !void {

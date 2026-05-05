@@ -87,6 +87,7 @@ pub fn build(b: *std.Build) void {
         .root_module = baseline_mod,
     });
     const run_baseline = b.addRunArtifact(baseline_exe);
+    if (b.args) |args| run_baseline.addArgs(args);
     const baseline_step = b.step("vt-core-benchmark", "Run vt-core benchmark suite");
     baseline_step.dependOn(&run_baseline.step);
 }
