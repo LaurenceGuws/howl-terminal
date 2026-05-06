@@ -10,6 +10,7 @@ pub const Grid = struct {
     /// Main grid-state model.
     pub const GridModel = model.GridModel;
     pub const Color = types.Color;
+    pub const UnderlineStyle = types.UnderlineStyle;
     pub const CellAttrs = types.CellAttrs;
     pub const Cell = types.Cell;
     pub const CursorShape = types.CursorShape;

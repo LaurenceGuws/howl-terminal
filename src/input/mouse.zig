@@ -37,11 +37,14 @@ pub const MouseEvent = struct {
 pub const MouseTrackingMode = enum(u8) {
     off,
     x10,
+    normal,
     button_event,
     any_event,
 };
 
 pub const MouseProtocol = enum(u8) {
     none,
+    utf8,
     sgr,
+    urxvt,
 };

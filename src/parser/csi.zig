@@ -12,6 +12,7 @@ pub const max_intermediates: usize = 4;
 pub const CsiAction = struct {
     final: u8,
     params: [max_params]i32,
+    separators: [max_params]u8,
     count: u8,
     leader: u8,
     private: bool,
@@ -22,6 +23,7 @@ pub const CsiAction = struct {
 /// Incremental CSI parser state.
 pub const CsiParser = struct {
     params: [max_params]i32 = [_]i32{0} ** max_params,
+    separators: [max_params]u8 = [_]u8{0} ** max_params,
     count: u8 = 0,
     leader: u8 = 0,
     private: bool = false,
@@ -48,6 +50,7 @@ pub const CsiParser = struct {
             const action = CsiAction{
                 .final = byte,
                 .params = self.params,
+                .separators = self.separators,
                 .count = final_count,
                 .leader = self.leader,
                 .private = self.private,
@@ -71,7 +74,10 @@ pub const CsiParser = struct {
         if (byte == ';' or byte == ':') {
             if (self.count < self.params.len) {
                 self.count += 1;
-                if (self.count < self.params.len) self.params[self.count] = 0;
+                if (self.count < self.params.len) {
+                    self.params[self.count] = 0;
+                    self.separators[self.count] = byte;
+                }
             }
             self.in_param = false;
             return null;
@@ -168,6 +174,15 @@ test "CSI parser: multi-param sequence (1;31;40m)" {
     try std.testing.expectEqual(@as(i32, 31), action.?.params[1]);
     try std.testing.expectEqual(@as(i32, 40), action.?.params[2]);
     try std.testing.expectEqual(@as(u8, 3), action.?.count);
+}
+
+test "CSI parser preserves colon subparameter separators" {
+    const action = try feedCsiBytes("4:3m");
+    try std.testing.expectEqual(@as(u8, 'm'), action.final);
+    try std.testing.expectEqual(@as(u8, 2), action.count);
+    try std.testing.expectEqual(@as(i32, 4), action.params[0]);
+    try std.testing.expectEqual(@as(i32, 3), action.params[1]);
+    try std.testing.expectEqual(@as(u8, ':'), action.separators[1]);
 }
 
 test "CSI parser: empty params stay defaulted after reset" {

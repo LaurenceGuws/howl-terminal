@@ -175,8 +175,8 @@ test "screen: sgr applies ansi and 256-color attrs to written cells" {
     var s = try GridModel.initWithCells(gpa, 2, 4);
     defer s.deinit(gpa);
 
-    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 38, 5, 196 } ++ [_]i32{0} ** 13, .param_count = 3 } });
-    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 48, 5, 23 } ++ [_]i32{0} ** 13, .param_count = 3 } });
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 38, 5, 196 } ++ [_]i32{0} ** 13, .separators = [_]u8{0} ** 16, .param_count = 3 } });
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 48, 5, 23 } ++ [_]i32{0} ** 13, .separators = [_]u8{0} ** 16, .param_count = 3 } });
     s.apply(SemanticEvent{ .write_text = "X" });
 
     const cell = s.cellInfoAt(0, 0);
@@ -194,9 +194,9 @@ test "screen: sgr reset restores default attrs for later writes" {
     var s = try GridModel.initWithCells(gpa, 2, 4);
     defer s.deinit(gpa);
 
-    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 31 } ++ [_]i32{0} ** 15, .param_count = 1 } });
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 31 } ++ [_]i32{0} ** 15, .separators = [_]u8{0} ** 16, .param_count = 1 } });
     s.apply(SemanticEvent{ .write_text = "A" });
-    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 0 } ++ [_]i32{0} ** 15, .param_count = 1 } });
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 0 } ++ [_]i32{0} ** 15, .separators = [_]u8{0} ** 16, .param_count = 1 } });
     s.apply(SemanticEvent{ .write_text = "B" });
 
     const a = s.cellInfoAt(0, 0);
@@ -205,6 +205,30 @@ test "screen: sgr reset restores default attrs for later writes" {
     try std.testing.expectEqual(grid_owner.Grid.default_fg.r, b.attrs.fg.r);
     try std.testing.expectEqual(grid_owner.Grid.default_fg.g, b.attrs.fg.g);
     try std.testing.expectEqual(grid_owner.Grid.default_fg.b, b.attrs.fg.b);
+}
+
+test "screen: kitty colon SGR sets underline styles without stealing semicolon params" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 2, 4);
+    defer s.deinit(gpa);
+
+    var colon = [_]u8{0} ** 16;
+    colon[1] = ':';
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 4, 3 } ++ [_]i32{0} ** 14, .separators = colon, .param_count = 2 } });
+    s.apply(SemanticEvent{ .write_text = "C" });
+
+    var semicolon = [_]u8{0} ** 16;
+    semicolon[1] = ';';
+    s.apply(SemanticEvent{ .sgr = .{ .params = .{ 4, 5 } ++ [_]i32{0} ** 14, .separators = semicolon, .param_count = 2 } });
+    s.apply(SemanticEvent{ .write_text = "S" });
+
+    const curly = s.cellInfoAt(0, 0);
+    const straight = s.cellInfoAt(0, 1);
+    try std.testing.expect(curly.attrs.underline);
+    try std.testing.expectEqual(grid_owner.Grid.UnderlineStyle.curly, curly.attrs.underline_style);
+    try std.testing.expect(straight.attrs.underline);
+    try std.testing.expectEqual(grid_owner.Grid.UnderlineStyle.straight, straight.attrs.underline_style);
+    try std.testing.expect(straight.attrs.blink);
 }
 
 test "screen: write_text wraps to next row after filled column" {
@@ -325,6 +349,39 @@ test "screen: horizontal_tab_back clamps at column zero" {
     s.cursor_col = 3;
     s.apply(SemanticEvent{ .horizontal_tab_back = 2 });
     try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen: HTS sets custom tab stop and TBC clears it" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 4, 20);
+    defer s.deinit(gpa);
+
+    s.cursor_col = 5;
+    s.apply(SemanticEvent.horizontal_tab_set);
+    s.cursor_col = 3;
+    s.apply(SemanticEvent.horizontal_tab);
+    try std.testing.expectEqual(@as(u16, 5), s.cursor_col);
+
+    s.apply(SemanticEvent.tab_clear_current);
+    s.cursor_col = 3;
+    s.apply(SemanticEvent.horizontal_tab);
+    try std.testing.expectEqual(@as(u16, 8), s.cursor_col);
+}
+
+test "screen: TBC all clears defaults until reset restores them" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 4, 20);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent.tab_clear_all);
+    s.cursor_col = 3;
+    s.apply(SemanticEvent.horizontal_tab);
+    try std.testing.expectEqual(@as(u16, 19), s.cursor_col);
+
+    s.reset();
+    s.cursor_col = 3;
+    s.apply(SemanticEvent.horizontal_tab);
+    try std.testing.expectEqual(@as(u16, 8), s.cursor_col);
 }
 
 test "screen: cellAt out of bounds returns 0" {
@@ -554,6 +611,87 @@ test "screen: DCH deletes chars and clears tail" {
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 2));
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 3));
     try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 4));
+}
+
+test "screen: ICH inserts blanks and shifts suffix right" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 1, 8);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "abcdef" });
+    s.cursor_col = 2;
+    s.current_attrs.bg = .{ .r = 40, .g = 44, .b = 52 };
+    s.apply(SemanticEvent{ .insert_chars = 2 });
+
+    try std.testing.expectEqual(@as(u21, 'a'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'c'), s.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'd'), s.cellAt(0, 5));
+    try std.testing.expectEqual(@as(u21, 'e'), s.cellAt(0, 6));
+    try std.testing.expectEqual(@as(u21, 'f'), s.cellAt(0, 7));
+    const blank = s.cellInfoAt(0, 2);
+    try std.testing.expectEqual(@as(u8, 40), blank.attrs.bg.r);
+    try std.testing.expectEqual(@as(u16, 2), s.cursor_col);
+}
+
+test "screen: REP repeats last written codepoint" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 1, 6);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .write_text = "A" });
+    s.apply(SemanticEvent{ .repeat_preceding = 3 });
+
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u16, 4), s.cursor_col);
+}
+
+test "screen: REP is no-op without preceding codepoint" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 1, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .repeat_preceding = 3 });
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u16, 0), s.cursor_col);
+}
+
+test "screen: RI scrolls region down at top margin" {
+    const gpa = std.testing.allocator;
+    var s = try GridModel.initWithCells(gpa, 3, 4);
+    defer s.deinit(gpa);
+
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 0, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "AAAA" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "BBBB" });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 2, .col = 0 } });
+    s.apply(SemanticEvent{ .write_text = "CCCC" });
+
+    s.apply(SemanticEvent{ .set_scroll_region = .{ .top = 1, .bottom = 2 } });
+    s.apply(SemanticEvent{ .cursor_position = .{ .row = 1, .col = 0 } });
+    s.apply(SemanticEvent.reverse_index);
+
+    try std.testing.expectEqual(@as(u21, 'A'), s.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 0), s.cellAt(1, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), s.cellAt(2, 0));
+}
+
+test "screen: cursor_style updates cursor presentation" {
+    var s = GridModel.init(4, 4);
+
+    s.apply(SemanticEvent{ .cursor_style = .{ .shape = .bar, .blink = false } });
+    try std.testing.expectEqual(.bar, s.cursor_style.shape);
+    try std.testing.expect(!s.cursor_style.blink);
+
+    s.apply(SemanticEvent{ .cursor_style = .{ .shape = .underline, .blink = true } });
+    try std.testing.expectEqual(.underline, s.cursor_style.shape);
+    try std.testing.expect(s.cursor_style.blink);
 }
 
 test "screen: erase_line uses current background for empty cells" {

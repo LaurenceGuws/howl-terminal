@@ -43,6 +43,27 @@ fn allocDirtyCols(allocator: std.mem.Allocator, rows: u16, initial: u16) !?[]u16
     return buf;
 }
 
+fn allocTabStops(allocator: std.mem.Allocator, cols: u16) !?[]bool {
+    if (cols == 0) return null;
+    const buf = try allocator.alloc(bool, cols);
+    setDefaultTabStops(buf);
+    return buf;
+}
+
+fn setDefaultTabStops(stops: []bool) void {
+    @memset(stops, false);
+    for (stops, 0..) |*stop, idx| {
+        if (idx != 0 and idx % 8 == 0) stop.* = true;
+    }
+}
+
+fn copyTabStops(dst: ?[]bool, src: ?[]const bool) void {
+    const d = dst orelse return;
+    setDefaultTabStops(d);
+    const s = src orelse return;
+    @memcpy(d[0..@min(d.len, s.len)], s[0..@min(d.len, s.len)]);
+}
+
 fn dirtyRowsForFull(rows: u16, dirty_cols_start: ?[]const u16, dirty_cols_end: ?[]const u16) ?DirtyRows {
     if (rows == 0) return null;
     return .{
@@ -92,10 +113,12 @@ pub const GridModel = struct {
         col: u16,
         wrap_pending: bool,
     },
+    last_graphic_codepoint: ?u21,
     current_attrs: CellAttrs,
     dirty_rows: ?DirtyRows,
     dirty_cols_start: ?[]u16,
     dirty_cols_end: ?[]u16,
+    tab_stops: ?[]bool,
 
     /// Initialize cursor-only grid state.
     pub fn init(rows: u16, cols: u16) GridModel {
@@ -126,10 +149,12 @@ pub const GridModel = struct {
             .open_history_line = null,
             .open_history_reuse_slot = null,
             .saved_cursor = null,
+            .last_graphic_codepoint = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = null,
             .dirty_cols_start = null,
             .dirty_cols_end = null,
+            .tab_stops = null,
         };
     }
 
@@ -152,6 +177,8 @@ pub const GridModel = struct {
         errdefer if (dirty_cols_start) |buf| allocator.free(buf);
         const dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
         errdefer if (dirty_cols_end) |buf| allocator.free(buf);
+        const tab_stops = try allocTabStops(allocator, cols);
+        errdefer if (tab_stops) |buf| allocator.free(buf);
         return .{
             .allocator = allocator,
             .rows = rows,
@@ -179,10 +206,12 @@ pub const GridModel = struct {
             .open_history_line = null,
             .open_history_reuse_slot = null,
             .saved_cursor = null,
+            .last_graphic_codepoint = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
             .dirty_cols_start = dirty_cols_start,
             .dirty_cols_end = dirty_cols_end,
+            .tab_stops = tab_stops,
         };
     }
 
@@ -205,6 +234,8 @@ pub const GridModel = struct {
         errdefer if (dirty_cols_start) |buf| allocator.free(buf);
         const dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
         errdefer if (dirty_cols_end) |buf| allocator.free(buf);
+        const tab_stops = try allocTabStops(allocator, cols);
+        errdefer if (tab_stops) |buf| allocator.free(buf);
         const history: ?[]Cell = if (cells != null and history_capacity > 0) blk: {
             const buf = try allocator.alloc(Cell, 0);
             break :blk buf;
@@ -241,10 +272,12 @@ pub const GridModel = struct {
             .open_history_line = null,
             .open_history_reuse_slot = null,
             .saved_cursor = null,
+            .last_graphic_codepoint = null,
             .current_attrs = default_cell_attrs,
             .dirty_rows = dirtyRowsForFull(rows, dirty_cols_start, dirty_cols_end),
             .dirty_cols_start = dirty_cols_start,
             .dirty_cols_end = dirty_cols_end,
+            .tab_stops = tab_stops,
         };
     }
 
@@ -258,6 +291,8 @@ pub const GridModel = struct {
         self.dirty_cols_start = null;
         if (self.dirty_cols_end) |buf| allocator.free(buf);
         self.dirty_cols_end = null;
+        if (self.tab_stops) |buf| allocator.free(buf);
+        self.tab_stops = null;
         if (self.history) |h| allocator.free(h);
         self.history = null;
         if (self.history_wraps) |buf| allocator.free(buf);
@@ -279,6 +314,7 @@ pub const GridModel = struct {
         const old_row_wraps = self.row_wraps;
         const old_dirty_cols_start = self.dirty_cols_start;
         const old_dirty_cols_end = self.dirty_cols_end;
+        const old_tab_stops = self.tab_stops;
         const old_rows = self.rows;
         const old_history = self.history;
         const old_history_wraps = self.history_wraps;
@@ -432,6 +468,9 @@ pub const GridModel = struct {
         errdefer if (new_dirty_cols_start) |buf| allocator.free(buf);
         const new_dirty_cols_end = try allocDirtyCols(allocator, rows, cols -| 1);
         errdefer if (new_dirty_cols_end) |buf| allocator.free(buf);
+        const new_tab_stops = try allocTabStops(allocator, cols);
+        errdefer if (new_tab_stops) |buf| allocator.free(buf);
+        copyTabStops(new_tab_stops, old_tab_stops);
 
         if (new_cells) |dst| {
             const dst_wraps = new_row_wraps.?;
@@ -455,6 +494,7 @@ pub const GridModel = struct {
         self.row_wraps = new_row_wraps;
         self.dirty_cols_start = new_dirty_cols_start;
         self.dirty_cols_end = new_dirty_cols_end;
+        self.tab_stops = new_tab_stops;
         self.history = null;
         self.history_wraps = null;
         self.history_count = 0;
@@ -492,6 +532,7 @@ pub const GridModel = struct {
         if (old_row_wraps) |buf| allocator.free(buf);
         if (old_dirty_cols_start) |buf| allocator.free(buf);
         if (old_dirty_cols_end) |buf| allocator.free(buf);
+        if (old_tab_stops) |buf| allocator.free(buf);
         if (old_history) |buf| allocator.free(buf);
         if (old_history_wraps) |buf| allocator.free(buf);
     }
@@ -847,10 +888,12 @@ pub const GridModel = struct {
         self.scroll_top = 0;
         self.scroll_bottom = self.rows -| 1;
         self.saved_cursor = null;
+        self.last_graphic_codepoint = null;
         self.current_attrs = default_cell_attrs;
         self.markAllRowsDirty();
         if (self.cells) |c| @memset(c, default_cell);
         if (self.row_wraps) |buf| @memset(buf, false);
+        if (self.tab_stops) |stops| setDefaultTabStops(stops);
     }
 
     pub fn peekDirtyRows(self: *const GridModel) ?DirtyRows {
@@ -964,10 +1007,26 @@ pub const GridModel = struct {
                 }
             },
             .write_codepoint => |cp| self.writeCell(cp),
+            .repeat_preceding => |count| {
+                if (self.last_graphic_codepoint) |cp| {
+                    var remaining = count;
+                    while (remaining > 0) : (remaining -= 1) self.writeCell(cp);
+                }
+            },
             .line_feed => {
                 self.wrap_pending = false;
                 self.setRowWrapped(self.cursor_row, false);
                 self.lineFeed();
+            },
+            .next_line => {
+                self.wrap_pending = false;
+                self.setRowWrapped(self.cursor_row, false);
+                self.cursor_col = 0;
+                self.lineFeed();
+            },
+            .reverse_index => {
+                self.wrap_pending = false;
+                self.reverseIndex();
             },
             .carriage_return => {
                 self.wrap_pending = false;
@@ -989,7 +1048,18 @@ pub const GridModel = struct {
                 self.wrap_pending = false;
                 self.horizontalTabBack(count);
             },
+            .horizontal_tab_set => self.setTabStop(),
+            .tab_clear_current => self.clearCurrentTabStop(),
+            .tab_clear_all => self.clearAllTabStops(),
             .cursor_visible => |visible| self.cursor_visible = visible,
+            .cursor_style => |style| self.cursor_style = .{
+                .shape = switch (style.shape) {
+                    .block => .block,
+                    .underline => .underline,
+                    .bar => .bar,
+                },
+                .blink = style.blink,
+            },
             .auto_wrap => |enabled| {
                 self.auto_wrap = enabled;
                 if (!enabled) self.wrap_pending = false;
@@ -1001,25 +1071,45 @@ pub const GridModel = struct {
                 self.cursor_col = 0;
             },
             .application_cursor_keys,
+            .application_keypad,
+            .modify_other_keys_set,
+            .modify_other_keys_query,
+            .modify_other_keys_disable,
             .focus_reporting,
             .bracketed_paste,
             .mouse_tracking_off,
             .mouse_tracking_x10,
+            .mouse_tracking_normal,
             .mouse_tracking_button_event,
             .mouse_tracking_any_event,
+            .mouse_protocol_utf8,
             .mouse_protocol_sgr,
+            .mouse_protocol_urxvt,
+            .kitty_keyboard_set,
+            .kitty_keyboard_query,
+            .kitty_keyboard_push,
+            .kitty_keyboard_pop,
+            .kitty_shell_mark,
+            .kitty_notification,
+            .kitty_pointer_shape,
+            .kitty_color_stack,
+            .terminal_color_control,
             .hyperlink_set,
             .hyperlink_clear,
             .clipboard_set,
             .dec_mode_query,
+            .dec_mode_save,
+            .dec_mode_restore,
             .device_status_report,
             .cursor_position_report,
+            .dec_cursor_position_report,
             .primary_device_attributes,
             .secondary_device_attributes,
+            .kitty_graphics,
             => {},
             .save_cursor => self.saveCursor(),
             .restore_cursor => self.restoreCursor(),
-            .sgr => |sgr| self.applySgr(sgr.params[0..sgr.param_count]),
+            .sgr => |sgr| self.applySgr(sgr.params[0..sgr.param_count], sgr.separators[0..sgr.param_count]),
             .enter_alt_screen, .exit_alt_screen => {},
             .insert_lines => |count| {
                 self.wrap_pending = false;
@@ -1028,6 +1118,10 @@ pub const GridModel = struct {
             .delete_lines => |count| {
                 self.wrap_pending = false;
                 self.deleteLines(count);
+            },
+            .insert_chars => |count| {
+                self.wrap_pending = false;
+                self.insertChars(count);
             },
             .delete_chars => |count| {
                 self.wrap_pending = false;
@@ -1156,6 +1250,26 @@ pub const GridModel = struct {
         self.clearRowRange(self.cursor_row, self.cursor_col, self.cursor_col + amount);
     }
 
+    fn insertChars(self: *GridModel, count: u16) void {
+        const c = self.cells orelse return;
+        if (self.rows == 0 or self.cols == 0) return;
+        if (self.cursor_col >= self.cols) return;
+
+        const amount = @min(@max(count, 1), self.cols - self.cursor_col);
+        const start = self.rowStart(self.cursor_row);
+        const row = c[start .. start + @as(usize, self.cols)];
+        const dst_col: usize = @as(usize, self.cursor_col) + @as(usize, amount);
+        const src_col: usize = self.cursor_col;
+        const move_len = @as(usize, self.cols) - dst_col;
+
+        self.markDirtyCols(self.cursor_row, self.cursor_col, self.cols -| 1);
+        if (move_len > 0) {
+            std.mem.copyBackwards(Cell, row[dst_col .. dst_col + move_len], row[src_col .. src_col + move_len]);
+        }
+        @memset(row[src_col .. src_col + @as(usize, amount)], self.eraseCell());
+        self.setRowWrapped(self.cursor_row, false);
+    }
+
     fn deleteChars(self: *GridModel, count: u16) void {
         const c = self.cells orelse return;
         if (self.rows == 0 or self.cols == 0) return;
@@ -1194,6 +1308,7 @@ pub const GridModel = struct {
                 .attrs = self.current_attrs,
             };
         }
+        self.last_graphic_codepoint = cp;
         if (self.cursor_col < self.cols - 1) {
             self.cursor_col += 1;
         } else if (self.auto_wrap) {
@@ -1201,7 +1316,7 @@ pub const GridModel = struct {
         }
     }
 
-    fn applySgr(self: *GridModel, params: []const i32) void {
+    fn applySgr(self: *GridModel, params: []const i32, separators: []const u8) void {
         if (params.len == 0) {
             self.current_attrs = default_cell_attrs;
             return;
@@ -1213,11 +1328,45 @@ pub const GridModel = struct {
             switch (p) {
                 0 => self.current_attrs = default_cell_attrs,
                 1 => self.current_attrs.bold = true,
-                4 => self.current_attrs.underline = true,
+                4 => {
+                    if (i + 1 < params.len and separators[i + 1] == ':') {
+                        switch (params[i + 1]) {
+                            0 => self.current_attrs.underline = false,
+                            1 => {
+                                self.current_attrs.underline = true;
+                                self.current_attrs.underline_style = .straight;
+                            },
+                            2 => {
+                                self.current_attrs.underline = true;
+                                self.current_attrs.underline_style = .double;
+                            },
+                            3 => {
+                                self.current_attrs.underline = true;
+                                self.current_attrs.underline_style = .curly;
+                            },
+                            4 => {
+                                self.current_attrs.underline = true;
+                                self.current_attrs.underline_style = .dotted;
+                            },
+                            5 => {
+                                self.current_attrs.underline = true;
+                                self.current_attrs.underline_style = .dashed;
+                            },
+                            else => {},
+                        }
+                        i += 1;
+                    } else {
+                        self.current_attrs.underline = true;
+                        self.current_attrs.underline_style = .straight;
+                    }
+                },
                 5, 6 => self.current_attrs.blink = true,
                 7 => self.current_attrs.reverse = true,
                 22 => self.current_attrs.bold = false,
-                24 => self.current_attrs.underline = false,
+                24 => {
+                    self.current_attrs.underline = false;
+                    self.current_attrs.underline_style = .straight;
+                },
                 25 => {
                     self.current_attrs.blink = false;
                     self.current_attrs.blink_fast = false;
@@ -1274,17 +1423,46 @@ pub const GridModel = struct {
 
     fn horizontalTabForward(self: *GridModel, count: u16) void {
         if (self.cols == 0) return;
-        const stop = (@as(usize, self.cursor_col / 8) + @as(usize, count)) * 8;
-        self.cursor_col = @intCast(@min(stop, @as(usize, self.cols - 1)));
+        var remaining = count;
+        while (remaining > 0) : (remaining -= 1) {
+            if (self.cursor_col >= self.cols - 1) break;
+            var col = self.cursor_col + 1;
+            while (col < self.cols and !self.isTabStop(col)) : (col += 1) {}
+            self.cursor_col = if (col < self.cols) col else self.cols - 1;
+        }
     }
 
     fn horizontalTabBack(self: *GridModel, count: u16) void {
         var remaining = count;
         while (remaining > 0) : (remaining -= 1) {
             if (self.cursor_col == 0) break;
-            const prev = self.cursor_col - 1;
-            self.cursor_col = (prev / 8) * 8;
+            var col = self.cursor_col - 1;
+            while (col > 0 and !self.isTabStop(col)) : (col -= 1) {}
+            self.cursor_col = if (self.isTabStop(col)) col else 0;
         }
+    }
+
+    fn isTabStop(self: *const GridModel, col: u16) bool {
+        if (self.tab_stops) |stops| {
+            if (col < stops.len) return stops[col];
+        }
+        return col != 0 and col % 8 == 0;
+    }
+
+    fn setTabStop(self: *GridModel) void {
+        if (self.tab_stops) |stops| {
+            if (self.cursor_col < stops.len) stops[self.cursor_col] = true;
+        }
+    }
+
+    fn clearCurrentTabStop(self: *GridModel) void {
+        if (self.tab_stops) |stops| {
+            if (self.cursor_col < stops.len) stops[self.cursor_col] = false;
+        }
+    }
+
+    fn clearAllTabStops(self: *GridModel) void {
+        if (self.tab_stops) |stops| @memset(stops, false);
     }
 
     fn lineFeed(self: *GridModel) void {
@@ -1299,6 +1477,15 @@ pub const GridModel = struct {
             return;
         }
         if (self.cursor_row < self.rows - 1) self.cursor_row += 1;
+    }
+
+    fn reverseIndex(self: *GridModel) void {
+        if (self.rows == 0) return;
+        if (self.cursor_row == self.scroll_top) {
+            self.scrollDownRegion(self.scroll_top, self.scrollBottom(), 1);
+        } else {
+            self.cursor_row = self.cursor_row -| 1;
+        }
     }
 
     fn scrollUp(self: *GridModel) void {

@@ -77,6 +77,22 @@ pub const VTERM_KEY_F10: Key = 32;
 pub const VTERM_KEY_F11: Key = 33;
 /// Function key F12.
 pub const VTERM_KEY_F12: Key = 34;
+pub const VTERM_KEY_KP_0: Key = 35;
+pub const VTERM_KEY_KP_1: Key = 36;
+pub const VTERM_KEY_KP_2: Key = 37;
+pub const VTERM_KEY_KP_3: Key = 38;
+pub const VTERM_KEY_KP_4: Key = 39;
+pub const VTERM_KEY_KP_5: Key = 40;
+pub const VTERM_KEY_KP_6: Key = 41;
+pub const VTERM_KEY_KP_7: Key = 42;
+pub const VTERM_KEY_KP_8: Key = 43;
+pub const VTERM_KEY_KP_9: Key = 44;
+pub const VTERM_KEY_KP_DECIMAL: Key = 45;
+pub const VTERM_KEY_KP_ADD: Key = 46;
+pub const VTERM_KEY_KP_SUBTRACT: Key = 47;
+pub const VTERM_KEY_KP_MULTIPLY: Key = 48;
+pub const VTERM_KEY_KP_DIVIDE: Key = 49;
+pub const VTERM_KEY_KP_ENTER: Key = 50;
 
 /// No modifiers.
 pub const VTERM_MOD_NONE: Modifier = 0;

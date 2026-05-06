@@ -836,6 +836,99 @@ test "replay: cursor move then CSI K erase to end of line" {
     try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 5));
 }
 
+test "replay: CSI @ inserts blanks and preserves suffix" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 1, 8);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "abcdef");
+    feed(&pl, &screen, "\x1b[1;3H");
+    feed(&pl, &screen, "\x1b[2@");
+
+    try std.testing.expectEqual(@as(u21, 'a'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'b'), screen.cellAt(0, 1));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 2));
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 3));
+    try std.testing.expectEqual(@as(u21, 'c'), screen.cellAt(0, 4));
+    try std.testing.expectEqual(@as(u21, 'd'), screen.cellAt(0, 5));
+    try std.testing.expectEqual(@as(u21, 'e'), screen.cellAt(0, 6));
+    try std.testing.expectEqual(@as(u21, 'f'), screen.cellAt(0, 7));
+}
+
+test "replay: VT FF IND NEL and RI aliases" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 3, 5);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "A\x0bB\x0cC");
+    try std.testing.expectEqual(@as(u21, 'A'), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u21, 'B'), screen.cellAt(1, 1));
+    try std.testing.expectEqual(@as(u21, 'C'), screen.cellAt(2, 2));
+
+    feed(&pl, &screen, "\x1b[1;5H\x1bE");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+
+    feed(&pl, &screen, "\x1bM");
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    feed(&pl, &screen, "\x1bD");
+    try std.testing.expectEqual(@as(u16, 1), screen.cursor_row);
+}
+
+test "replay: ANSI CSI save and restore cursor aliases" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = Grid.GridModel.init(24, 80);
+
+    feed(&pl, &screen, "\x1b[4;5H\x1b[s\x1b[10;10H\x1b[u");
+    try std.testing.expectEqual(@as(u16, 3), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 4), screen.cursor_col);
+}
+
+test "replay: ESC c resets visible grid state" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 2, 5);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "abc\x1bc");
+    try std.testing.expectEqual(@as(u21, 0), screen.cellAt(0, 0));
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_row);
+    try std.testing.expectEqual(@as(u16, 0), screen.cursor_col);
+}
+
+test "replay: DECSCUSR sets steady bar cursor" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = Grid.GridModel.init(24, 80);
+
+    feed(&pl, &screen, "\x1b[6 q");
+    try std.testing.expectEqual(.bar, screen.cursor_style.shape);
+    try std.testing.expect(!screen.cursor_style.blink);
+}
+
+test "replay: REP repeats preceding graphic character" {
+    const gpa = std.testing.allocator;
+    var pl = try Pipeline.init(gpa);
+    defer pl.deinit();
+    var screen = try Grid.GridModel.initWithCells(gpa, 1, 8);
+    defer screen.deinit(gpa);
+
+    feed(&pl, &screen, "A\x1b[4b");
+    var col: u16 = 0;
+    while (col < 5) : (col += 1) {
+        try std.testing.expectEqual(@as(u21, 'A'), screen.cellAt(0, col));
+    }
+    try std.testing.expectEqual(@as(u16, 5), screen.cursor_col);
+}
+
 test "replay: DECSTR resets visible grid state" {
     const gpa = std.testing.allocator;
     var pl = try Pipeline.init(gpa);

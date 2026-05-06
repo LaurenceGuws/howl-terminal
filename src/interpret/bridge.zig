@@ -15,6 +15,7 @@ pub const Event = union(enum) {
     style_change: struct {
         final: u8,
         params: [16]i32,
+        separators: [16]u8 = [_]u8{0} ** 16,
         param_count: u8,
         leader: u8,
         private: bool,
@@ -125,6 +126,7 @@ pub const Bridge = struct {
             .style_change = .{
                 .final = action.final,
                 .params = action.params,
+                .separators = action.separators,
                 .param_count = action.count,
                 .leader = action.leader,
                 .private = action.private,
@@ -171,15 +173,11 @@ const ParsedOsc = struct {
 };
 
 fn parseOsc(data: []const u8) ParsedOsc {
-    const separator = std.mem.indexOfScalar(u8, data, ';') orelse return .{
-        .kind = .title,
-        .command = null,
-        .payload = data,
-    };
+    const separator = std.mem.indexOfScalar(u8, data, ';') orelse data.len;
     const command_text = data[0..separator];
-    const payload = data[separator + 1 ..];
+    const payload = if (separator < data.len) data[separator + 1 ..] else "";
     const command = std.fmt.parseUnsigned(u16, command_text, 10) catch return .{
-        .kind = .generic,
+        .kind = if (separator == data.len) .title else .generic,
         .command = null,
         .payload = data,
     };
@@ -301,6 +299,20 @@ test "bridge: preserves OSC clipboard transport" {
     try std.testing.expectEqual(OscKind.clipboard, bridge.events.items[0].osc.kind);
     try std.testing.expectEqual(@as(?u16, 52), bridge.events.items[0].osc.command);
     try std.testing.expectEqualSlices(u8, "c;Zm9v", bridge.events.items[0].osc.payload);
+}
+
+test "bridge: parses OSC command without semicolon payload" {
+    const gpa = std.testing.allocator;
+    var bridge = Bridge.init(gpa);
+    defer bridge.deinit();
+    var parser = try ParserApi.Parser.init(gpa, bridge.toSink());
+    defer parser.deinit();
+    parser.handleSlice("\x1b]30001\x1b\\");
+    try std.testing.expectEqual(@as(usize, 1), bridge.events.items.len);
+    try std.testing.expect(bridge.events.items[0] == .osc);
+    try std.testing.expectEqual(OscKind.generic, bridge.events.items[0].osc.kind);
+    try std.testing.expectEqual(@as(?u16, 30001), bridge.events.items[0].osc.command);
+    try std.testing.expectEqualSlices(u8, "", bridge.events.items[0].osc.payload);
 }
 
 test "bridge: preserves APC, DCS, and ESC final transport" {

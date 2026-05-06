@@ -39,6 +39,40 @@ fn makeStyleChangeWithIntermediate(final: u8, intermediate: u8) Event {
     } };
 }
 
+fn makeStyleChangeWithParamAndIntermediate(final: u8, p0: i32, intermediate: u8) Event {
+    var params = [_]i32{0} ** 16;
+    params[0] = p0;
+    var intermediates = [_]u8{0} ** 4;
+    intermediates[0] = intermediate;
+    return Event{ .style_change = .{
+        .final = final,
+        .params = params,
+        .param_count = 1,
+        .leader = 0,
+        .private = false,
+        .intermediates = intermediates,
+        .intermediates_len = 1,
+    } };
+}
+
+fn makePrivateStyleChange(final: u8, params_in: []const i32) Event {
+    var params = [_]i32{0} ** 16;
+    for (params_in, 0..) |value, idx| params[idx] = value;
+    return Event{ .style_change = .{
+        .final = final,
+        .params = params,
+        .param_count = @intCast(params_in.len),
+        .leader = '?',
+        .private = true,
+        .intermediates = [_]u8{0} ** 4,
+        .intermediates_len = 0,
+    } };
+}
+
+fn makeEscFinal(final: u8) Event {
+    return Event{ .esc_final = final };
+}
+
 test "semantic: CUU explicit count" {
     const sem = process(makeStyleChange('A', 3, 0, 1)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 3), sem.cursor_up);
@@ -182,6 +216,26 @@ test "semantic: DCH explicit count" {
 test "semantic: DCH defaults to one char" {
     const sem = process(makeStyleChange('P', 0, 0, 0)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 1), sem.delete_chars);
+}
+
+test "semantic: ICH explicit count" {
+    const sem = process(makeStyleChange('@', 4, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 4), sem.insert_chars);
+}
+
+test "semantic: ICH defaults to one char" {
+    const sem = process(makeStyleChange('@', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.insert_chars);
+}
+
+test "semantic: REP explicit count" {
+    const sem = process(makeStyleChange('b', 4, 0, 1)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 4), sem.repeat_preceding);
+}
+
+test "semantic: REP defaults to one char" {
+    const sem = process(makeStyleChange('b', 0, 0, 0)) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 1), sem.repeat_preceding);
 }
 
 test "semantic: SU explicit count" {
@@ -332,6 +386,17 @@ test "semantic: HT maps to horizontal_tab" {
     try std.testing.expect(sem == .horizontal_tab);
 }
 
+test "semantic: HTS and TBC map to tab stop controls" {
+    try std.testing.expect(process(makeEscFinal('H')).? == .horizontal_tab_set);
+    try std.testing.expect(process(makeStyleChange('g', 0, 0, 0)).? == .tab_clear_current);
+    try std.testing.expect(process(makeStyleChange('g', 3, 0, 1)).? == .tab_clear_all);
+}
+
+test "semantic: VT and FF map to line_feed" {
+    try std.testing.expect(process(Event{ .control = 0x0B }).? == .line_feed);
+    try std.testing.expect(process(Event{ .control = 0x0C }).? == .line_feed);
+}
+
 test "semantic: invalid_sequence returns null" {
     try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event.invalid_sequence));
 }
@@ -369,15 +434,45 @@ test "semantic: OSC 52 maps to clipboard set" {
     } }).?.clipboard_set);
 }
 
-test "semantic: APC DCS and ESC transport return null" {
+test "semantic: APC DCS and unsupported ESC transport return null" {
     try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event{ .apc = "kitty" }));
     try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event{ .dcs = "data" }));
-    try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event{ .esc_final = 'M' }));
+    try std.testing.expectEqual(@as(?SemanticEvent, null), process(Event{ .esc_final = 'z' }));
 }
 
 test "semantic: DEC save and restore cursor from ESC finals" {
-    try std.testing.expect(process(Event{ .esc_final = '7' }).? == .save_cursor);
-    try std.testing.expect(process(Event{ .esc_final = '8' }).? == .restore_cursor);
+    try std.testing.expect(process(makeEscFinal('7')).? == .save_cursor);
+    try std.testing.expect(process(makeEscFinal('8')).? == .restore_cursor);
+}
+
+test "semantic: C1 7-bit ESC aliases map to motion controls" {
+    try std.testing.expect(process(makeEscFinal('D')).? == .line_feed);
+    try std.testing.expect(process(makeEscFinal('E')).? == .next_line);
+    try std.testing.expect(process(makeEscFinal('M')).? == .reverse_index);
+}
+
+test "semantic: ESC DECID and RIS aliases" {
+    try std.testing.expect(process(makeEscFinal('Z')).? == .primary_device_attributes);
+    try std.testing.expect(process(makeEscFinal('c')).? == .reset_screen);
+}
+
+test "semantic: ANSI save and restore cursor CSI aliases" {
+    try std.testing.expect(process(makeStyleChange('s', 0, 0, 0)).? == .save_cursor);
+    try std.testing.expect(process(makeStyleChange('u', 0, 0, 0)).? == .restore_cursor);
+}
+
+test "semantic: DECSCUSR maps cursor styles" {
+    var sem = process(makeStyleChangeWithParamAndIntermediate('q', 0, ' ')) orelse return error.NoEvent;
+    try std.testing.expectEqual(SemanticEvent.CursorShape.block, sem.cursor_style.shape);
+    try std.testing.expect(sem.cursor_style.blink);
+
+    sem = process(makeStyleChangeWithParamAndIntermediate('q', 4, ' ')) orelse return error.NoEvent;
+    try std.testing.expectEqual(SemanticEvent.CursorShape.underline, sem.cursor_style.shape);
+    try std.testing.expect(!sem.cursor_style.blink);
+
+    sem = process(makeStyleChangeWithParamAndIntermediate('q', 5, ' ')) orelse return error.NoEvent;
+    try std.testing.expectEqual(SemanticEvent.CursorShape.bar, sem.cursor_style.shape);
+    try std.testing.expect(sem.cursor_style.blink);
 }
 
 test "semantic: DEC private application cursor enable maps true" {
@@ -427,7 +522,7 @@ test "semantic: DEC private bracketed paste disable maps false" {
 
 test "semantic: DEC private mouse tracking mode mappings" {
     var params = [_]i32{0} ** 16;
-    params[0] = 1000;
+    params[0] = 9;
     var ev = Event{ .style_change = .{
         .final = 'h',
         .params = params,
@@ -438,6 +533,9 @@ test "semantic: DEC private mouse tracking mode mappings" {
         .intermediates_len = 0,
     } };
     try std.testing.expect(process(ev).? == .mouse_tracking_x10);
+    params[0] = 1000;
+    ev.style_change.params = params;
+    try std.testing.expect(process(ev).? == .mouse_tracking_normal);
     params[0] = 1002;
     ev.style_change.params = params;
     try std.testing.expect(process(ev).? == .mouse_tracking_button_event);
@@ -447,6 +545,52 @@ test "semantic: DEC private mouse tracking mode mappings" {
     params[0] = 1006;
     ev.style_change.params = params;
     try std.testing.expect(process(ev).?.mouse_protocol_sgr);
+    params[0] = 1005;
+    ev.style_change.params = params;
+    try std.testing.expect(process(ev).?.mouse_protocol_utf8);
+    params[0] = 1015;
+    ev.style_change.params = params;
+    try std.testing.expect(process(ev).?.mouse_protocol_urxvt);
+}
+
+test "semantic: application keypad and modifyOtherKeys mappings" {
+    try std.testing.expect(process(makeEscFinal('=')).?.application_keypad);
+    try std.testing.expect(!process(makeEscFinal('>')).?.application_keypad);
+
+    var params = [_]i32{0} ** 16;
+    params[0] = 66;
+    var ev = Event{ .style_change = .{
+        .final = 'h',
+        .params = params,
+        .param_count = 1,
+        .leader = '?',
+        .private = true,
+        .intermediates = [_]u8{0} ** 4,
+        .intermediates_len = 0,
+    } };
+    try std.testing.expect(process(ev).?.application_keypad);
+
+    params[0] = 4;
+    params[1] = 2;
+    ev = Event{ .style_change = .{
+        .final = 'm',
+        .params = params,
+        .param_count = 2,
+        .leader = '>',
+        .private = false,
+        .intermediates = [_]u8{0} ** 4,
+        .intermediates_len = 0,
+    } };
+    try std.testing.expectEqual(@as(i8, 2), process(ev).?.modify_other_keys_set);
+
+    ev.style_change.final = 'n';
+    try std.testing.expect(process(ev).? == .modify_other_keys_disable);
+
+    ev.style_change.final = 'm';
+    ev.style_change.leader = '?';
+    ev.style_change.private = true;
+    ev.style_change.param_count = 1;
+    try std.testing.expect(process(ev).? == .modify_other_keys_query);
 }
 
 test "semantic: DSR 5 maps to device status report" {
@@ -457,6 +601,11 @@ test "semantic: DSR 5 maps to device status report" {
 test "semantic: DSR 6 maps to cursor position report" {
     const sem = process(makeStyleChange('n', 6, 0, 1)) orelse return error.NoEvent;
     try std.testing.expect(sem == .cursor_position_report);
+}
+
+test "semantic: DECXCPR maps to DEC cursor position report" {
+    const sem = process(makePrivateStyleChange('n', &.{6})) orelse return error.NoEvent;
+    try std.testing.expect(sem == .dec_cursor_position_report);
 }
 
 test "semantic: DA maps to primary device attributes" {
@@ -493,6 +642,18 @@ test "semantic: DECRQM maps to dec mode query" {
         .intermediates_len = 1,
     } };
     try std.testing.expectEqual(@as(u16, 1004), process(ev).?.dec_mode_query);
+}
+
+test "semantic: XTSAVE and XTRESTORE collect DEC private modes" {
+    const save = process(makePrivateStyleChange('s', &.{ 1, 7, 1004 })) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 3), save.dec_mode_save.param_count);
+    try std.testing.expectEqual(@as(u16, 1), save.dec_mode_save.params[0]);
+    try std.testing.expectEqual(@as(u16, 7), save.dec_mode_save.params[1]);
+    try std.testing.expectEqual(@as(u16, 1004), save.dec_mode_save.params[2]);
+
+    const restore = process(makePrivateStyleChange('r', &.{ 1, 7, 1004 })) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 3), restore.dec_mode_restore.param_count);
+    try std.testing.expectEqual(@as(u16, 1004), restore.dec_mode_restore.params[2]);
 }
 
 test "semantic: ED no param defaults to mode 0" {
@@ -543,4 +704,55 @@ test "semantic: ECH explicit count" {
 test "semantic: ECH defaults to one char" {
     const sem = process(makeStyleChange('X', 0, 0, 0)) orelse return error.NoEvent;
     try std.testing.expectEqual(@as(u16, 1), sem.erase_chars);
+}
+
+test "semantic: kitty graphics APC parses control keys and payload" {
+    const sem = process(Event{ .apc = "Gi=31,I=4,s=10,v=2,a=q,t=d,f=24,x=3,y=5,z=-1;AAAA" }) orelse return error.NoEvent;
+    const cmd = sem.kitty_graphics;
+    try std.testing.expectEqual(@as(u8, 'q'), cmd.action);
+    try std.testing.expectEqual(@as(u32, 31), cmd.image_id);
+    try std.testing.expectEqual(@as(u32, 4), cmd.image_number);
+    try std.testing.expectEqual(@as(u32, 10), cmd.width);
+    try std.testing.expectEqual(@as(u32, 2), cmd.height);
+    try std.testing.expectEqual(@as(u32, 3), cmd.x);
+    try std.testing.expectEqual(@as(u32, 5), cmd.y);
+    try std.testing.expectEqual(@as(i32, -1), cmd.z);
+    try std.testing.expectEqual(@as(u16, 24), cmd.format);
+    try std.testing.expectEqual(@as(u8, 'd'), cmd.medium);
+    try std.testing.expectEqualStrings("AAAA", cmd.payload);
+}
+
+test "semantic: kitty shell integration OSC 133 parses mark and status" {
+    const sem = process(Event{ .osc = .{ .kind = .generic, .command = 133, .payload = "D;7", .terminator = .bel } }) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, 'D'), sem.kitty_shell_mark.kind);
+    try std.testing.expectEqual(@as(?i32, 7), sem.kitty_shell_mark.status);
+}
+
+test "semantic: kitty notification OSC 99 splits metadata and payload" {
+    const sem = process(Event{ .osc = .{ .kind = .generic, .command = 99, .payload = "i=1:p=body;Hello", .terminator = .st } }) orelse return error.NoEvent;
+    try std.testing.expectEqualStrings("i=1:p=body", sem.kitty_notification.metadata);
+    try std.testing.expectEqualStrings("Hello", sem.kitty_notification.payload);
+}
+
+test "semantic: kitty pointer shape OSC 22 parses action and names" {
+    const sem = process(Event{ .osc = .{ .kind = .generic, .command = 22, .payload = ">wait,pointer", .terminator = .st } }) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u8, '>'), sem.kitty_pointer_shape.action);
+    try std.testing.expectEqualStrings("wait,pointer", sem.kitty_pointer_shape.names);
+}
+
+test "semantic: kitty color stack OSC codes map to commands" {
+    const push = process(Event{ .osc = .{ .kind = .generic, .command = 30001, .payload = "", .terminator = .st } }) orelse return error.NoEvent;
+    const pop = process(Event{ .osc = .{ .kind = .generic, .command = 30101, .payload = "", .terminator = .st } }) orelse return error.NoEvent;
+    try std.testing.expect(push.kitty_color_stack == .push);
+    try std.testing.expect(pop.kitty_color_stack == .pop);
+}
+
+test "semantic: terminal color OSC commands preserve command and payload" {
+    const kitty = process(Event{ .osc = .{ .kind = .generic, .command = 21, .payload = "foreground=?", .terminator = .st } }) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 21), kitty.terminal_color_control.command);
+    try std.testing.expectEqualStrings("foreground=?", kitty.terminal_color_control.payload);
+
+    const xterm = process(Event{ .osc = .{ .kind = .generic, .command = 4, .payload = "1;#ff0000", .terminator = .st } }) orelse return error.NoEvent;
+    try std.testing.expectEqual(@as(u16, 4), xterm.terminal_color_control.command);
+    try std.testing.expectEqualStrings("1;#ff0000", xterm.terminal_color_control.payload);
 }

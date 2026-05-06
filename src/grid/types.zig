@@ -34,6 +34,14 @@ pub const Color = struct {
     a: u8 = 255,
 };
 
+pub const UnderlineStyle = enum(u3) {
+    straight,
+    double,
+    curly,
+    dotted,
+    dashed,
+};
+
 pub const CellAttrs = struct {
     fg: Color,
     bg: Color,
@@ -42,6 +50,7 @@ pub const CellAttrs = struct {
     blink_fast: bool,
     reverse: bool,
     underline: bool,
+    underline_style: UnderlineStyle,
     underline_color: Color,
     link_id: u32,
 };
@@ -77,6 +86,7 @@ pub const default_cell_attrs = CellAttrs{
     .blink_fast = false,
     .reverse = false,
     .underline = false,
+    .underline_style = .straight,
     .underline_color = default_underline_color,
     .link_id = 0,
 };
@@ -98,6 +108,7 @@ pub fn defaultCell() Cell {
             .blink_fast = false,
             .reverse = false,
             .underline = false,
+            .underline_style = .straight,
             .underline_color = default_fg,
             .link_id = 0,
         },

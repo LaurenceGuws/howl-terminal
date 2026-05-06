@@ -398,6 +398,7 @@ fn hashCell(hasher: *std.hash.Wyhash, cell: anytype) void {
     hashValue(hasher, cell.attrs.blink_fast);
     hashValue(hasher, cell.attrs.reverse);
     hashValue(hasher, cell.attrs.underline);
+    hashValue(hasher, @intFromEnum(cell.attrs.underline_style));
     hashColor(hasher, cell.attrs.underline_color);
     hashValue(hasher, cell.attrs.link_id);
 }

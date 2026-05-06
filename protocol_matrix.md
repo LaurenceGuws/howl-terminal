@@ -3,7 +3,16 @@
 ## Goal
 Drive `howl-vt-core` toward explicit xterm baseline parity and staged kitty protocol adoption.
 
-This file is the source of truth for protocol maturity work in this repo.
+`protocol_coverage.db` is the source of truth for protocol maturity work in this repo.
+This file is a human summary of that ledger.
+
+The SQLite ledger is generated from `src/fuzz/assets/xterm-ctlseqs.ms` and records one row per parsed control-sequence entry, including separate `planned`, `implemented`, `test_verified`, and `host_verified` flags. Its `metadata` table records the `howl-vt-core` commit used when reviewing support flags.
+
+Example query:
+```sh
+sqlite3 protocol_coverage.db \
+  "SELECT id, sequence FROM protocol_entries WHERE planned = 1 AND test_verified = 0;"
+```
 
 ## Status
 - `supported`: parser, semantic mapping, and grid/input behavior exist with tests.
@@ -25,11 +34,11 @@ This file is the source of truth for protocol maturity work in this repo.
 | Basic C0 controls: `LF`, `CR`, `BS`, `HT` | supported | Mapped in `interpret/semantic.zig` and applied in `grid/model.zig`. |
 | Remaining common C0 controls: `BEL`, `VT`, `FF`, `SO`, `SI`, `SUB`, `CAN` | unsupported | Not mapped into semantic behavior today. |
 | CSI cursor movement: `CUU`, `CUD`, `CUF`, `CUB`, `CNL`, `CPL`, `CHA`, `VPA`, `CUP`, `HVP` | supported | Covered in semantic and screen behavior tests. |
-| CSI tab movement: `CHT`, `CBT` | supported | Fixed 8-column tab-stop model only. |
-| Tab-stop management: `HTS`, `TBC`, custom stops | unsupported | No tab-stop state; only computed 8-column jumps. |
+| CSI tab movement: `CHT`, `CBT` | supported | Uses mutable tab-stop state, defaulting to every 8 columns and honoring custom stops set/cleared by HTS/TBC. |
+| Tab-stop management: `HTS`, `TBC`, custom stops | supported | `ESC H` sets a stop at the cursor, `CSI 0 g` clears current stop, `CSI 3 g` clears all stops, and reset restores default 8-column stops. |
 | CSI insert/delete/scroll region edits: `IL`, `DL`, `SU`, `SD`, `DECSTBM` | supported | Recent tranche; covered by regression tests. |
 | Erase in display/line: `ED`, `EL` | partial | Modes `0-3` implemented, including `ED 3` scrollback erase. Wider erase/query parity work remains. |
-| SGR text attributes | partial | Supports reset, bold, underline, blink, reverse, ANSI 16, 256-color, RGB fg/bg, underline color. Missing much of extended xterm attribute surface. |
+| SGR text attributes | partial | Supports reset, bold, underline, blink, reverse, ANSI 16, 256-color, RGB fg/bg, underline color, and kitty underline styles. Missing much of extended xterm attribute surface. |
 | DECSTR (`CSI ! p`) | supported | Mapped to `reset_screen`. |
 | DEC private modes: `?6`, `?7`, `?25`, `?47`, `?1047`, `?1049` | supported | Origin mode, wrap, cursor visibility, and alt-screen variants implemented. |
 | DEC private modes beyond that baseline | partial | High-impact focus/paste/mouse/app-cursor modes exist, and supported DEC modes now answer `DECRQM`. Broader mode families remain unsupported. |
@@ -37,20 +46,26 @@ This file is the source of truth for protocol maturity work in this repo.
 | ESC single-byte control finals | partial | Parser and bridge preserve ESC finals; DEC save/restore cursor (`ESC 7`/`ESC 8`) is implemented, broader ESC-final semantics remain unsupported. |
 | Charset designation: `ESC (`, `ESC )`, DEC Special Graphics select | partial | Parser tracks G0/G1 designation and DEC Special Graphics maps through visible cells. Broader charset families remain unsupported. |
 | Shift in/out charset use: `SI`, `SO` | partial | G0/G1 GL switching is wired for the supported charset set, including DEC Special Graphics. |
-| OSC transport | partial | Parser transports OSC with BEL/ST terminators and bridge now preserves typed OSC command/payload records. Semantic/host handling is still narrow. |
+| OSC transport | partial | Parser transports OSC with BEL/ST terminators and bridge now preserves typed OSC command/payload records, including command-only OSC forms such as kitty color stack push/pop. Semantic/host handling is still narrow. |
 | OSC window title/icon title | partial | Bridge recognizes title OSC selectors and `latestTitleSet()` exposes them, but no broader host callback surface exists yet. |
 | OSC 8 hyperlinks | partial | OSC 8 drives stable `link_id` cell metadata, `VtCore` URI lookup, render surface propagation, and Linux-host `Ctrl+left click` opening behind explicit policy. Hover polish remains pending. |
 | OSC 52 clipboard | partial | OSC 52 surfaces pending clipboard requests and Linux-host applies explicit allow/deny policy. Queries and broader selector behavior remain unsupported. |
-| OSC color queries/setters (`4`, `10`, `11`, `12`, etc.) | unsupported | No selector parsing or response path. |
+| OSC color queries/setters (`4`, `10`, `11`, `12`, etc.) | partial | VT-core tracks terminal foreground/background/cursor colors and a 256-color palette. Xterm `OSC 4`, `10`, `11`, `12`, `104`, `110`, `111`, and `112` set/query/reset state. Render/host consumption and the broader xterm dynamic-color family remain pending. |
 | DCS transport | partial | Parser and bridge preserve DCS payloads now; semantics and host integration are still absent. |
-| APC transport | partial | Parser and bridge preserve APC payloads now; semantics and host integration are still absent. |
-| Kitty keyboard protocol | unsupported | APC/DCS transport now survives the bridge, but no kitty semantic or input encoder support exists yet. |
-| Kitty graphics protocol | unsupported | APC/DCS transport now survives the bridge, but no graphics protocol handling or render plumbing exists. |
+| APC transport | partial | Parser and bridge preserve APC payloads now; kitty graphics semantics are partially implemented, but general APC host integration is still absent. |
+| Kitty colored/styled underlines | supported | CSI subparameter separators are preserved; `SGR 4:0..5`, `58`, and `59` propagate through VT state and text-scene decoration rendering. |
+| Kitty keyboard protocol | partial | Negotiation/query/push/pop for progressive flags is implemented with separate main/alternate stacks, and the current host non-text key surface emits Kitty CSI-u/functional forms when flags are active. Text-associated, alternate-key, repeat, and release reporting need richer host events. |
+| Kitty graphics protocol | partial | APC `_G` command parsing exists for core control keys, `a=q` gets an immediate conservative unsupported reply, direct `t=d` base64 uploads are assembled/stored across chunks, image ids replace prior data, image numbers allocate terminal-owned ids, placements/animation frames are tracked as metadata, and delete selectors cover ids, placement ids, cell/row/column/z intersections, ranges, and frames. Pixel decoding and render plumbing remain unsupported. |
+| Kitty shell integration marks | partial | OSC 133 prompt/command/output marks are parsed and latest mark metadata/status is retained host-neutrally. Prompt scrollback navigation and shell integration host behavior remain pending. |
+| Kitty desktop notifications | partial | OSC 99 metadata/payload notifications are queued as host-neutral requests. Desktop display, activation/close callbacks, icon/button/sound handling, and alive polling remain pending. |
+| Kitty pointer shapes | partial | OSC 22 set/push/pop/query is parsed with separate main/alternate pointer stacks and support/current replies. Applying the shape in host UI remains unverified. |
+| Kitty OSC 21 color control | partial | `foreground`, `background`, `cursor`, `cursor_text`, selection colors, and `0..255` palette keys support set/query/reset in VT-core. Render/host consumption remains pending. |
+| Kitty color stack | partial | OSC 30001/30101 now snapshot and restore VT-core terminal color state, including dynamic colors and the ANSI palette. Render/host consumption remains pending. |
 | Bracketed paste mode (`?2004`) | supported | Mode tracking, host paste routing, and paste wrapper emission are wired through `howl-term` and Linux-host. |
 | Focus in/out (`?1004`) | supported | Mode tracking, effective host focus routing, and focus report emission are wired through `howl-term` and Linux-host. |
-| Mouse tracking (`1000/1002/1003/1005/1006/1015`) | partial | DECSET mode tracking now exists and SGR (`1006`) mouse encoding works for press/release/motion. Legacy encodings and the rest of the family remain unsupported. |
-| Application cursor / keypad modes | partial | `?1` application cursor mode now changes arrow-key encoding; keypad modes and broader key-mode negotiation remain unsupported. |
-| modifyOtherKeys / enhanced keyboard reporting | unsupported | No negotiated keyboard-reporting mode surface exists yet. |
+| Mouse tracking (`9/1000/1002/1003/1005/1006/1015`) | supported | X10, normal, button-event, and any-event tracking modes are distinct; legacy, UTF-8 extended, SGR, and urxvt encodings cover press/release/wheel/motion gating with modifiers and DECRQM/save/restore coverage. Host runtime verification is still broader than unit coverage. |
+| Application cursor / keypad modes | supported | `?1` application cursor mode changes arrow-key encoding. `ESC =`/`ESC >` and `?66` switch numeric keypad keys between normal characters and SS3 application keypad sequences, with DECRQM/save-restore coverage. |
+| modifyOtherKeys / enhanced keyboard reporting | partial | XTMODKEYS/XTQMODKEYS support now tracks `modifyOtherKeys` resource `4`, emits xterm `CSI 27;modifier;code~` reports for printable keys in levels 2/3, and supports disable/query. Other modifier/format resources remain pending. |
 | Function/navigation key encoding | partial | Basic xterm-style sequences exist, but not gated by negotiated modes and not extended past current key set. |
 | Alt-screen enter/exit and primary scrollback preservation | supported | Explicit tests exist for `1049` save/restore behavior and full-dirty transitions. |
 | Snapshot / replay determinism across chunking | supported | Unit/regression/fuzz coverage exists. |
